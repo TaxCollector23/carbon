@@ -1,0 +1,22 @@
+{
+  "name": "@carbon/runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": { "typecheck": "tsc --noEmit" },
+  "dependencies": {
+    "@carbon/core": "workspace:*",
+    "@carbon/graph": "workspace:*",
+    "@carbon/state": "workspace:*",
+    "@carbon/types": "workspace:*",
+    "fastify": "^5.2.1"
+  },
+  "devDependencies": {
+    "@carbon/config": "workspace:*",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2"
+  }
+}
