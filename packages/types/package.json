@@ -1,0 +1,24 @@
+{
+  "name": "@carbon/types",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./ir": "./src/ir/index.ts",
+    "./graph": "./src/graph/index.ts",
+    "./recording": "./src/recording/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@carbon/config": "workspace:*",
+    "typescript": "^5.7.2"
+  }
+}

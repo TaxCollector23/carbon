@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 220 15% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 15% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 15% 10%;
+
+    --primary: 220 15% 10%;
+    --primary-foreground: 0 0% 100%;
+
+    --muted: 220 15% 96%;
+    --muted-foreground: 220 8% 45%;
+
+    --subtle: 220 15% 98%;
+    --subtle-foreground: 220 10% 30%;
+
+    --accent: 220 15% 96%;
+    --accent-foreground: 220 15% 10%;
+
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 220 15% 10%;
+
+    --font-sans: 'Geist', 'Inter', system-ui, sans-serif;
+    --font-mono: 'Geist Mono', ui-monospace, monospace;
+  }
+
+  .dark {
+    --background: 220 15% 6%;
+    --foreground: 220 10% 96%;
+
+    --card: 220 15% 8%;
+    --card-foreground: 220 10% 96%;
+
+    --popover: 220 15% 8%;
+    --popover-foreground: 220 10% 96%;
+
+    --primary: 220 10% 96%;
+    --primary-foreground: 220 15% 10%;
+
+    --muted: 220 12% 14%;
+    --muted-foreground: 220 8% 65%;
+
+    --subtle: 220 12% 10%;
+    --subtle-foreground: 220 10% 85%;
+
+    --accent: 220 12% 14%;
+    --accent-foreground: 220 10% 96%;
+
+    --destructive: 0 62% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 12% 18%;
+    --input: 220 12% 18%;
+    --ring: 220 10% 90%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+  }
+
+  ::selection {
+    background: hsl(var(--foreground));
+    color: hsl(var(--background));
+  }
+}

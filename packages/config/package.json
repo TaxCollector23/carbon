@@ -1,0 +1,19 @@
+{
+  "name": "@carbon/config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./tsconfig/base.json": "./tsconfig/base.json",
+    "./tsconfig/next.json": "./tsconfig/next.json",
+    "./tsconfig/node.json": "./tsconfig/node.json",
+    "./tsconfig/react-library.json": "./tsconfig/react-library.json",
+    "./tailwind": "./tailwind/index.ts",
+    "./eslint": "./eslint/index.js"
+  },
+  "files": ["tsconfig", "tailwind", "eslint"],
+  "devDependencies": {
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.2"
+  }
+}
