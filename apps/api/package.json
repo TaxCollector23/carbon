@@ -1,0 +1,36 @@
+{
+  "name": "@carbon/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node --enable-source-maps dist/index.js",
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@carbon/ai": "workspace:*",
+    "@carbon/core": "workspace:*",
+    "@carbon/database": "workspace:*",
+    "@carbon/graph": "workspace:*",
+    "@carbon/ingestion": "workspace:*",
+    "@carbon/parser": "workspace:*",
+    "@carbon/state": "workspace:*",
+    "@carbon/storage": "workspace:*",
+    "@carbon/types": "workspace:*",
+    "@carbon/workers": "workspace:*",
+    "@fastify/cors": "^10.0.1",
+    "@fastify/sensible": "^6.0.2",
+    "fastify": "^5.2.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@carbon/config": "workspace:*",
+    "@types/node": "^22.10.0",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

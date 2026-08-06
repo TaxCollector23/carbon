@@ -7,6 +7,7 @@ import type {
   CompletionResponse,
   StructuredRequest,
 } from '../provider.js';
+import { extractJson } from '../util.js';
 
 /**
  * Local OpenAI-compatible provider — Ollama, llama.cpp server, LM Studio, or
@@ -66,7 +67,7 @@ export class LocalProvider implements AiProvider {
         },
       ],
     });
-    const parsed = req.schema.safeParse(JSON.parse(res.text));
+    const parsed = req.schema.safeParse(JSON.parse(extractJson(res.text)));
     if (!parsed.success) {
       this.logger.warn('ai.structured.schema_mismatch', { issues: parsed.error.issues });
       throw new CarbonError({

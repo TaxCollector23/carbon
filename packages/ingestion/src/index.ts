@@ -60,7 +60,7 @@ export function createIngestionPipeline(deps: IngestionDeps): IngestionPipeline 
       };
 
       const parsedIr = await deps.parsers.parse(req.input, captured);
-      const ir: IntermediateRepresentation = {
+      let ir: IntermediateRepresentation = {
         ...parsedIr,
         api: {
           ...parsedIr.api,
@@ -71,12 +71,12 @@ export function createIngestionPipeline(deps: IngestionDeps): IngestionPipeline 
       if (req.enrich && deps.ai) {
         try {
           const enrichedResources = await deps.ai.inferResources({ ir });
-          Object.assign(ir, { resources: enrichedResources });
+          ir = { ...ir, resources: enrichedResources };
           const enrichedRelationships = await deps.ai.inferRelationships({
             ir,
             resources: enrichedResources,
           });
-          Object.assign(ir, { relationships: enrichedRelationships });
+          ir = { ...ir, relationships: enrichedRelationships };
         } catch (err) {
           deps.logger.warn('ingestion.ai_enrichment_failed', {
             message: (err as Error).message,

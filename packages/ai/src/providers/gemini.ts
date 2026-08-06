@@ -7,6 +7,7 @@ import type {
   CompletionResponse,
   StructuredRequest,
 } from '../provider.js';
+import { extractJson } from '../util.js';
 
 /** Google Gemini generative-language provider. */
 export class GeminiProvider implements AiProvider {
@@ -77,7 +78,7 @@ export class GeminiProvider implements AiProvider {
         },
       ],
     });
-    const parsed = req.schema.safeParse(JSON.parse(res.text));
+    const parsed = req.schema.safeParse(JSON.parse(extractJson(res.text)));
     if (!parsed.success) {
       this.logger.warn('ai.structured.schema_mismatch', { issues: parsed.error.issues });
       throw new CarbonError({

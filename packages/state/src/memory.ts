@@ -111,7 +111,7 @@ export class InMemoryStateEngine implements StateEngine {
   }
 
   async snapshot(): Promise<StateSnapshot> {
-    const records: StateSnapshot['records'] extends ReadonlyArray<infer R> ? R[] : never = [];
+    const records: Array<StateSnapshot['records'][number]> = [];
     for (const [resource, table] of this.store.entries()) {
       for (const [id, row] of table.entries()) {
         records.push({

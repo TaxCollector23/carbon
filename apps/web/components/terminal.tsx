@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '@carbon/ui/cn';
 
 type Line =
@@ -30,57 +30,46 @@ export function TerminalDemo({ className }: { className?: string }) {
   const [typing, setTyping] = useState<{ command: string; progress: number } | null>(null);
   const cancelled = useRef(false);
 
-  const totalMs = useMemo(
-    () =>
-      script.reduce(
-        (acc, l) =>
-          acc +
-          (l.kind === 'prompt' ? (l.typedMs ?? 800) + 200 : l.kind === 'output' ? (l.delayMs ?? 200) : 200),
-        0,
-      ),
-    [],
-  );
-
   useEffect(() => {
     cancelled.current = false;
     const run = async () => {
-      // small startup pause
-      await wait(400);
-      for (const line of script) {
-        if (cancelled.current) return;
-        if (line.kind === 'prompt') {
-          const duration = line.typedMs ?? 800;
-          const steps = Math.max(6, Math.min(24, line.command.length));
-          for (let i = 1; i <= steps; i++) {
-            if (cancelled.current) return;
-            setTyping({
-              command: line.command.slice(0, Math.ceil((i / steps) * line.command.length)),
-              progress: i / steps,
-            });
-            await wait(duration / steps);
-          }
-          setVisible((v) => [...v, line]);
-          setTyping(null);
-          await wait(220);
-        } else if (line.kind === 'output') {
-          await wait(line.delayMs ?? 200);
+      while (!cancelled.current) {
+        setVisible([]);
+        setTyping(null);
+        await wait(400);
+        for (const line of script) {
           if (cancelled.current) return;
-          setVisible((v) => [...v, line]);
-        } else {
-          setVisible((v) => [...v, line]);
-          await wait(120);
+          if (line.kind === 'prompt') {
+            const duration = line.typedMs ?? 800;
+            const steps = Math.max(6, Math.min(24, line.command.length));
+            for (let i = 1; i <= steps; i++) {
+              if (cancelled.current) return;
+              setTyping({
+                command: line.command.slice(0, Math.ceil((i / steps) * line.command.length)),
+                progress: i / steps,
+              });
+              await wait(duration / steps);
+            }
+            setVisible((v) => [...v, line]);
+            setTyping(null);
+            await wait(220);
+          } else if (line.kind === 'output') {
+            await wait(line.delayMs ?? 200);
+            if (cancelled.current) return;
+            setVisible((v) => [...v, line]);
+          } else {
+            setVisible((v) => [...v, line]);
+            await wait(120);
+          }
         }
+        await wait(3800);
       }
-      // loop
-      await wait(3800);
-      if (!cancelled.current) setVisible([]);
     };
     run();
     return () => {
       cancelled.current = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible.length === 0 ? 0 : totalMs]);
+  }, []);
 
   return (
     <div

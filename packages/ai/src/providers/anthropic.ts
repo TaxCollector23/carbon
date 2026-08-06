@@ -7,6 +7,7 @@ import type {
   CompletionResponse,
   StructuredRequest,
 } from '../provider.js';
+import { extractJson } from '../util.js';
 
 /**
  * Native Anthropic Messages API provider. Kept fetch-based; the SDK is heavy
@@ -79,7 +80,7 @@ export class AnthropicProvider implements AiProvider {
         },
       ],
     });
-    const parsed = req.schema.safeParse(JSON.parse(res.text));
+    const parsed = req.schema.safeParse(JSON.parse(extractJson(res.text)));
     if (!parsed.success) {
       this.logger.warn('ai.structured.schema_mismatch', { issues: parsed.error.issues });
       throw new CarbonError({

@@ -7,6 +7,7 @@ import type {
   CompletionResponse,
   StructuredRequest,
 } from '../provider.js';
+import { extractJson } from '../util.js';
 
 /**
  * OpenRouter provider — a single API for many upstream models. Default choice
@@ -115,11 +116,3 @@ export class OpenRouterProvider implements AiProvider {
   }
 }
 
-function extractJson(text: string): string {
-  const fenced = text.match(/```json\s*([\s\S]*?)```/i);
-  if (fenced?.[1]) return fenced[1].trim();
-  const first = text.indexOf('{');
-  const last = text.lastIndexOf('}');
-  if (first >= 0 && last > first) return text.slice(first, last + 1);
-  return text.trim();
-}

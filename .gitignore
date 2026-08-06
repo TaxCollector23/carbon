@@ -37,3 +37,7 @@ coverage/
 # Local data
 *.sqlite
 *.db
+.carbon-data/
+
+# Tool local state
+.claude/settings.local.json
