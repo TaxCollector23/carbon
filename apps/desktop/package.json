@@ -1,0 +1,9 @@
+{
+  "name": "@carbon/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Carbon desktop app — scaffolded for Phase Two.",
+  "scripts": {
+    "dev": "echo 'Desktop app scaffolds in Phase Two.'"
+  }
+}
