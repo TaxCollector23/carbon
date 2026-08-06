@@ -1,0 +1,25 @@
+---
+title: 'Testing with Carbon'
+description: 'Integration tests that behave like production.'
+---
+
+The recipe: boot a Replica once per test file, reset state between tests,
+snapshot between logical checkpoints.
+
+```ts
+import { beforeAll, afterAll, beforeEach, test } from 'vitest';
+import { carbon } from '@carbon/sdk';
+
+let replica: Awaited<ReturnType<typeof carbon.emulate>>;
+
+beforeAll(async () => {
+  replica = await carbon.emulate({ from: './stripe.json', port: 0 });
+});
+
+afterAll(() => replica.close());
+beforeEach(() => replica.state.reset());
+
+test('checkout flow', async () => {
+  // point your app at replica.url and assert as usual
+});
+```

@@ -1,0 +1,13 @@
+---
+title: 'carbon snapshot'
+description: 'Freeze, restore, and share runtime state.'
+---
+
+```bash
+carbon snapshot save seeded-checkout
+carbon snapshot load seeded-checkout
+carbon snapshot list
+```
+
+Snapshots are stable JSON files. Commit them to your repository so every
+teammate — and every CI run — starts from an identical state.

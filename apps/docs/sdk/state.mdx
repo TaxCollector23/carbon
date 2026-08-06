@@ -1,0 +1,12 @@
+---
+title: 'State control'
+description: 'Reset, seed, and inspect state between tests.'
+---
+
+```ts
+await replica.state.reset();
+await replica.state.engine.create('customer', { name: 'Ada' });
+```
+
+The engine exposes the same API as the runtime — reads, writes, transactions,
+snapshots — so your test setup mirrors real usage.

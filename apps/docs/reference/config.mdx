@@ -1,0 +1,19 @@
+---
+title: 'Configuration'
+description: 'carbon.config.ts reference.'
+---
+
+Every project defines its configuration with `defineConfig`:
+
+```ts
+import { defineConfig } from '@carbon/core/config';
+
+export default defineConfig({
+  project: { name: 'acme', slug: 'acme' },
+  runtime: { port: 8787, persistence: 'memory' },
+  logging: { level: 'info', pretty: true },
+  ai: { provider: 'openrouter', model: 'anthropic/claude-opus-5' },
+});
+```
+
+All fields are validated at load time with Zod.

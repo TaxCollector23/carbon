@@ -1,0 +1,15 @@
+---
+title: 'carbon.emulate'
+description: 'Boot a Replica in-process.'
+---
+
+```ts
+const replica = await carbon.emulate({
+  from: 'https://api.stripe.com/openapi.json',
+  port: 8787,
+  snapshot: previousSnapshot,
+});
+```
+
+Returns a `Replica` — a typed handle to the URL, the state engine, and the
+snapshot controls.

@@ -1,0 +1,25 @@
+---
+title: 'Parser'
+description: 'Normalizing every input format into one IR.'
+---
+
+Every format Carbon supports is expressed through the `Parser` interface.
+Parsers are pure — given the same input bytes they always produce the same IR.
+
+Built-in parsers:
+
+- **OpenAPI 3.x** / Swagger 2.0
+- **Postman Collection v2.1**
+- **HAR** (HTTP Archive)
+- **GraphQL** schema (experimental)
+- **Recorded traffic** (via `carbon record`)
+
+Custom parsers can be registered in the SDK:
+
+```ts
+import { ParserRegistry } from '@carbon/parser';
+
+const registry = new ParserRegistry()
+  .register(new OpenApiParser())
+  .register(new MyCustomParser());
+```

@@ -1,0 +1,17 @@
+---
+title: 'CLI overview'
+description: 'The Carbon terminal.'
+---
+
+The Carbon CLI is the primary way to record, ingest, and emulate APIs.
+
+```bash
+carbon init             # scaffold a project
+carbon login            # authenticate with Carbon
+carbon record <url>     # observe traffic
+carbon ingest <spec>    # parse a spec / HAR / collection
+carbon emulate          # boot the deterministic runtime
+carbon inspect          # explore the behavior graph
+carbon snapshot save    # freeze state
+carbon replay <rec>     # deterministically replay
+```

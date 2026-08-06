@@ -1,0 +1,11 @@
+---
+title: 'carbon emulate'
+description: 'Boot the local deterministic runtime.'
+---
+
+```bash
+carbon emulate --from ./stripe.json --port 8787
+```
+
+Swap your app's base URL to `http://localhost:8787`. Requests flow through the
+compiled behavior graph and state engine — no network egress, no rate limits.

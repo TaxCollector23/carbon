@@ -1,0 +1,38 @@
+---
+title: 'Architecture'
+description: 'How Carbon compiles APIs into deterministic runtimes.'
+---
+
+Carbon is best understood as a compiler pipeline.
+
+```
+Ingestion → Parser → IR → Behavior Graph → State Engine → Runtime
+```
+
+## Ingestion
+
+Accepts OpenAPI, Swagger, GraphQL, HAR, Postman collections, and observed
+traffic. Ingestion is the only stage where AI is optionally used — to enrich
+resource inference and relationship detection.
+
+## Parser
+
+Each input format is normalized into a single **Intermediate Representation**
+(IR). The IR is deliberately minimal: endpoints, resources, params, responses,
+relationships.
+
+## Behavior Graph
+
+The IR is compiled into a **Behavior Graph** describing resources, ownership,
+transitions, and constraints. This is Carbon's most valuable derived asset.
+
+## State Engine
+
+The behavior graph drives a deterministic State Engine. Reads reflect writes,
+transactions roll back, and snapshots capture the entire state atomically.
+
+## Runtime
+
+A Fastify shell exposes the graph as a live HTTP API. All request handling is
+compiled to O(1) lookups — no graph traversal on the hot path, no AI in the
+request path, ever.

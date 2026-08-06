@@ -1,0 +1,10 @@
+---
+title: 'Snapshots'
+description: 'Freeze and restore full-state envelopes.'
+---
+
+```ts
+const snap = await replica.snapshot.save('after-refund');
+// commit snap to your repo — it's stable JSON
+await replica.snapshot.restore(snap);
+```

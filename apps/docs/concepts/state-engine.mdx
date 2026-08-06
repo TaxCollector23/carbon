@@ -1,0 +1,22 @@
+---
+title: 'State Engine'
+description: 'Real reads reflect real writes.'
+---
+
+The State Engine is the deterministic backend behind every Carbon replica.
+
+## Guarantees
+
+- **Consistency.** After a successful write, subsequent reads reflect it.
+- **Isolation.** Transactions roll back cleanly on failure.
+- **Portability.** Snapshots serialize the full state to a stable JSON blob.
+
+## Snapshots
+
+```ts
+const snap = await replica.snapshot.save('after-refund');
+// …later, or in another test file
+await replica.snapshot.restore(snap);
+```
+
+Snapshots ship with your code. Reviewers replay them. CI restores them.

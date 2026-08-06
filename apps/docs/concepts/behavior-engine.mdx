@@ -1,0 +1,25 @@
+---
+title: 'Behavior Engine'
+description: 'Modeling APIs as state machines instead of stubs.'
+---
+
+The behavior engine is the reason Carbon exists.
+
+Traditional mock libraries answer "given this request, return this response."
+Carbon answers a much harder question: "given this request, what happens
+next?"
+
+A `POST /customers` creates a customer. A subsequent `GET /customers/:id`
+must return that customer. Deleting it must break `GET`s that reference it.
+Updating it must propagate. Real APIs are state machines. Carbon is too.
+
+## Nodes and edges
+
+- **Nodes** are resources — Customer, Order, Repository.
+- **Edges** are relationships — owns, belongs-to, references.
+
+## Transitions
+
+Each mutating endpoint is compiled into one or more **transitions** — small,
+deterministic effects the State Engine applies. Transitions are how the
+graph becomes executable.

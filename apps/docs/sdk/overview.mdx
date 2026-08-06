@@ -1,0 +1,16 @@
+---
+title: 'SDK overview'
+description: 'Program the replica from your tests.'
+---
+
+```ts
+import { carbon } from '@carbon/sdk';
+
+const replica = await carbon.emulate({
+  from: './stripe.json',
+  port: 8787,
+});
+
+await replica.state.reset();
+await replica.close();
+```

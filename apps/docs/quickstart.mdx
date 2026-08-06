@@ -1,0 +1,40 @@
+---
+title: 'Quickstart'
+description: 'Boot your first replica in under a minute.'
+---
+
+## Install
+
+```bash
+curl -fsSL install.carbon.dev | sh
+```
+
+Or with your favorite package manager:
+
+```bash
+pnpm add -g @carbon/cli
+```
+
+## Initialize a project
+
+```bash
+mkdir acme && cd acme
+carbon init
+```
+
+This scaffolds a `carbon.config.ts` and a `.carbon/` directory.
+
+## Ingest an API
+
+```bash
+carbon ingest https://api.stripe.com/openapi.json
+```
+
+## Emulate
+
+```bash
+carbon emulate --from ./stripe.json --port 8787
+```
+
+Swap your base URL to `http://localhost:8787` and everything keeps working —
+offline, in CI, on a plane.
