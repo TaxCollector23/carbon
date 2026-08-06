@@ -1,0 +1,89 @@
+import { boolean, index, jsonb, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+
+/**
+ * Carbon's control-plane schema. The runtime's state engine is separate —
+ * that is the emulated API's data. This schema holds users, orgs, projects,
+ * ingested artifacts, and cloud-synced snapshots.
+ */
+export const users = pgTable(
+  'users',
+  {
+    id: text('id').primaryKey(),
+    email: text('email').notNull(),
+    name: text('name'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({ emailUnique: uniqueIndex('users_email_unique').on(t.email) }),
+);
+
+export const organizations = pgTable('organizations', {
+  id: text('id').primaryKey(),
+  slug: text('slug').notNull().unique(),
+  name: text('name').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const memberships = pgTable(
+  'memberships',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    orgId: text('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    role: text('role', { enum: ['owner', 'admin', 'member'] }).notNull().default('member'),
+  },
+  (t) => ({ userOrg: uniqueIndex('memberships_user_org_unique').on(t.userId, t.orgId) }),
+);
+
+export const projects = pgTable(
+  'projects',
+  {
+    id: text('id').primaryKey(),
+    orgId: text('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    slug: text('slug').notNull(),
+    name: text('name').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    archived: boolean('archived').notNull().default(false),
+  },
+  (t) => ({ orgSlug: uniqueIndex('projects_org_slug_unique').on(t.orgId, t.slug) }),
+);
+
+export const artifacts = pgTable(
+  'artifacts',
+  {
+    id: text('id').primaryKey(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    kind: text('kind', { enum: ['ir', 'graph', 'snapshot', 'recording'] }).notNull(),
+    storageKey: text('storage_key').notNull(),
+    /** Denormalized metadata for cheap listing without dereferencing storage. */
+    meta: jsonb('meta').notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({ projectKind: index('artifacts_project_kind_idx').on(t.projectId, t.kind) }),
+);
+
+export const apiKeys = pgTable(
+  'api_keys',
+  {
+    id: text('id').primaryKey(),
+    orgId: text('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    /** Argon2id hash of the presented secret. Never store secrets in cleartext. */
+    hash: text('hash').notNull(),
+    prefix: text('prefix').notNull(),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  },
+  (t) => ({ prefixIdx: index('api_keys_prefix_idx').on(t.prefix) }),
+);

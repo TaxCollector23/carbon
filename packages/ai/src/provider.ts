@@ -1,0 +1,62 @@
+import type { Logger } from '@carbon/core';
+import type { z } from 'zod';
+
+/**
+ * The AI layer is intentionally abstracted so Carbon's runtime never depends
+ * on a specific provider. Providers are only invoked during ingestion,
+ * analysis, documentation understanding, and developer assistance — never in
+ * the request path of an emulator.
+ *
+ * All calls are typed: consumers pass a Zod schema; the provider is expected
+ * to return an object that conforms. This keeps prompt shape and response
+ * shape colocated and gives the ingestion pipeline a strongly-typed edge.
+ */
+export interface AiProvider {
+  readonly name: string;
+  readonly defaultModel: string;
+
+  /** Free-form completion for narrative outputs (explanations, docs). */
+  complete(req: CompletionRequest): Promise<CompletionResponse>;
+
+  /** Structured completion — the primary path for ingestion tasks. */
+  structured<T>(req: StructuredRequest<T>): Promise<T>;
+}
+
+export interface CompletionRequest {
+  readonly model?: string;
+  readonly system?: string;
+  readonly messages: readonly ChatMessage[];
+  readonly temperature?: number;
+  readonly maxTokens?: number;
+  readonly signal?: AbortSignal;
+}
+
+export interface CompletionResponse {
+  readonly text: string;
+  readonly model: string;
+  readonly usage: TokenUsage;
+}
+
+export interface StructuredRequest<T> extends Omit<CompletionRequest, 'messages'> {
+  readonly instruction: string;
+  readonly input: unknown;
+  readonly schema: z.ZodType<T>;
+}
+
+export interface ChatMessage {
+  readonly role: 'user' | 'assistant' | 'system';
+  readonly content: string;
+}
+
+export interface TokenUsage {
+  readonly promptTokens: number;
+  readonly completionTokens: number;
+  readonly totalTokens: number;
+}
+
+export interface AiProviderOptions {
+  readonly apiKey: string;
+  readonly baseUrl?: string;
+  readonly defaultModel?: string;
+  readonly logger: Logger;
+}
