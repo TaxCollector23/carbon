@@ -5,4 +5,7 @@ export default defineWorkspace([
   'packages/parser',
   'packages/state',
   'packages/graph',
+  'packages/proxy',
+  'packages/runtime',
+  'packages/ingestion',
 ]);
