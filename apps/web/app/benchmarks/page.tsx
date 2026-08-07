@@ -7,7 +7,7 @@ import { Nav } from '@/components/nav';
 
 export const metadata: Metadata = {
   title: 'Benchmarks',
-  description: 'Measured Carbon runtime margins for local API emulation.',
+  description: 'Carbon runtime benchmark harness and measured margins.',
 };
 
 const metrics = [
@@ -15,7 +15,7 @@ const metrics = [
     value: '100%',
     label: 'upstream request reduction after import',
     detail:
-      'A replayed 100-request suite sends 0 requests to the upstream API when pointed at the Carbon runtime.',
+      '`pnpm benchmark:runtime` runs against the in-process Carbon runtime and reports 0 upstream calls after import.',
   },
   {
     value: '0',
@@ -52,8 +52,8 @@ export default function BenchmarksPage() {
               </h1>
               <p className="text-muted-foreground mt-6 text-lg leading-8">
                 Carbon is useful when it removes upstream calls from development and CI while
-                preserving stateful API behavior. These are the benchmark margins the current
-                runtime is designed to protect.
+                preserving stateful API behavior. The benchmark harness in this repo measures the
+                runtime request path and emits JSON you can compare across machines.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link href="/dashboard" className={cn(buttonVariants({ size: 'lg' }), 'gap-2')}>
@@ -92,9 +92,12 @@ export default function BenchmarksPage() {
               <div>
                 <h2 className="text-3xl font-medium tracking-tight">What is measured</h2>
                 <p className="text-muted-foreground mt-4 text-sm leading-6">
-                  The benchmark compares a live integration test loop with the same requests routed
-                  through a Carbon runtime after import. The useful margin is the work no longer
-                  sent to the upstream service.
+                  Run{' '}
+                  <code className="font-mono text-foreground">
+                    CARBON_BENCH_ITERATIONS=1000 pnpm benchmark:runtime
+                  </code>
+                  . The script boots a generated runtime, warms it up, sends repeated GET, POST,
+                  snapshot, and restore operations, then reports p50 and p95 timings.
                 </p>
               </div>
               <div className="divide-border border-border divide-y border-y">
