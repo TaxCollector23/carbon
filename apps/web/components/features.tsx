@@ -30,8 +30,7 @@ export function Features() {
     <Section id="features" className="py-24">
       <SectionHeading
         eyebrow="Features"
-        title="Everything a real backend does."
-        description="Carbon is not a mock. It is a runtime. Every feature you would expect from a production API is available locally."
+        title="Everything a backend does."
       />
       <div className="mt-14 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
         {features.map(({ icon: Icon, title, body }) => (

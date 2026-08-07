@@ -31,9 +31,9 @@ export function Workflow() {
   return (
     <Section id="workflow" className="py-24">
       <SectionHeading
-        eyebrow="Developer workflow"
-        title="Four commands. Zero surprises."
-        description="Carbon fits into the workflow you already have. It does not ask you to change your codebase, your framework, or your tests."
+        eyebrow="Workflow"
+        title="Four commands."
+        description="Nothing in your app changes except the base URL."
       />
       <ol className="mt-14 grid gap-6 md:grid-cols-2">
         {steps.map((step) => (

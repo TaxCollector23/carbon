@@ -1,30 +1,25 @@
-import { Boxes, Fingerprint, GitBranch, ShieldCheck } from 'lucide-react';
 import { Section, SectionHeading } from './section';
 
 const pillars = [
   {
-    icon: Boxes,
-    title: 'Behavioral, not static',
+    title: 'A POST changes what future GETs return',
     body:
-      'Carbon models the API as a state machine — resources, relationships, transitions, lifecycles. Not JSON files.',
+      'Carbon compiles your API into a resource graph and runs it against an in-memory state engine. Not a mock library — a small backend.',
   },
   {
-    icon: Fingerprint,
-    title: 'Deterministic runtime',
+    title: 'Deterministic on the request path',
     body:
-      'Once ingested, the emulator is pure and repeatable. No AI in the request path. Same input, same output, every time.',
+      'AI runs during ingestion, never per-request. Same input, same output — for tests, for CI, for review.',
   },
   {
-    icon: GitBranch,
-    title: 'Composable and versioned',
+    title: 'Snapshot, branch, replay',
     body:
-      'Snapshot state, branch it, share it. Carbon replicas travel with your code, your tests, and your CI.',
+      'Freeze full state into a stable JSON blob. Commit it. Restore it in another test file, another machine, another PR.',
   },
   {
-    icon: ShieldCheck,
-    title: 'Local by default',
+    title: 'Local process, your machine',
     body:
-      'The runtime is a single binary you control. No egress. No third-party data path. Enterprise-friendly from day one.',
+      'A single Node binary bound to 127.0.0.1. No egress. No cloud dependency to run it. Cloud sync is opt-in.',
   },
 ];
 
@@ -32,19 +27,14 @@ export function Solution() {
   return (
     <Section id="solution" className="py-24">
       <SectionHeading
-        eyebrow="The solution"
-        title="An API compiler for local development."
-        description="Point Carbon at any input — OpenAPI, HAR, live traffic, docs — and it produces a deterministic local emulator that behaves like production."
+        eyebrow="How it works"
+        title="An API compiler, not a mock server."
       />
       <div className="mt-14 grid gap-6 lg:grid-cols-2">
-        {pillars.map(({ icon: Icon, title, body }) => (
-          <div
-            key={title}
-            className="rounded-lg border border-border bg-card p-8 transition-colors hover:bg-subtle"
-          >
-            <Icon className="h-5 w-5 text-foreground" />
-            <h3 className="mt-5 text-lg font-medium tracking-tight">{title}</h3>
-            <p className="mt-2 text-sm text-muted-foreground">{body}</p>
+        {pillars.map((p) => (
+          <div key={p.title} className="rounded-lg border border-border bg-card p-8">
+            <h3 className="text-base font-medium tracking-tight">{p.title}</h3>
+            <p className="mt-2 text-sm text-muted-foreground">{p.body}</p>
           </div>
         ))}
       </div>

@@ -9,7 +9,6 @@ import { Pricing } from '@/components/pricing';
 import { Problem } from '@/components/problem';
 import { SdkSection } from '@/components/sdk-section';
 import { Solution } from '@/components/solution';
-import { Testimonials } from '@/components/testimonials';
 import { Workflow } from '@/components/workflow';
 
 export default function LandingPage() {
@@ -25,7 +24,6 @@ export default function LandingPage() {
       <CliSection />
       <SdkSection />
       <Features />
-      <Testimonials />
       <Pricing />
       <Faq />
     </>

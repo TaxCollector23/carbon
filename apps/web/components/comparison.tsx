@@ -36,8 +36,7 @@ export function Comparison() {
     <Section id="comparison" className="py-24">
       <SectionHeading
         eyebrow="Comparison"
-        title="How Carbon compares."
-        description="Existing tools optimize for one axis and fall short on the others. Carbon aims for correctness end-to-end."
+        title="What each option gives you."
       />
       <div className="mt-12 overflow-hidden rounded-lg border border-border">
         <table className="w-full text-sm">

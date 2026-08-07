@@ -5,45 +5,45 @@ import { Section, SectionHeading } from './section';
 
 const tiers = [
   {
-    name: 'Hobby',
+    name: 'Local',
     price: '$0',
     period: '/ forever',
-    description: 'For individuals exploring Carbon on personal projects.',
+    description: 'The full runtime and CLI. Runs on your machine.',
     features: [
-      '1 project',
-      'Local emulator, unlimited use',
-      'Community support',
-      'Snapshots on your machine',
+      'Unlimited emulators, unlimited requests',
+      'All parser formats (OpenAPI, HAR, Postman, GraphQL)',
+      'Snapshots saved locally',
+      'MIT-licensed CLI',
     ],
-    cta: { label: 'Start free', href: '/get-started' },
+    cta: { label: 'Install the CLI', href: '/docs/installation' },
     highlighted: false,
   },
   {
     name: 'Team',
     price: '$29',
-    period: '/ dev / month',
-    description: 'For teams that want to share replicas and snapshots.',
+    period: '/ developer / month',
+    description: 'Cloud sync, shared graphs, CI runners, dashboard.',
     features: [
-      'Unlimited projects',
-      'Cloud snapshots & sync',
-      'Shared behavior graphs',
-      'CI runners',
-      'Slack & Discord support',
+      'Cloud-synced snapshots and graphs',
+      'Shared behavior across your org',
+      'Hosted CI runners for emulators',
+      'Web dashboard',
+      'Email support, one-day SLA',
     ],
     cta: { label: 'Start 14-day trial', href: '/get-started?plan=team' },
     highlighted: true,
   },
   {
     name: 'Enterprise',
-    price: 'Custom',
+    price: 'Talk to us',
     period: '',
-    description: 'For organizations with compliance and volume needs.',
+    description: 'Self-hosted control plane, SSO, audit logs, custom SLA.',
     features: [
-      'Self-hosted runtime',
-      'SSO / SCIM',
-      'Audit logs',
-      'On-call SLA',
-      'Dedicated solutions engineer',
+      'Self-hosted control plane',
+      'SSO (Okta, Azure AD, Google Workspace)',
+      'SCIM provisioning',
+      'Audit logs, retention controls',
+      'Named support engineer',
     ],
     cta: { label: 'Contact sales', href: '/contact' },
     highlighted: false,
@@ -55,8 +55,8 @@ export function Pricing() {
     <Section id="pricing" className="py-24">
       <SectionHeading
         eyebrow="Pricing"
-        title="Simple, honest, per-developer."
-        description="No seat games. No usage surprises. The runtime is free forever on your machine."
+        title="The runtime is free."
+        description="You pay when you want cloud sync and shared state across your team."
         align="center"
         className="mx-auto"
       />
@@ -73,7 +73,7 @@ export function Pricing() {
               <h3 className="text-base font-medium">{tier.name}</h3>
               {tier.highlighted ? (
                 <span className="rounded-full border border-border px-2 py-0.5 text-2xs uppercase tracking-widest text-muted-foreground">
-                  Popular
+                  Most teams
                 </span>
               ) : null}
             </div>

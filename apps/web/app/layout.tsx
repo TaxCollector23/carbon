@@ -8,21 +8,21 @@ import './globals.css';
 export const metadata: Metadata = {
   metadataBase: new URL('https://carbon.dev'),
   title: {
-    default: 'Carbon — Develop against production without production',
+    default: 'Carbon — local API replicas that actually behave',
     template: '%s · Carbon',
   },
   description:
-    'Carbon creates intelligent local replicas of production APIs. Record real traffic, learn behavior, emulate on your machine. Build offline. Avoid staging. Ship faster.',
+    'Carbon compiles OpenAPI, HAR, Postman, and GraphQL into a stateful local runtime. Deterministic, offline, no rate limits.',
   openGraph: {
     title: 'Carbon',
-    description: 'Develop against production without production.',
+    description: 'Local API replicas that actually behave.',
     type: 'website',
     url: 'https://carbon.dev',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Carbon',
-    description: 'Develop against production without production.',
+    description: 'Local API replicas that actually behave.',
   },
 };
 
@@ -40,8 +40,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
     >
       <body className="font-sans">
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-foreground focus:px-3 focus:py-2 focus:text-sm focus:text-background"
+        >
+          Skip to content
+        </a>
         <Nav />
-        <main className="pt-16">{children}</main>
+        <main id="main" className="pt-16">
+          {children}
+        </main>
         <Footer />
       </body>
     </html>

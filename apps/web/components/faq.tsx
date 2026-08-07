@@ -8,27 +8,27 @@ import { Section, SectionHeading } from './section';
 const items = [
   {
     q: 'Is the runtime deterministic?',
-    a: 'Yes. Once an API is analyzed, the runtime is pure — same input, same output, every time. AI is used only during ingestion, never in the request path.',
+    a: 'Yes. Once ingestion produces the behavior graph, request handling is pure code — no AI, no network, no randomness unless you enable it. Same input, same output.',
   },
   {
-    q: 'How is this different from a mocking library?',
-    a: 'Mocks return static responses. Carbon models state, relationships, transitions, and side effects. A POST changes what future GETs return.',
+    q: 'How is this different from MSW or nock?',
+    a: 'MSW/nock return the response you scripted. Carbon runs a state engine: POST /customers actually creates a customer; the next GET /customers/:id returns it; DELETE removes it. You do not write the responses.',
   },
   {
-    q: 'Do you send our API traffic anywhere?',
-    a: 'No. The runtime runs entirely on your machine. Cloud sync is opt-in per project and encrypted end-to-end.',
+    q: 'Does Carbon call out to my API in production?',
+    a: 'No. carbon record proxies traffic once so you can capture it. After that, the runtime is entirely local. The recording proxy runs on 127.0.0.1 and redacts auth headers by default.',
   },
   {
-    q: 'What inputs can Carbon ingest?',
-    a: 'OpenAPI, Swagger, GraphQL schemas, Postman collections, HAR files, recorded live traffic, and — optionally — documentation and SDK sources.',
+    q: 'What inputs work?',
+    a: 'OpenAPI 3.x / Swagger 2.0, GraphQL SDL, Postman v2.1 collections, HAR files, and observed traffic via carbon record. gRPC and AsyncAPI are on the roadmap.',
   },
   {
-    q: 'Does it work with GraphQL?',
-    a: 'Yes. The behavior graph is protocol-agnostic. Carbon speaks REST and GraphQL through the same underlying runtime.',
+    q: 'How well does it handle GraphQL?',
+    a: 'The parser turns types into resources and query/mutation fields into endpoints. Subscriptions are recognized but the runtime does not yet stream them — v0.2.',
   },
   {
     q: 'Can I self-host?',
-    a: 'The CLI and runtime are local by default. The Enterprise plan adds a self-hosted control plane for teams that require it.',
+    a: 'The CLI and runtime are already local. The control plane (dashboard, cloud sync, shared snapshots) can be self-hosted on the Enterprise plan — one Postgres, one Redis, one Docker image.',
   },
 ];
 

@@ -21,8 +21,8 @@ export function SdkSection() {
       <div className="grid gap-12 lg:grid-cols-[1fr_1.4fr] lg:items-start">
         <SectionHeading
           eyebrow="SDK"
-          title="Program the replica from your tests."
-          description="The SDK exposes the runtime as a typed, in-process object. Reset state between tests. Snapshot between checkpoints. Assert on internal events."
+          title="Drive the runtime from a test file."
+          description="Reset between tests. Snapshot between checkpoints. Assert on state."
         />
         <div className="overflow-hidden rounded-lg border border-border bg-[hsl(220_15%_8%)]">
           <div className="flex items-center justify-between border-b border-white/5 px-4 py-2.5">

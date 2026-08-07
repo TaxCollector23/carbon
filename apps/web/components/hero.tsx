@@ -12,16 +12,17 @@ export function Hero() {
           <div className="mb-6 flex justify-center">
             <Badge variant="default" className="gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              Now in private beta · v0.1
+              Private beta · v0.1
             </Badge>
           </div>
           <h1 className="text-balance text-4xl font-medium tracking-tight sm:text-6xl">
-            Develop against production
-            <br className="hidden sm:block" /> without production.
+            Local API replicas
+            <br className="hidden sm:block" /> that actually behave.
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-balance text-lg text-muted-foreground">
-            Carbon builds an intelligent local replica of any API. Record real traffic, infer
-            behavior, and emulate it deterministically on your machine.
+            Point Carbon at an OpenAPI spec, a HAR file, or live traffic. It builds a stateful
+            emulator on <code className="font-mono text-sm">localhost:8787</code> — deterministic,
+            offline, no rate limits.
           </p>
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
             <Link href="/get-started" className={cn(buttonVariants({ size: 'lg' }), 'gap-2')}>

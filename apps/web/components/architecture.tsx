@@ -17,8 +17,8 @@ export function Architecture() {
     <Section id="architecture" className="py-24">
       <SectionHeading
         eyebrow="Architecture"
-        title="A compiler pipeline for APIs."
-        description="Every input flows through the same pipeline. AI helps during ingestion. The runtime itself is pure, typed, and deterministic."
+        title="A compiler pipeline."
+        description="Every input flows through the same six stages. AI runs in ingestion only."
       />
       <div className="mt-14 rounded-lg border border-border bg-card p-6 sm:p-10">
         <ol className="relative flex flex-col gap-3">

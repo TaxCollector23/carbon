@@ -17,8 +17,8 @@ export function CliSection() {
       <div className="grid gap-12 lg:grid-cols-[1fr_1.2fr] lg:items-start">
         <SectionHeading
           eyebrow="CLI"
-          title="A first-class terminal experience."
-          description="Carbon lives where you already work. The CLI is fast, discoverable, and scriptable — designed for humans and CI alike."
+          title="Eight commands you'll use."
+          description="Everything the dashboard does, you can do from a terminal or a CI script."
         />
         <div className="overflow-hidden rounded-lg border border-border">
           <table className="w-full text-sm">
