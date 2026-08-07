@@ -48,14 +48,29 @@ async function main(): Promise<void> {
   const address = await server.listen({ host: env.API_HOST, port: env.API_PORT });
   logger.info('api.listening', { address });
 
-  const shutdown = async (signal: string) => {
+  const shutdown = (signal: string) => {
     logger.info('api.shutdown', { signal });
-    await emulators.shutdown();
-    await server.close();
-    process.exit(0);
+    const forceKill = setTimeout(() => {
+      logger.error('api.shutdown_timeout', {
+        message: 'Force exit after 15s — inflight work was dropped',
+      });
+      process.exit(1);
+    }, 15_000);
+    forceKill.unref();
+    (async () => {
+      try {
+        await server.close();
+        await emulators.shutdown();
+        clearTimeout(forceKill);
+        process.exit(0);
+      } catch (err) {
+        logger.error('api.shutdown_error', { message: (err as Error).message });
+        process.exit(1);
+      }
+    })();
   };
-  process.on('SIGINT', () => void shutdown('SIGINT'));
-  process.on('SIGTERM', () => void shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
 main().catch((err) => {
