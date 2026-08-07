@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import type { AppContext } from '../context.js';
 
@@ -10,6 +11,7 @@ import type { AppContext } from '../context.js';
  */
 export interface HealthOptions {
   readonly release?: string;
+  readonly timeoutMs?: number;
 }
 
 export async function registerHealthRoutes(
@@ -18,6 +20,7 @@ export async function registerHealthRoutes(
   options: HealthOptions = {},
 ): Promise<void> {
   const release = options.release ?? process.env.CARBON_RELEASE ?? 'dev';
+  const timeoutMs = options.timeoutMs ?? 1000;
 
   app.get('/health', async () => ({ ok: true, service: 'carbon-api', version: '0.1.0' }));
 
@@ -32,33 +35,51 @@ export async function registerHealthRoutes(
   app.get('/ready', async (_req, reply) => {
     const checks: Record<string, { ok: boolean; error?: string }> = {};
 
-    try {
-      await ctx.db.execute(sql`select 1`);
-      checks.database = { ok: true };
-    } catch (err) {
-      checks.database = { ok: false, error: (err as Error).message };
-    }
+    await runCheck(checks, 'database', timeoutMs, () => ctx.db.execute(sql`select 1`));
 
     if (ctx.redis) {
-      try {
-        await ctx.redis.ping();
-        checks.redis = { ok: true };
-      } catch (err) {
-        checks.redis = { ok: false, error: (err as Error).message };
-      }
+      await runCheck(checks, 'redis', timeoutMs, () => ctx.redis?.ping() ?? Promise.resolve());
     }
 
-    try {
-      const key = `__health__/ready-${process.pid}.txt`;
+    await runCheck(checks, 'storage', timeoutMs, async () => {
+      const key = `__health__/ready-${process.pid}-${randomUUID()}.txt`;
       await ctx.storage.put(key, 'ok', { contentType: 'text/plain' });
       await ctx.storage.delete(key);
-      checks.storage = { ok: true };
-    } catch (err) {
-      checks.storage = { ok: false, error: (err as Error).message };
-    }
+    });
 
     const ok = Object.values(checks).every((c) => c.ok);
     reply.status(ok ? 200 : 503);
     return { ok, checks };
   });
+}
+
+async function runCheck(
+  checks: Record<string, { ok: boolean; error?: string }>,
+  name: string,
+  timeoutMs: number,
+  check: () => Promise<unknown>,
+): Promise<void> {
+  try {
+    await withTimeout(check(), timeoutMs, name);
+    checks[name] = { ok: true };
+  } catch (err) {
+    checks[name] = { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, name: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`${name} check timed out after ${timeoutMs}ms`)),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }

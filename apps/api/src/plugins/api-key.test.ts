@@ -13,12 +13,12 @@ import type { AppContext } from '../context.js';
  * pulling in a real Postgres.
  */
 function makeCtx(
-  row: { id: string; hash: string; prefix: string; orgId: string } | null,
+  rows: { id: string; hash: string; prefix: string; orgId: string }[] | null,
 ): AppContext {
   const chain = {
     from: () => chain,
     where: () => chain,
-    limit: async () => (row ? [row] : []),
+    limit: async () => rows ?? [],
     set: () => chain,
   };
   const db = {
@@ -34,7 +34,7 @@ function makeCtx(
   };
 }
 
-async function buildApp(row: Parameters<typeof makeCtx>[0]): Promise<FastifyInstance> {
+async function buildApp(rows: Parameters<typeof makeCtx>[0]): Promise<FastifyInstance> {
   const app = Fastify();
   // Mirror the real error handler so 401s surface as 401 instead of 500.
   app.setErrorHandler((err, _req, reply) => {
@@ -46,7 +46,7 @@ async function buildApp(row: Parameters<typeof makeCtx>[0]): Promise<FastifyInst
       error: { code: 'CARBON_INTERNAL', message: err instanceof Error ? err.message : String(err) },
     });
   });
-  const ctx = makeCtx(row);
+  const ctx = makeCtx(rows);
   await registerApiKeyAuth(app, ctx, { mode: 'enforced' });
   app.get('/v1/protected', async () => ({ ok: true }));
   app.get('/health', async () => ({ ok: true }));
@@ -54,13 +54,13 @@ async function buildApp(row: Parameters<typeof makeCtx>[0]): Promise<FastifyInst
 }
 
 describe('api key auth', () => {
-  const validSecret = 'secret-fixture-value';
+  const validSecret = 'secret-fixture-value-32-chars-ok';
   const validPrefix = 'aa11bb22cc33';
   const validHash = createHash('sha256').update(validSecret).digest('hex');
 
   let app: FastifyInstance;
   beforeEach(async () => {
-    app = await buildApp({ id: 'key_1', hash: validHash, prefix: validPrefix, orgId: 'org_1' });
+    app = await buildApp([{ id: 'key_1', hash: validHash, prefix: validPrefix, orgId: 'org_1' }]);
   });
 
   it('allows /health without a key', async () => {
@@ -86,7 +86,7 @@ describe('api key auth', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/v1/protected',
-      headers: { 'x-carbon-key': `ck_live_${validPrefix}.wrong-secret` },
+      headers: { 'x-carbon-key': `ck_live_${validPrefix}.${'x'.repeat(32)}` },
     });
     expect(res.statusCode).toBe(401);
   });
@@ -105,8 +105,26 @@ describe('api key auth', () => {
     const res = await noRowApp.inject({
       method: 'GET',
       url: '/v1/protected',
-      headers: { 'x-carbon-key': `ck_live_notarealprefix.${validSecret}` },
+      headers: { 'x-carbon-key': `ck_live_001122334455.${validSecret}` },
     });
     expect(res.statusCode).toBe(401);
+  });
+
+  it('accepts a valid key when multiple rows share a prefix', async () => {
+    const collisionApp = await buildApp([
+      {
+        id: 'key_wrong',
+        hash: createHash('sha256').update('wrong-secret-value-32-chars-ok').digest('hex'),
+        prefix: validPrefix,
+        orgId: 'org_1',
+      },
+      { id: 'key_1', hash: validHash, prefix: validPrefix, orgId: 'org_1' },
+    ]);
+    const res = await collisionApp.inject({
+      method: 'GET',
+      url: '/v1/protected',
+      headers: { 'x-carbon-key': `ck_live_${validPrefix}.${validSecret}` },
+    });
+    expect(res.statusCode).toBe(200);
   });
 });

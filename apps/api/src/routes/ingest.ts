@@ -1,9 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppContext } from '../context.js';
+import { ProjectSlug, resolveProjectAccess } from './project-access.js';
 
 const IngestBody = z.object({
-  projectSlug: z.string().min(1),
+  projectSlug: ProjectSlug,
   source: z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('json'), content: z.unknown(), hint: z.string().optional() }),
     z.object({ kind: z.literal('text'), content: z.string(), hint: z.string().optional() }),
@@ -20,6 +21,7 @@ const IngestBody = z.object({
 export async function registerIngestRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
   app.post('/v1/ingest', async (req, reply) => {
     const body = IngestBody.parse(req.body);
+    const project = await resolveProjectAccess(ctx, req, body.projectSlug);
 
     if (body.async) {
       if (!ctx.jobs) {
@@ -32,17 +34,18 @@ export async function registerIngestRoutes(app: FastifyInstance, ctx: AppContext
         return;
       }
       const job = await ctx.jobs.create('ingest', {
-        projectSlug: body.projectSlug,
+        orgId: project.orgId,
+        projectSlug: project.slug,
         origin: body.origin,
       });
       // Fire and forget — the worker layer updates the job as it progresses.
-      void runIngestJob(ctx, job.id, body);
+      void runIngestJob(ctx, job.id, { ...body, projectSlug: project.storageSlug });
       reply.status(202);
       return { jobId: job.id, status: 'queued' };
     }
 
     const result = await ctx.ingestion.ingest({
-      projectSlug: body.projectSlug,
+      projectSlug: project.storageSlug,
       input: body.source as never,
       origin: body.origin,
       enrich: body.enrich,

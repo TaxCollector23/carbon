@@ -25,6 +25,7 @@ import type { AppContext } from '../context.js';
  */
 
 const PUBLIC_PATHS = new Set(['/health', '/ready']);
+const KEY_PATTERN = /^ck_live_([a-f0-9]{12})\.([A-Za-z0-9_-]{32,128})$/;
 
 export interface ApiKeyPluginOptions {
   readonly mode: 'enforced' | 'disabled';
@@ -53,8 +54,15 @@ export async function registerApiKeyAuth(
   const header = (opts.headerName ?? 'x-carbon-key').toLowerCase();
 
   app.addHook('onRequest', async (req, reply) => {
-    if (PUBLIC_PATHS.has(req.url) || PUBLIC_PATHS.has(req.url.split('?')[0] ?? '')) return;
+    if (PUBLIC_PATHS.has(pathname(req.url))) return;
     const raw = req.headers[header];
+    if (Array.isArray(raw) && raw.length !== 1) {
+      throw new CarbonError({
+        code: 'CARBON_UNAUTHENTICATED',
+        message: `Multiple ${header} headers are not allowed`,
+        expose: true,
+      });
+    }
     const presented = Array.isArray(raw) ? raw[0] : raw;
     if (!presented) {
       throw new CarbonError({
@@ -72,12 +80,12 @@ export async function registerApiKeyAuth(
       });
     }
 
-    const [row] = await ctx.db
+    const rows = await ctx.db
       .select()
       .from(schema.apiKeys)
       .where(and(eq(schema.apiKeys.prefix, prefix), isNull(schema.apiKeys.revokedAt)))
-      .limit(1);
-    if (!row) {
+      .limit(10);
+    if (rows.length === 0) {
       throw new CarbonError({
         code: 'CARBON_UNAUTHENTICATED',
         message: 'Unknown API key',
@@ -86,8 +94,8 @@ export async function registerApiKeyAuth(
     }
 
     const presentedHash = sha256(secret);
-    const storedHash = Buffer.from(row.hash, 'hex');
-    if (presentedHash.length !== storedHash.length || !timingSafeEqual(presentedHash, storedHash)) {
+    const row = rows.find((candidate) => hashMatches(presentedHash, candidate.hash));
+    if (!row) {
       throw new CarbonError({
         code: 'CARBON_UNAUTHENTICATED',
         message: 'Invalid API key',
@@ -112,12 +120,22 @@ export async function registerApiKeyAuth(
 }
 
 function splitKey(token: string): { prefix?: string; secret?: string } {
-  const stripped = token.startsWith('ck_') ? token.slice(token.indexOf('_', 3) + 1) : token;
-  const dot = stripped.indexOf('.');
-  if (dot <= 0) return {};
-  return { prefix: stripped.slice(0, dot), secret: stripped.slice(dot + 1) };
+  const match = KEY_PATTERN.exec(token);
+  if (!match) return {};
+  const [, prefix, secret] = match;
+  if (!prefix || !secret) return {};
+  return { prefix, secret };
 }
 
 function sha256(input: string): Buffer {
   return createHash('sha256').update(input).digest();
+}
+
+function hashMatches(presentedHash: Buffer, storedHashHex: string): boolean {
+  const storedHash = Buffer.from(storedHashHex, 'hex');
+  return presentedHash.length === storedHash.length && timingSafeEqual(presentedHash, storedHash);
+}
+
+function pathname(url: string): string {
+  return url.split('?')[0] ?? url;
 }

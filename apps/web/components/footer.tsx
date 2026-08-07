@@ -55,7 +55,7 @@ export function Footer() {
           </div>
         </div>
         <div className="border-border text-muted-foreground mt-14 flex flex-col items-start justify-between gap-3 border-t pt-6 text-xs sm:flex-row sm:items-center">
-          <span>© {new Date().getFullYear()} Carbon, Inc. All rights reserved.</span>
+          <span>© {new Date().getFullYear()} Carbon. All rights reserved.</span>
           <span className="font-mono">v0.1 private beta</span>
         </div>
       </div>

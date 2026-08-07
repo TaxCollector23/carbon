@@ -3,7 +3,7 @@ title: 'Using Carbon in CI'
 description: 'Deterministic replicas in your continuous integration.'
 ---
 
-Carbon runs as a plain Node process — nothing special is required in CI.
+Carbon runs as a plain Node process in CI.
 
 ```yaml
 - run: npm install -g carbon-api
@@ -13,5 +13,5 @@ Carbon runs as a plain Node process — nothing special is required in CI.
     STRIPE_API_BASE: http://localhost:8787
 ```
 
-The same snapshot and runtime can be used locally and in CI, which reduces drift
-between environments.
+Use the same snapshot and runtime in development and CI to reduce drift between
+environments.

@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { buttonVariants, cn } from '@carbon/ui';
 import { Wordmark } from './logo';
-import { ThemeToggle } from './theme-toggle';
 
 const links = [
   { href: '/#workflow', label: 'Workflow' },
@@ -74,7 +73,6 @@ export function Nav() {
           <Link href="/#cli" className={buttonVariants({ size: 'sm' })}>
             Install CLI
           </Link>
-          <ThemeToggle />
         </div>
       </div>
     </header>

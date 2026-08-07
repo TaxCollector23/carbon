@@ -39,7 +39,7 @@ export function createRedisConnection(
     return new Redis(redis, {
       maxRetriesPerRequest,
       lazyConnect: opts.lazyConnect,
-      ...tlsOptionsForRedisUrl(redis),
+      ...redisUrlOptions(redis),
     });
   }
   return new Redis({
@@ -106,12 +106,16 @@ export class QueueRegistry {
   }
 }
 
-function tlsOptionsForRedisUrl(url: string): Pick<RedisOptions, 'tls'> {
+function redisUrlOptions(url: string): Pick<RedisOptions, 'tls' | 'enableReadyCheck'> {
   try {
     const parsed = new URL(url);
-    if (parsed.protocol === 'rediss:' || parsed.hostname.endsWith('.upstash.io')) {
-      return { tls: { servername: parsed.hostname } };
+    const isUpstash = parsed.hostname.endsWith('.upstash.io');
+    const options: Pick<RedisOptions, 'tls' | 'enableReadyCheck'> = {};
+    if (parsed.protocol === 'rediss:' || isUpstash) {
+      options.tls = { servername: parsed.hostname };
     }
+    if (isUpstash) options.enableReadyCheck = false;
+    return options;
   } catch {
     // Let ioredis surface the actual connection/configuration error.
   }

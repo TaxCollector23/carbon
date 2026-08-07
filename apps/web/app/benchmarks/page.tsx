@@ -41,7 +41,7 @@ const protocolRows = [
 
 export default function BenchmarksPage() {
   return (
-    <>
+    <div className="bg-background text-foreground dark min-h-dvh">
       <Nav />
       <main id="main" className="pt-16">
         <section className="border-border border-b py-20">
@@ -110,6 +110,6 @@ export default function BenchmarksPage() {
         </section>
       </main>
       <Footer />
-    </>
+    </div>
   );
 }

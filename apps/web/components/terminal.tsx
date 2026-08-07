@@ -10,7 +10,7 @@ type Line =
 
 const script: Line[] = [
   { kind: 'prompt', command: 'carbon init', typedMs: 900 },
-  { kind: 'output', text: '✓ Workspace linked: acme', delayMs: 400 },
+  { kind: 'output', text: '✓ Workspace linked: local', delayMs: 400 },
   { kind: 'output', text: '✓ carbon.config.ts created', delayMs: 200 },
   { kind: 'blank' },
   { kind: 'prompt', command: 'carbon record https://api.stripe.com', typedMs: 1400 },
@@ -91,12 +91,12 @@ export function TerminalDemo({ className }: { className?: string }) {
     >
       <div className="flex items-center justify-between border-b border-white/5 px-4 py-2.5">
         <div className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
-          <span className="h-2.5 w-2.5 rounded-full bg-yellow-400" />
-          <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+          <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
+          <span className="h-2.5 w-2.5 rounded-full bg-[#ffbd2e]" />
+          <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
         </div>
         <span className="text-2xs font-mono uppercase tracking-widest text-white/40">
-          ~/acme · carbon
+          ~/workspace · carbon
         </span>
         <span className="h-2.5 w-2.5" />
       </div>

@@ -1,10 +1,10 @@
 ---
 title: 'Snapshots'
-description: 'Freeze and restore full-state envelopes.'
+description: 'Save and restore full-state snapshots.'
 ---
 
 ```ts
 const snap = await replica.snapshot.save('after-refund');
-// commit snap to your repo — it's stable JSON
+// Commit snap to your repo; it is stable JSON.
 await replica.snapshot.restore(snap);
 ```

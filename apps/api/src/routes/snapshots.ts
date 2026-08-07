@@ -4,9 +4,10 @@ import { NotFoundError } from '@carbon/core';
 import { parseSnapshot, serializeSnapshot, type StateSnapshot } from '@carbon/state';
 import { StorageKeys } from '@carbon/storage';
 import type { AppContext } from '../context.js';
+import { ProjectSlug, resolveProjectAccess } from './project-access.js';
 
 const CreateSnapshotBody = z.object({
-  projectSlug: z.string().min(1),
+  projectSlug: ProjectSlug,
   name: z
     .string()
     .min(1)
@@ -29,8 +30,10 @@ const CreateSnapshotBody = z.object({
 
 export async function registerSnapshotRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
   app.get<{ Params: { slug: string } }>('/v1/projects/:slug/snapshots', async (req) => {
+    const params = z.object({ slug: ProjectSlug }).parse(req.params);
+    const project = await resolveProjectAccess(ctx, req, params.slug);
     const items: Array<{ name: string; size: number; modifiedAt: number }> = [];
-    for await (const obj of ctx.storage.list(`projects/${req.params.slug}/snapshots/`)) {
+    for await (const obj of ctx.storage.list(`projects/${project.storageSlug}/snapshots/`)) {
       const name = obj.key
         .split('/')
         .pop()
@@ -43,7 +46,8 @@ export async function registerSnapshotRoutes(app: FastifyInstance, ctx: AppConte
 
   app.post('/v1/snapshots', async (req, reply) => {
     const body = CreateSnapshotBody.parse(req.body);
-    const key = StorageKeys.snapshot(body.projectSlug, body.name);
+    const project = await resolveProjectAccess(ctx, req, body.projectSlug);
+    const key = StorageKeys.snapshot(project.storageSlug, body.name);
     await ctx.storage.put(key, serializeSnapshot(body.snapshot as unknown as StateSnapshot), {
       contentType: 'application/json',
     });
@@ -54,9 +58,11 @@ export async function registerSnapshotRoutes(app: FastifyInstance, ctx: AppConte
   app.get<{ Params: { slug: string; name: string } }>(
     '/v1/projects/:slug/snapshots/:name',
     async (req) => {
-      const key = StorageKeys.snapshot(req.params.slug, req.params.name);
+      const params = z.object({ slug: ProjectSlug, name: z.string().min(1) }).parse(req.params);
+      const project = await resolveProjectAccess(ctx, req, params.slug);
+      const key = StorageKeys.snapshot(project.storageSlug, params.name);
       const bytes = await ctx.storage.get(key);
-      if (!bytes) throw new NotFoundError('snapshot', req.params.name);
+      if (!bytes) throw new NotFoundError('snapshot', params.name);
       const text = new TextDecoder().decode(bytes);
       return parseSnapshot(text);
     },
@@ -65,9 +71,11 @@ export async function registerSnapshotRoutes(app: FastifyInstance, ctx: AppConte
   app.delete<{ Params: { slug: string; name: string } }>(
     '/v1/projects/:slug/snapshots/:name',
     async (req, reply) => {
-      const key = StorageKeys.snapshot(req.params.slug, req.params.name);
+      const params = z.object({ slug: ProjectSlug, name: z.string().min(1) }).parse(req.params);
+      const project = await resolveProjectAccess(ctx, req, params.slug);
+      const key = StorageKeys.snapshot(project.storageSlug, params.name);
       const head = await ctx.storage.head(key);
-      if (!head) throw new NotFoundError('snapshot', req.params.name);
+      if (!head) throw new NotFoundError('snapshot', params.name);
       await ctx.storage.delete(key);
       reply.status(204);
     },

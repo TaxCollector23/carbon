@@ -143,7 +143,7 @@ export const apiKeys = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
-    /** Argon2id hash of the presented secret. Never store secrets in cleartext. */
+    /** SHA-256 hash of the presented random secret. Never store secrets in cleartext. */
     hash: text('hash').notNull(),
     prefix: text('prefix').notNull(),
     lastUsedAt: timestamp('last_used_at', { withTimezone: true }),

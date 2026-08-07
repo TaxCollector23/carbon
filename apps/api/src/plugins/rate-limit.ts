@@ -10,6 +10,15 @@ export interface RateLimitOptions {
   readonly keyPrefix?: string;
 }
 
+const RATE_LIMIT_SCRIPT = `
+local count = redis.call("INCR", KEYS[1])
+if count == 1 then
+  redis.call("PEXPIRE", KEYS[1], ARGV[1])
+end
+local ttl = redis.call("PTTL", KEYS[1])
+return { count, ttl }
+`;
+
 /**
  * Control-plane rate limiter.
  *
@@ -27,23 +36,25 @@ export async function registerControlPlaneRateLimit(
   opts: RateLimitOptions,
 ): Promise<void> {
   const prefix = opts.keyPrefix ?? 'carbon:cp:rl';
-  const ttlSec = Math.max(1, Math.ceil(opts.windowMs / 1000));
+  const windowMs = Math.max(1000, Math.floor(opts.windowMs));
+  const max = Math.max(1, Math.floor(opts.max));
 
   app.addHook('onRequest', async (req, reply) => {
     // /health and /ready are always allowed — they need to work under load
     // for the LB and for humans debugging incidents.
-    if (req.url === '/health' || req.url === '/ready') return;
+    const path = req.url.split('?')[0] ?? req.url;
+    if (path === '/health' || path === '/ready') return;
 
     const id = identify(req);
     const key = `${prefix}:${id}`;
     try {
-      const count = await opts.redis.incr(key);
-      if (count === 1) await opts.redis.expire(key, ttlSec);
-      reply.header('x-ratelimit-limit', String(opts.max));
-      reply.header('x-ratelimit-remaining', String(Math.max(0, opts.max - count)));
-      if (count > opts.max) {
-        const ttl = await opts.redis.ttl(key);
-        reply.header('retry-after', String(Math.max(1, ttl)));
+      const { count, ttlMs } = parseRateLimitResult(
+        await opts.redis.eval(RATE_LIMIT_SCRIPT, 1, key, String(windowMs)),
+      );
+      reply.header('x-ratelimit-limit', String(max));
+      reply.header('x-ratelimit-remaining', String(Math.max(0, max - count)));
+      if (count > max) {
+        reply.header('retry-after', String(Math.max(1, Math.ceil(ttlMs / 1000))));
         reply
           .status(429)
           .send({ error: { code: 'CARBON_RATE_LIMITED', message: 'Rate limit exceeded' } });
@@ -60,4 +71,9 @@ function identify(req: FastifyRequest): string {
   const apiKey = (req as AuthenticatedRequest).apiKey;
   if (apiKey?.prefix) return `k:${apiKey.prefix}`;
   return `ip:${req.ip}`;
+}
+
+function parseRateLimitResult(value: unknown): { count: number; ttlMs: number } {
+  if (!Array.isArray(value)) return { count: 0, ttlMs: 0 };
+  return { count: Number(value[0] ?? 0), ttlMs: Number(value[1] ?? 0) };
 }

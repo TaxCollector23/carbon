@@ -1,4 +1,4 @@
 # @carbon/desktop
 
-Placeholder for the desktop app. Tauri-based, ships in Phase Two once the
-runtime, dashboard, and CLI have stabilized.
+Workspace for the future Carbon desktop app. The Tauri app is planned for Phase
+Two after the runtime, dashboard, and CLI stabilize.

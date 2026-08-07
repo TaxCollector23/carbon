@@ -5,11 +5,11 @@ description: 'Frequently asked questions.'
 
 **Is the runtime deterministic?** Yes. AI is only used during ingestion.
 
-**What inputs are supported?** OpenAPI, Swagger, GraphQL, HAR, Postman, and
-observed traffic.
+**What inputs are supported?** OpenAPI, Swagger, AsyncAPI, Protobuf, gRPC,
+GraphQL, HAR, Postman, and observed traffic.
 
-**Does Carbon send my traffic anywhere?** No. The runtime is local. Cloud
-sync is opt-in per project.
+**Does Carbon send my traffic anywhere?** Runtime traffic stays in the replica
+unless you configure another path. Cloud sync is opt-in per project.
 
-**Can I self-host?** The runtime is local by default. Enterprise adds a
-self-hosted control plane.
+**Can I self-host?** Yes. Replicas can run in your own environment. Enterprise
+adds a self-hosted control plane.

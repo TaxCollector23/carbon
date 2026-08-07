@@ -1,30 +1,31 @@
 ---
 title: 'Welcome to Carbon'
-description: 'Carbon compiles APIs into deterministic local runtimes.'
+description: 'Carbon compiles APIs into deterministic runtimes.'
 ---
 
-Carbon is an API behavior engine. Point it at an OpenAPI spec, a Postman
-collection, a HAR file, or a live URL. It analyzes the shape and behavior of
-the API, compiles that into an intermediate representation and a behavior
-graph, and then boots a fast, deterministic local runtime you can develop
-against.
+Carbon is an API behavior engine. Give it an OpenAPI spec, AsyncAPI document,
+Protobuf or gRPC service definition, Postman collection, HAR file, GraphQL
+schema, or recorded traffic. Carbon analyzes the API shape, builds an
+intermediate representation and behavior graph, then runs a deterministic
+replica you can use in development, CI, or shared review environments.
 
-Existing mocking tools return static JSON. Carbon models state.
+Static mocks return canned JSON. Carbon keeps state, so writes affect later
+reads.
 
 ## Why Carbon
 
-- **Behavioral, not static.** A POST changes what future GETs return.
-- **Deterministic.** The runtime is pure — same input, same output, every time.
-- **Local by default.** No egress. No third-party data path.
-- **Composable.** Snapshots, branches, and replays ship with your code.
+- **Stateful behavior.** A `POST` changes what future `GET`s return.
+- **Deterministic.** The same inputs produce the same outputs.
+- **Controlled traffic path.** Runtime traffic stays in the replica unless you configure another path.
+- **Portable state.** Snapshots, branches, and replays travel with your code.
 
 ## What's next
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Boot your first replica in under a minute.
+    Start your first replica in under a minute.
   </Card>
   <Card title="Architecture" icon="diagram-project" href="/concepts/architecture">
-    See how the ingestion pipeline turns any API into a runtime.
+    See how ingestion turns API inputs into a runtime.
   </Card>
 </CardGroup>

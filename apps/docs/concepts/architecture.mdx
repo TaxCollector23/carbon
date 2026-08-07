@@ -11,9 +11,10 @@ Ingestion → Parser → IR → Behavior Graph → State Engine → Runtime
 
 ## Ingestion
 
-Accepts OpenAPI, Swagger, GraphQL, HAR, Postman collections, and observed
-traffic. Ingestion is the only stage where AI is optionally used — to enrich
-resource inference and relationship detection.
+Accepts OpenAPI, Swagger, AsyncAPI, Protobuf, gRPC service definitions, GraphQL,
+HAR, Postman collections, and observed traffic. Ingestion is the only stage
+where Carbon can use AI, and only to enrich resource inference and relationship
+detection.
 
 ## Parser
 
@@ -33,6 +34,6 @@ transactions roll back, and snapshots capture the entire state atomically.
 
 ## Runtime
 
-A Fastify shell exposes the graph as a live HTTP API. All request handling is
-compiled to O(1) lookups — no graph traversal on the hot path, no AI in the
-request path, ever.
+A Fastify shell exposes the graph as a live HTTP API. Request handling is
+compiled to O(1) lookups, so the hot path does not traverse the graph or call
+AI.

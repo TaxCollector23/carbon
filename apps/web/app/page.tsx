@@ -15,7 +15,7 @@ import { Workflow } from '@/components/workflow';
 
 export default function LandingPage() {
   return (
-    <>
+    <div className="bg-background text-foreground dark min-h-dvh">
       <Nav />
       <main id="main" className="pt-16">
         <Hero />
@@ -32,6 +32,6 @@ export default function LandingPage() {
         <Faq />
       </main>
       <Footer />
-    </>
+    </div>
   );
 }

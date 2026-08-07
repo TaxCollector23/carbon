@@ -1,8 +1,8 @@
 ---
 title: 'Deployment'
-description: 'Where the runtime lives in production-adjacent environments.'
+description: 'Where to run replicas in production-adjacent environments.'
 ---
 
-Carbon is designed to run on developer machines and in CI. It is not a
-production API server. That said, a shared internal replica can be useful for
-review and QA. The runtime is a plain Node process behind any reverse proxy.
+Carbon is designed for developer machines, CI, and shared internal replicas. It
+is not intended to replace a production API server. For review and QA, run the
+runtime as a plain Node process behind any reverse proxy.

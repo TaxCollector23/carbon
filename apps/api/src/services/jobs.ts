@@ -7,6 +7,7 @@ export type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed';
 export interface JobRecord {
   readonly id: string;
   readonly kind: string;
+  readonly orgId?: string;
   readonly status: JobStatus;
   readonly createdAt: number;
   readonly updatedAt: number;
@@ -25,10 +26,7 @@ export interface JobRecord {
 export interface JobService {
   create(kind: string, meta?: Record<string, unknown>): Promise<JobRecord>;
   get(id: string): Promise<JobRecord>;
-  update(
-    id: string,
-    patch: { status: JobStatus; result?: unknown; error?: string },
-  ): Promise<void>;
+  update(id: string, patch: { status: JobStatus; result?: unknown; error?: string }): Promise<void>;
 }
 
 const TTL_SEC = 60 * 60 * 24;
@@ -39,23 +37,27 @@ export function createJobService(deps: { redis: Redis; logger: Logger }): JobSer
     async create(kind, meta) {
       const id = makeId('job');
       const now = Date.now();
+      const orgId = typeof meta?.orgId === 'string' ? meta.orgId : undefined;
       const record: JobRecord = {
         id,
         kind,
+        orgId,
         status: 'queued',
         createdAt: now,
         updatedAt: now,
       };
+      const fields: Record<string, string> = {
+        id,
+        kind,
+        status: 'queued',
+        createdAt: String(now),
+        updatedAt: String(now),
+        meta: meta ? JSON.stringify(meta) : '',
+      };
+      if (orgId) fields.orgId = orgId;
       await deps.redis
         .multi()
-        .hset(`${PREFIX}:${id}`, {
-          id,
-          kind,
-          status: 'queued',
-          createdAt: String(now),
-          updatedAt: String(now),
-          meta: meta ? JSON.stringify(meta) : '',
-        })
+        .hset(`${PREFIX}:${id}`, fields)
         .expire(`${PREFIX}:${id}`, TTL_SEC)
         .exec();
       return record;
@@ -67,6 +69,7 @@ export function createJobService(deps: { redis: Redis; logger: Logger }): JobSer
       return {
         id: row.id,
         kind: row.kind ?? '',
+        orgId: row.orgId || undefined,
         status: (row.status ?? 'queued') as JobStatus,
         createdAt: Number(row.createdAt ?? 0),
         updatedAt: Number(row.updatedAt ?? 0),

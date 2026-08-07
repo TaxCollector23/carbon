@@ -3,12 +3,15 @@ title: 'Parser'
 description: 'Normalizing every input format into one IR.'
 ---
 
-Every format Carbon supports is expressed through the `Parser` interface.
-Parsers are pure — given the same input bytes they always produce the same IR.
+Each supported input format uses the `Parser` interface. Parsers are pure: the
+same input bytes always produce the same IR.
 
 Built-in parsers:
 
 - **OpenAPI 3.x** / Swagger 2.0
+- **AsyncAPI** JSON/YAML documents
+- **Protobuf** message and service definitions
+- **gRPC** service declarations
 - **Postman Collection v2.1**
 - **HAR** (HTTP Archive)
 - **GraphQL** schema (experimental)

@@ -1,16 +1,17 @@
 ---
 title: 'CLI overview'
-description: 'The Carbon terminal.'
+description: 'Carbon command-line workflows.'
 ---
 
-The Carbon CLI is the primary way to record, ingest, and emulate APIs.
+Use the Carbon CLI to record traffic, ingest API definitions, run replicas, and
+inspect behavior graphs.
 
 ```bash
 carbon init             # scaffold a project
-carbon login            # authenticate with Carbon
+carbon login            # show API-key auth guidance
 carbon record <url>     # observe traffic
-carbon ingest <spec>    # parse a spec / HAR / collection
-carbon emulate          # boot the deterministic runtime
+carbon ingest <spec>    # parse a spec / schema / HAR / collection
+carbon emulate          # run a deterministic replica
 carbon inspect          # explore the behavior graph
 carbon snapshot save    # freeze state
 carbon replay <rec>     # deterministically replay

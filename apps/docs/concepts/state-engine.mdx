@@ -1,9 +1,9 @@
 ---
 title: 'State Engine'
-description: 'Real reads reflect real writes.'
+description: 'Reads reflect writes.'
 ---
 
-The State Engine is the deterministic backend behind every Carbon replica.
+The State Engine powers every Carbon replica.
 
 ## Guarantees
 
@@ -19,4 +19,5 @@ const snap = await replica.snapshot.save('after-refund');
 await replica.snapshot.restore(snap);
 ```
 
-Snapshots ship with your code. Reviewers replay them. CI restores them.
+Snapshots travel with your code. Reviewers can replay them, and CI can restore
+them.

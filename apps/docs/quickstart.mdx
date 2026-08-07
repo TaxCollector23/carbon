@@ -1,28 +1,29 @@
 ---
 title: 'Quickstart'
-description: 'Boot your first replica from a spec or recording.'
+description: 'Start your first replica from a spec or recording.'
 ---
 
-## Install
+## Install the CLI
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/TaxCollector23/carbon/master/install.sh | sh
 ```
 
-Or with your favorite package manager:
+Or install with npm:
 
 ```bash
 npm install -g carbon-api
 ```
 
-## Initialize a project
+## Create a project
 
 ```bash
 mkdir acme && cd acme
 carbon init
 ```
 
-This scaffolds a `carbon.config.ts` and a `.carbon/` directory.
+This creates `carbon.config.ts` and a `.carbon/` directory for snapshots and
+cache files.
 
 ## Ingest an API
 
@@ -30,11 +31,11 @@ This scaffolds a `carbon.config.ts` and a `.carbon/` directory.
 carbon ingest https://api.stripe.com/openapi.json
 ```
 
-## Emulate
+## Run the replica
 
 ```bash
 carbon emulate --from ./stripe.json --port 8787
 ```
 
-Swap your base URL to `http://localhost:8787` and use the same runtime locally
-and in CI.
+Point your app at `http://localhost:8787` and use the same runtime in
+development, CI, or review environments.

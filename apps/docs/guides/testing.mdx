@@ -3,8 +3,8 @@ title: 'Testing with Carbon'
 description: 'Integration tests that behave like production.'
 ---
 
-The recipe: boot a Replica once per test file, reset state between tests,
-snapshot between logical checkpoints.
+A common pattern is to start one replica per test file, reset state between
+tests, and save snapshots at logical checkpoints.
 
 ```ts
 import { beforeAll, afterAll, beforeEach, test } from 'vitest';
