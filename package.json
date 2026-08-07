@@ -2,7 +2,7 @@
   "name": "carbon",
   "private": true,
   "version": "0.1.0",
-  "description": "Carbon — Develop against production without production.",
+  "description": "Carbon — stateful API replicas for development, tests, and CI.",
   "packageManager": "pnpm@11.6.0",
   "engines": {
     "node": ">=20.11.0"

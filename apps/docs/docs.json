@@ -13,10 +13,10 @@
   },
   "favicon": "/favicon.svg",
   "topbarLinks": [
-    { "name": "Dashboard", "url": "https://carbon.dev/dashboard" },
-    { "name": "GitHub", "url": "https://github.com/carbon-dev/carbon" }
+    { "name": "Dashboard", "url": "https://carbon-web-psi.vercel.app/dashboard" },
+    { "name": "GitHub", "url": "https://github.com/TaxCollector23/carbon" }
   ],
-  "topbarCtaButton": { "name": "Get started", "url": "https://carbon.dev/get-started" },
+  "topbarCtaButton": { "name": "Get started", "url": "https://carbon-web-psi.vercel.app/#cli" },
   "navigation": [
     {
       "group": "Getting started",
@@ -24,7 +24,12 @@
     },
     {
       "group": "Concepts",
-      "pages": ["concepts/architecture", "concepts/behavior-engine", "concepts/parser", "concepts/state-engine"]
+      "pages": [
+        "concepts/architecture",
+        "concepts/behavior-engine",
+        "concepts/parser",
+        "concepts/state-engine"
+      ]
     },
     {
       "group": "CLI",
@@ -40,11 +45,15 @@
     },
     {
       "group": "Reference",
-      "pages": ["reference/config", "reference/faq", "reference/contributing", "reference/style-guide"]
+      "pages": [
+        "reference/config",
+        "reference/faq",
+        "reference/contributing",
+        "reference/style-guide"
+      ]
     }
   ],
   "footerSocials": {
-    "github": "https://github.com/carbon-dev/carbon",
-    "twitter": "https://twitter.com/carbondev"
+    "github": "https://github.com/TaxCollector23/carbon"
   }
 }

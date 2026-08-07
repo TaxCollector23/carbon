@@ -4,7 +4,7 @@ import { createDatabase } from './client.js';
 /**
  * Programmatic migration runner. Called by:
  *   - `pnpm --filter @carbon/database migrate:apply` locally
- *   - Render's preDeployCommand in production
+ *   - one-shot deploy setup commands
  *
  * Idempotent: Drizzle tracks applied migrations in its own metadata table.
  * Running twice is a no-op. Safe to bake into every deploy.
@@ -15,7 +15,11 @@ async function main(): Promise<void> {
     console.error('DATABASE_URL is required');
     process.exit(1);
   }
-  const { db, sql } = createDatabase({ url, maxConnections: 1, ssl: process.env.NODE_ENV === 'production' });
+  const { db, sql } = createDatabase({
+    url,
+    maxConnections: 1,
+    ssl: process.env.NODE_ENV === 'production' ? true : undefined,
+  });
   console.log('carbon: applying migrations…');
   try {
     await migrate(db, { migrationsFolder: 'migrations' });

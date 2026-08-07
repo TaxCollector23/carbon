@@ -39,10 +39,19 @@ export async function registerHealthRoutes(
       checks.database = { ok: false, error: (err as Error).message };
     }
 
+    if (ctx.redis) {
+      try {
+        await ctx.redis.ping();
+        checks.redis = { ok: true };
+      } catch (err) {
+        checks.redis = { ok: false, error: (err as Error).message };
+      }
+    }
+
     try {
-      // storage.head on a well-known key is a lightweight roundtrip; for fs
-      // it's a stat, for s3 a HEAD request. Missing → still healthy.
-      await ctx.storage.head('__health__');
+      const key = `__health__/ready-${process.pid}.txt`;
+      await ctx.storage.put(key, 'ok', { contentType: 'text/plain' });
+      await ctx.storage.delete(key);
       checks.storage = { ok: true };
     } catch (err) {
       checks.storage = { ok: false, error: (err as Error).message };

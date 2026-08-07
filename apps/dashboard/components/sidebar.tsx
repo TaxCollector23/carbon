@@ -1,4 +1,7 @@
+'use client';
+
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   Box,
   Cog,
@@ -22,20 +25,24 @@ const items = [
   { href: '/settings', label: 'Settings', icon: Cog },
 ];
 
-export function Sidebar({ current }: { current?: string }) {
+export function Sidebar() {
+  const pathname = usePathname();
+
   return (
-    <aside className="flex h-dvh w-60 shrink-0 flex-col border-r border-border bg-subtle/30 px-3 py-4">
+    <aside className="border-border bg-subtle/30 flex h-dvh w-60 shrink-0 flex-col border-r px-3 py-4">
       <div className="px-3 py-2 text-sm font-medium tracking-tight">Carbon</div>
       <nav className="mt-2 flex flex-1 flex-col gap-0.5">
         {items.map(({ href, label, icon: Icon }) => {
-          const active = current === href;
+          const active = pathname === href;
           return (
             <Link
               key={href}
               href={href}
               className={cn(
-                'flex items-center gap-2.5 rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors',
-                active ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background/60 hover:text-foreground',
+                'text-muted-foreground flex items-center gap-2.5 rounded-md px-3 py-1.5 text-sm transition-colors',
+                active
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'hover:bg-background/60 hover:text-foreground',
               )}
             >
               <Icon className="h-4 w-4" />
@@ -44,7 +51,7 @@ export function Sidebar({ current }: { current?: string }) {
           );
         })}
       </nav>
-      <div className="px-3 pt-4 text-xs text-muted-foreground">v0.1 · local</div>
+      <div className="text-muted-foreground px-3 pt-4 text-xs">v0.1 · local</div>
     </aside>
   );
 }

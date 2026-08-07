@@ -12,7 +12,9 @@ import type { AppContext } from '../context.js';
  * for the last-used timestamp), so we mock the fluent chain here rather than
  * pulling in a real Postgres.
  */
-function makeCtx(row: { id: string; hash: string; prefix: string; orgId: string } | null): AppContext {
+function makeCtx(
+  row: { id: string; hash: string; prefix: string; orgId: string } | null,
+): AppContext {
   const chain = {
     from: () => chain,
     where: () => chain,
@@ -40,7 +42,9 @@ async function buildApp(row: Parameters<typeof makeCtx>[0]): Promise<FastifyInst
       reply.status(401).send({ error: { code: err.code, message: err.message } });
       return;
     }
-    reply.status(500).send({ error: { code: 'CARBON_INTERNAL', message: err.message } });
+    reply.status(500).send({
+      error: { code: 'CARBON_INTERNAL', message: err instanceof Error ? err.message : String(err) },
+    });
   });
   const ctx = makeCtx(row);
   await registerApiKeyAuth(app, ctx, { mode: 'enforced' });

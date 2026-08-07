@@ -14,7 +14,8 @@
   },
   "dependencies": {
     "@carbon/core": "workspace:*",
-    "@carbon/types": "workspace:*"
+    "@carbon/types": "workspace:*",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@carbon/config": "workspace:*",

@@ -8,14 +8,7 @@ export function Logo({ className }: { className?: string }) {
       className={cn('h-5 w-5', className)}
       aria-hidden
     >
-      <rect
-        x="2.5"
-        y="2.5"
-        width="19"
-        height="19"
-        rx="5"
-        fill="currentColor"
-      />
+      <rect x="2.5" y="2.5" width="19" height="19" rx="5" fill="currentColor" />
       <path
         d="M8 12.2c0-2.3 1.9-4.2 4.2-4.2 1.6 0 3 .9 3.7 2.3"
         stroke="hsl(var(--background))"

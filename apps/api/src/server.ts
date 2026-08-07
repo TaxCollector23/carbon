@@ -54,7 +54,12 @@ export async function buildServer(
   await app.register(cors, {
     origin: origins === '*' ? true : origins,
     credentials: true,
-    exposedHeaders: ['x-request-id', 'x-carbon-key-prefix', 'x-ratelimit-limit', 'x-ratelimit-remaining'],
+    exposedHeaders: [
+      'x-request-id',
+      'x-carbon-key-prefix',
+      'x-ratelimit-limit',
+      'x-ratelimit-remaining',
+    ],
   });
   await app.register(helmet, {
     // The API serves JSON; we don't need Helmet's HTML-oriented CSP. Turn it
@@ -118,8 +123,8 @@ export async function buildServer(
       return;
     }
     log.error('api.internal_error', {
-      message: err.message,
-      name: err.name,
+      message: errorMessage(err),
+      name: errorName(err),
       url: req.url,
       method: req.method,
     });
@@ -143,12 +148,23 @@ function parseOrigins(raw: string | undefined): '*' | string[] {
   if (!raw) return [];
   const trimmed = raw.trim();
   if (trimmed === '*') return '*';
-  return trimmed.split(',').map((s) => s.trim()).filter(Boolean);
+  return trimmed
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 function cryptoRandomId(): string {
   // Web crypto is available in Node 20+, avoids a Node-specific import.
   return crypto.randomUUID();
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+function errorName(err: unknown): string {
+  return err instanceof Error ? err.name : 'UnknownError';
 }
 
 function statusFor(code: string): number {

@@ -1,16 +1,9 @@
-import IORedis from 'ioredis';
 import { createLogger } from '@carbon/core';
 import { createDatabase } from '@carbon/database';
 import { FsStorage, S3Storage, type Storage } from '@carbon/storage';
-import {
-  createIngestionPipeline,
-} from '@carbon/ingestion';
-import {
-  HarParser,
-  OpenApiParser,
-  ParserRegistry,
-  PostmanParser,
-} from '@carbon/parser';
+import { createIngestionPipeline } from '@carbon/ingestion';
+import { createDefaultParserRegistry } from '@carbon/parser';
+import { createRedisConnection } from '@carbon/workers';
 import { AiCapabilities, OpenRouterProvider } from '@carbon/ai';
 import { loadEnv } from './env.js';
 import { buildServer } from './server.js';
@@ -21,20 +14,25 @@ import { startEmbeddedWorkers } from './workers.js';
 
 async function main(): Promise<void> {
   const env = loadEnv();
-  const logger = createLogger({ level: env.LOG_LEVEL, pretty: env.NODE_ENV !== 'production', name: 'api' });
+  const logger = createLogger({
+    level: env.LOG_LEVEL,
+    pretty: env.NODE_ENV !== 'production',
+    name: 'api',
+  });
 
   logger.info('api.boot', { env: env.NODE_ENV, port: env.API_PORT });
 
   const { db } = createDatabase({
     url: env.DATABASE_URL,
-    ssl: env.NODE_ENV === 'production',
+    prepare: env.DATABASE_PREPARE,
+    ssl: env.NODE_ENV === 'production' ? true : undefined,
   });
   const storage = buildStorage(env);
-  const redis = env.REDIS_URL ? new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null }) : undefined;
-  const parsers = new ParserRegistry()
-    .register(new OpenApiParser())
-    .register(new HarParser())
-    .register(new PostmanParser());
+  const redis = env.REDIS_URL ? createRedisConnection(env.REDIS_URL) : undefined;
+  redis?.on('error', (err) => {
+    logger.warn('redis.error', { message: err.message });
+  });
+  const parsers = createDefaultParserRegistry();
 
   const ai = env.CARBON_AI_API_KEY
     ? new AiCapabilities(
@@ -50,16 +48,14 @@ async function main(): Promise<void> {
   const emulators = createEmulatorRegistry({ storage, logger });
   const jobs = redis ? createJobService({ redis, logger }) : undefined;
 
-  const workers = env.EMBED_WORKERS && redis
-    ? startEmbeddedWorkers({ redis, logger })
-    : null;
+  const workers = env.EMBED_WORKERS && redis ? startEmbeddedWorkers({ redis, logger }) : null;
   if (env.EMBED_WORKERS && !redis) {
     logger.warn('api.embedded_workers_skipped', {
       reason: 'REDIS_URL not set — set it to enable webhook delivery',
     });
   }
 
-  const ctx: AppContext = { logger, db, storage, ingestion, emulators, jobs };
+  const ctx: AppContext = { logger, db, storage, ingestion, emulators, jobs, redis };
   const server = await buildServer(ctx, logger, {
     auth: { mode: env.CARBON_AUTH_MODE },
     allowedOrigins: env.ALLOWED_ORIGINS,

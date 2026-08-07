@@ -2,6 +2,7 @@ import type { Logger } from '@carbon/core';
 import type { Database } from '@carbon/database';
 import type { Storage } from '@carbon/storage';
 import type { IngestionPipeline } from '@carbon/ingestion';
+import type { Redis } from 'ioredis';
 import type { EmulatorRegistry } from './services/emulator-registry.js';
 import type { JobService } from './services/jobs.js';
 
@@ -17,4 +18,6 @@ export interface AppContext {
   readonly emulators: EmulatorRegistry;
   /** Optional — absent when Redis is not configured. */
   readonly jobs?: JobService;
+  /** Optional — absent only in local/dev no-Redis mode. */
+  readonly redis?: Redis;
 }

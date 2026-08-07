@@ -40,7 +40,7 @@ export interface CompletionResponse {
 export interface StructuredRequest<T> extends Omit<CompletionRequest, 'messages'> {
   readonly instruction: string;
   readonly input: unknown;
-  readonly schema: z.ZodType<T>;
+  readonly schema: z.ZodType<T, z.ZodTypeDef, unknown>;
 }
 
 export interface ChatMessage {

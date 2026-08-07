@@ -6,11 +6,12 @@ description: 'Deterministic replicas in your continuous integration.'
 Carbon runs as a plain Node process — nothing special is required in CI.
 
 ```yaml
-- run: pnpm add -g @carbon/cli
+- run: npm install -g carbon-api
 - run: carbon emulate --from ./stripe.json --port 8787 &
 - run: pnpm test
   env:
     STRIPE_API_BASE: http://localhost:8787
 ```
 
-Because the runtime is deterministic, tests that pass locally pass in CI.
+The same snapshot and runtime can be used locally and in CI, which reduces drift
+between environments.

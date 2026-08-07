@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "buildCommand": "cd ../.. && pnpm --filter @carbon/dashboard build",
-  "installCommand": "cd ../.. && pnpm install --frozen-lockfile=false",
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile=false --ignore-scripts",
   "outputDirectory": ".next",
-  "regions": ["iad1"]
+  "regions": ["sfo1"]
 }

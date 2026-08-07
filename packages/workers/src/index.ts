@@ -1,5 +1,5 @@
 import { Queue, Worker, type Job, type Processor } from 'bullmq';
-import IORedis, { type RedisOptions } from 'ioredis';
+import { Redis, type RedisOptions } from 'ioredis';
 import type { Logger } from '@carbon/core';
 
 /**
@@ -21,26 +21,50 @@ export function defineQueue<Payload, Result = void>(
 }
 
 export interface QueueRegistryOptions {
-  readonly redis: RedisOptions | string | IORedis;
+  readonly redis: RedisOptions | string | Redis;
   readonly logger: Logger;
 }
 
+export interface CreateRedisConnectionOptions {
+  readonly maxRetriesPerRequest?: number | null;
+  readonly lazyConnect?: boolean;
+}
+
+export function createRedisConnection(
+  redis: RedisOptions | string,
+  opts: CreateRedisConnectionOptions = {},
+): Redis {
+  const maxRetriesPerRequest = opts.maxRetriesPerRequest ?? null;
+  if (typeof redis === 'string') {
+    return new Redis(redis, {
+      maxRetriesPerRequest,
+      lazyConnect: opts.lazyConnect,
+      ...tlsOptionsForRedisUrl(redis),
+    });
+  }
+  return new Redis({
+    ...redis,
+    maxRetriesPerRequest,
+    lazyConnect: opts.lazyConnect,
+  });
+}
+
 export class QueueRegistry {
-  private readonly connection: IORedis;
+  private readonly connection: Redis;
   private readonly ownsConnection: boolean;
   private readonly logger: Logger;
   private readonly queues = new Map<string, Queue>();
   private readonly workers: Worker[] = [];
 
   constructor(opts: QueueRegistryOptions) {
-    if (opts.redis instanceof IORedis) {
+    if (opts.redis instanceof Redis) {
       this.connection = opts.redis;
       this.ownsConnection = false;
     } else if (typeof opts.redis === 'string') {
-      this.connection = new IORedis(opts.redis, { maxRetriesPerRequest: null });
+      this.connection = createRedisConnection(opts.redis);
       this.ownsConnection = true;
     } else {
-      this.connection = new IORedis({ ...opts.redis, maxRetriesPerRequest: null });
+      this.connection = createRedisConnection(opts.redis);
       this.ownsConnection = true;
     }
     this.logger = opts.logger.child({ component: 'workers' });
@@ -82,6 +106,18 @@ export class QueueRegistry {
   }
 }
 
+function tlsOptionsForRedisUrl(url: string): Pick<RedisOptions, 'tls'> {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'rediss:' || parsed.hostname.endsWith('.upstash.io')) {
+      return { tls: { servername: parsed.hostname } };
+    }
+  } catch {
+    // Let ioredis surface the actual connection/configuration error.
+  }
+  return {};
+}
+
 export interface Producer<Payload> {
   enqueue(
     payload: Payload,
@@ -102,5 +138,7 @@ export const Queues = {
   ingest: defineQueue<{ projectSlug: string; source: string }>('carbon.ingest'),
   enrich: defineQueue<{ projectSlug: string; irId: string }>('carbon.enrich'),
   snapshot: defineQueue<{ projectSlug: string; name: string }>('carbon.snapshot'),
-  webhookDelivery: defineQueue<WebhookDeliveryPayload, { status: number }>('carbon.webhook.delivery'),
+  webhookDelivery: defineQueue<WebhookDeliveryPayload, { status: number }>(
+    'carbon.webhook.delivery',
+  ),
 } as const;

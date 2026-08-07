@@ -22,6 +22,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       }
       suppressHydrationWarning
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `!function(){try{var k='carbon-theme',s=localStorage.getItem(k),m=matchMedia('(prefers-color-scheme: dark)').matches,t=s==='dark'||(!s&&m);document.documentElement.classList.toggle('dark',t);document.documentElement.style.colorScheme=t?'dark':'light'}catch(e){}}();`,
+          }}
+        />
+      </head>
       <body className="font-sans">
         <div className="flex min-h-dvh">
           <Sidebar />

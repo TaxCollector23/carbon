@@ -27,7 +27,7 @@ export const initCommand = defineCommand({
     const cwd = process.cwd();
     const target = join(cwd, 'carbon.config.ts');
     if (existsSync(target)) {
-      ui.warn('carbon.config.ts already exists — leaving it alone.');
+      ui.warn('carbon.config.ts already exists. No changes made.');
       return;
     }
     const slug = args.slug ?? args.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');

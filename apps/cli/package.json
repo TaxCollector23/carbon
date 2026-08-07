@@ -1,30 +1,41 @@
 {
-  "name": "@carbon/cli",
+  "name": "carbon-api",
   "version": "0.1.0",
   "private": false,
   "type": "module",
-  "bin": { "carbon": "./dist/index.js" },
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
-  "files": ["dist"],
+  "bin": {
+    "carbon": "./dist/index.cjs",
+    "carbon-api": "./dist/index.cjs"
+  },
+  "main": "./dist/index.cjs",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "tsx src/index.ts",
-    "build": "tsup src/index.ts --format esm --dts --clean",
-    "typecheck": "tsc --noEmit"
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
-    "@carbon/core": "workspace:*",
-    "@carbon/proxy": "workspace:*",
-    "@carbon/sdk": "workspace:*",
     "citty": "^0.1.6",
     "consola": "^3.3.3",
     "picocolors": "^1.1.1"
   },
   "devDependencies": {
     "@carbon/config": "workspace:*",
+    "@carbon/core": "workspace:*",
+    "@carbon/parser": "workspace:*",
+    "@carbon/proxy": "workspace:*",
+    "@carbon/sdk": "workspace:*",
     "@types/node": "^22.10.0",
     "tsup": "^8.3.5",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   }
 }

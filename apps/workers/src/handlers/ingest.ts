@@ -1,5 +1,5 @@
 import type { Logger } from '@carbon/core';
-import { createParserContext, HarParser, OpenApiParser, ParserRegistry, PostmanParser, GraphQLParser } from '@carbon/parser';
+import { createDefaultParserRegistry } from '@carbon/parser';
 import { createIngestionPipeline } from '@carbon/ingestion';
 import type { Storage } from '@carbon/storage';
 
@@ -10,11 +10,7 @@ import type { Storage } from '@carbon/storage';
  * enrichment enqueue the `enrich` job separately.
  */
 export function makeIngestHandler(deps: { storage: Storage; logger: Logger }) {
-  const parsers = new ParserRegistry()
-    .register(new OpenApiParser())
-    .register(new HarParser())
-    .register(new PostmanParser())
-    .register(new GraphQLParser());
+  const parsers = createDefaultParserRegistry();
   const pipeline = createIngestionPipeline({ parsers, storage: deps.storage, logger: deps.logger });
 
   return async (payload: { projectSlug: string; source: string }) => {

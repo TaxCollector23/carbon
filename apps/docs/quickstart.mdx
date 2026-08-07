@@ -1,18 +1,18 @@
 ---
 title: 'Quickstart'
-description: 'Boot your first replica in under a minute.'
+description: 'Boot your first replica from a spec or recording.'
 ---
 
 ## Install
 
 ```bash
-curl -fsSL install.carbon.dev | sh
+curl -fsSL https://raw.githubusercontent.com/TaxCollector23/carbon/master/install.sh | sh
 ```
 
 Or with your favorite package manager:
 
 ```bash
-pnpm add -g @carbon/cli
+npm install -g carbon-api
 ```
 
 ## Initialize a project
@@ -36,5 +36,5 @@ carbon ingest https://api.stripe.com/openapi.json
 carbon emulate --from ./stripe.json --port 8787
 ```
 
-Swap your base URL to `http://localhost:8787` and everything keeps working —
-offline, in CI, on a plane.
+Swap your base URL to `http://localhost:8787` and use the same runtime locally
+and in CI.

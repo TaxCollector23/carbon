@@ -1,30 +1,35 @@
 #!/usr/bin/env node
-import { defineCommand, runMain } from 'citty';
-import { initCommand } from './commands/init.js';
-import { loginCommand } from './commands/login.js';
-import { recordCommand } from './commands/record.js';
-import { ingestCommand } from './commands/ingest.js';
-import { emulateCommand } from './commands/emulate.js';
-import { inspectCommand } from './commands/inspect.js';
-import { snapshotCommand } from './commands/snapshot.js';
-import { replayCommand } from './commands/replay.js';
+import { defineCommand, renderUsage, runMain, type ArgsDef, type CommandDef } from 'citty';
+import { cliCommandCatalog, cliSubCommands } from './commands.js';
+import { ui } from './ui.js';
 
-const main = defineCommand({
+export const main = defineCommand({
   meta: {
     name: 'carbon',
     version: '0.1.0',
-    description: 'Develop against production without production.',
+    description: 'Build and run stateful API replicas for development, tests, and CI.',
   },
-  subCommands: {
-    init: initCommand,
-    login: loginCommand,
-    record: recordCommand,
-    ingest: ingestCommand,
-    emulate: emulateCommand,
-    inspect: inspectCommand,
-    snapshot: snapshotCommand,
-    replay: replayCommand,
+  subCommands: cliSubCommands,
+  run() {
+    ui.header('Available commands');
+    ui.commandList(cliCommandCatalog);
+    ui.step('Help', `run ${ui.code('carbon --help')} or ${ui.code('carbon <command> --help')}`);
   },
 });
 
-runMain(main);
+export async function runCli(rawArgs = process.argv.slice(2)): Promise<void> {
+  ui.banner();
+  await runMain(main, {
+    rawArgs,
+    showUsage: renderCarbonUsage,
+  });
+}
+
+async function renderCarbonUsage<T extends ArgsDef = ArgsDef>(
+  cmd: CommandDef<T>,
+  parent?: CommandDef<T>,
+): Promise<void> {
+  process.stdout.write(await renderUsage(cmd, parent));
+}
+
+void runCli();

@@ -1,27 +1,20 @@
 import { defineCommand } from 'citty';
 import { readFile } from 'node:fs/promises';
 import { createLogger } from '@carbon/core';
-import {
-  createParserContext,
-  HarParser,
-  OpenApiParser,
-  ParserRegistry,
-  PostmanParser,
-  type ParserInput,
-} from '@carbon/parser';
+import { createDefaultParserRegistry, createParserContext, type ParserInput } from '@carbon/parser';
 import { ui } from '../ui.js';
 
 export const ingestCommand = defineCommand({
-  meta: { name: 'ingest', description: 'Parse an API spec, HAR, or Postman collection into IR.' },
+  meta: {
+    name: 'ingest',
+    description: 'Parse OpenAPI, AsyncAPI, GraphQL, protobuf/gRPC, HAR, or Postman into IR.',
+  },
   args: {
     source: { type: 'positional', description: 'Path to file or URL' },
   },
   async run({ args }) {
     const logger = createLogger({ level: 'info', pretty: true, name: 'ingest' });
-    const parsers = new ParserRegistry()
-      .register(new OpenApiParser())
-      .register(new HarParser())
-      .register(new PostmanParser());
+    const parsers = createDefaultParserRegistry();
 
     const input = await load(args.source);
     const ir = await parsers.parse(input, createParserContext(logger, args.source));

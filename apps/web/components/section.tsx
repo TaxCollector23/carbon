@@ -9,7 +9,7 @@ export function Section({ className, bordered = true, children, ...props }: Sect
   return (
     <section
       className={cn(
-        'relative border-x border-border',
+        'border-border relative scroll-mt-20 border-x',
         bordered && 'border-t',
         className,
       )}
@@ -20,26 +20,7 @@ export function Section({ className, bordered = true, children, ...props }: Sect
   );
 }
 
-interface EyebrowProps {
-  children: React.ReactNode;
-  className?: string;
-}
-
-export function Eyebrow({ children, className }: EyebrowProps) {
-  return (
-    <p
-      className={cn(
-        'text-2xs font-medium uppercase tracking-[0.14em] text-muted-foreground',
-        className,
-      )}
-    >
-      {children}
-    </p>
-  );
-}
-
 interface SectionHeadingProps {
-  eyebrow?: string;
   title: React.ReactNode;
   description?: React.ReactNode;
   align?: 'left' | 'center';
@@ -47,7 +28,6 @@ interface SectionHeadingProps {
 }
 
 export function SectionHeading({
-  eyebrow,
   title,
   description,
   align = 'left',
@@ -61,10 +41,9 @@ export function SectionHeading({
         className,
       )}
     >
-      {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
       <h2 className="max-w-2xl text-3xl font-medium tracking-tight sm:text-4xl">{title}</h2>
       {description ? (
-        <p className="max-w-2xl text-base text-muted-foreground">{description}</p>
+        <p className="text-muted-foreground max-w-2xl text-base">{description}</p>
       ) : null}
     </div>
   );

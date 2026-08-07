@@ -10,7 +10,8 @@ import type { AppContext } from '../context.js';
  * the org is only created if it does not already exist. Prints the presented
  * API key to stdout exactly once. Store it before the process exits.
  *
- * Run via `pnpm --filter @carbon/api bootstrap` or as a Render Job.
+ * Run via `pnpm --filter @carbon/api bootstrap` from your machine or as a
+ * one-shot deploy job.
  */
 async function main(): Promise<void> {
   const url = process.env.DATABASE_URL;
@@ -22,8 +23,16 @@ async function main(): Promise<void> {
   const orgSlug = (process.env.BOOTSTRAP_ORG_SLUG ?? 'personal').toLowerCase();
   const keyName = process.env.BOOTSTRAP_KEY_NAME ?? 'bootstrap';
 
-  const logger = createLogger({ level: 'info', pretty: true, name: 'bootstrap' });
-  const { db, sql } = createDatabase({ url, maxConnections: 2, ssl: process.env.NODE_ENV === 'production' });
+  const logger = createLogger({
+    level: 'info',
+    pretty: process.env.NODE_ENV !== 'production',
+    name: 'bootstrap',
+  });
+  const { db, sql } = createDatabase({
+    url,
+    maxConnections: 2,
+    ssl: process.env.NODE_ENV === 'production' ? true : undefined,
+  });
 
   try {
     const [existing] = await db

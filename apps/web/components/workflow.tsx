@@ -4,7 +4,7 @@ const steps = [
   {
     number: '01',
     title: 'Point',
-    body: 'Give Carbon an OpenAPI spec, a Postman collection, a HAR file, or a live URL to observe.',
+    body: 'Give Carbon an OpenAPI spec, AsyncAPI document, protobuf service, Postman collection, HAR file, GraphQL schema, or URL to observe.',
     command: 'carbon record https://api.stripe.com',
   },
   {
@@ -16,45 +16,47 @@ const steps = [
   {
     number: '03',
     title: 'Emulate',
-    body: 'A deterministic Fastify runtime boots on localhost. Swap your base URL. Everything keeps working — offline, in CI, on a plane.',
+    body: 'A deterministic Fastify runtime boots on localhost. Swap your base URL and run without the upstream API.',
     command: 'carbon emulate --port 8787',
   },
   {
     number: '04',
     title: 'Snapshot',
-    body: 'Freeze state, branch it, replay it. Ship reproducible fixtures with every pull request.',
+    body: 'Freeze state, branch it, and replay it so each pull request can use the same setup.',
     command: 'carbon snapshot save "seeded-checkout"',
   },
 ];
 
 export function Workflow() {
   return (
-    <Section id="workflow" className="py-24">
-      <SectionHeading
-        eyebrow="Workflow"
-        title="Four commands."
-        description="Nothing in your app changes except the base URL."
-      />
-      <ol className="mt-14 grid gap-6 md:grid-cols-2">
-        {steps.map((step) => (
-          <li
-            key={step.number}
-            className="flex flex-col gap-4 rounded-lg border border-border bg-card p-8"
-          >
-            <div className="flex items-center gap-3">
-              <span className="font-mono text-2xs uppercase tracking-widest text-muted-foreground">
+    <Section id="workflow" className="bg-subtle/50 py-24">
+      <div className="grid gap-12 lg:grid-cols-[0.7fr_1.3fr]">
+        <SectionHeading
+          title="Four commands."
+          description="Your application only needs a different base URL."
+        />
+        <ol className="border-border relative border-y">
+          {steps.map((step) => (
+            <li
+              key={step.number}
+              className="border-border group grid gap-5 border-b py-7 last:border-b-0 sm:grid-cols-[5rem_1fr]"
+            >
+              <div className="text-muted-foreground group-hover:text-foreground font-mono text-sm transition-transform group-hover:translate-x-1">
                 {step.number}
-              </span>
-              <span className="h-px flex-1 bg-border" />
-            </div>
-            <h3 className="text-lg font-medium tracking-tight">{step.title}</h3>
-            <p className="text-sm text-muted-foreground">{step.body}</p>
-            <code className="mt-auto rounded-md bg-muted px-3 py-2 font-mono text-xs text-foreground">
-              {step.command}
-            </code>
-          </li>
-        ))}
-      </ol>
+              </div>
+              <div>
+                <div className="flex flex-wrap items-baseline justify-between gap-3">
+                  <h3 className="text-xl font-medium tracking-tight">{step.title}</h3>
+                  <code className="text-muted-foreground font-mono text-xs">{step.command}</code>
+                </div>
+                <p className="text-muted-foreground mt-3 max-w-2xl text-sm leading-6">
+                  {step.body}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
     </Section>
   );
 }

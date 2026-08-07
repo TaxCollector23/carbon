@@ -16,7 +16,16 @@ export interface Parser<Input = ParserInput> {
   parse(input: Input, ctx: ParserContext): Promise<IntermediateRepresentation>;
 }
 
-export type ParserFormat = 'openapi' | 'swagger' | 'graphql' | 'har' | 'postman' | 'traffic';
+export type ParserFormat =
+  | 'openapi'
+  | 'swagger'
+  | 'graphql'
+  | 'asyncapi'
+  | 'protobuf'
+  | 'grpc'
+  | 'har'
+  | 'postman'
+  | 'traffic';
 
 export interface ParserContext {
   readonly logger: Logger;

@@ -16,7 +16,10 @@ export const auth = (() => {
   const baseURL = process.env.BETTER_AUTH_URL ?? 'http://localhost:3001';
 
   if (process.env.DATABASE_URL) {
-    const { db } = createDatabase({ url: process.env.DATABASE_URL });
+    const { db } = createDatabase({
+      url: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? true : undefined,
+    });
     return betterAuth({
       secret,
       baseURL,

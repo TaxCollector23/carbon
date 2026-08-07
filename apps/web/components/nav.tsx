@@ -4,13 +4,16 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { buttonVariants, cn } from '@carbon/ui';
 import { Wordmark } from './logo';
+import { ThemeToggle } from './theme-toggle';
 
 const links = [
-  { href: '/docs', label: 'Docs' },
-  { href: '/cli', label: 'CLI' },
-  { href: '/pricing', label: 'Pricing' },
-  { href: '/blog', label: 'Blog' },
-  { href: 'https://github.com/carbon-dev/carbon', label: 'GitHub' },
+  { href: '/#workflow', label: 'Workflow' },
+  { href: '/#comparison', label: 'Compare' },
+  { href: '/#cli', label: 'CLI' },
+  { href: '/benchmarks', label: 'Benchmarks' },
+  { href: '/#pricing', label: 'Pricing' },
+  { href: '/dashboard', label: 'Dashboard' },
+  { href: 'https://github.com/TaxCollector23/carbon', label: 'GitHub' },
 ];
 
 export function Nav() {
@@ -29,7 +32,7 @@ export function Nav() {
         'fixed inset-x-0 top-0 z-50 h-16 border-b transition-colors duration-200',
         scrolled
           ? 'border-border bg-background/80 backdrop-blur-md'
-          : 'border-transparent bg-background/0',
+          : 'bg-background/0 border-transparent',
       )}
     >
       <div className="container flex h-full items-center justify-between">
@@ -38,12 +41,12 @@ export function Nav() {
             <Wordmark />
           </Link>
           <nav aria-label="Primary" className="hidden md:block">
-            <ul className="flex items-center gap-7 text-sm text-muted-foreground">
+            <ul className="text-muted-foreground flex items-center gap-7 text-sm">
               {links.map((link) => (
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="transition-colors hover:text-foreground"
+                    className="hover:text-foreground focus-visible:text-foreground after:bg-foreground relative transition-colors after:absolute after:-bottom-1.5 after:left-0 after:h-px after:w-0 after:transition-all hover:after:w-full focus-visible:outline-none focus-visible:after:w-full"
                   >
                     {link.label}
                   </Link>
@@ -54,20 +57,24 @@ export function Nav() {
         </div>
         <div className="flex items-center gap-2">
           <Link
-            href="/dashboard"
-            className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground md:inline-flex"
+            href="/#sdk"
+            className="text-muted-foreground hover:text-foreground hidden text-sm transition-colors md:inline-flex"
           >
-            Dashboard
+            SDK
           </Link>
           <Link
-            href="/signin"
-            className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'hidden md:inline-flex')}
+            href="/dashboard"
+            className={cn(
+              buttonVariants({ variant: 'ghost', size: 'sm' }),
+              'hidden md:inline-flex',
+            )}
           >
-            Sign in
+            Enter Dashboard
           </Link>
-          <Link href="/get-started" className={buttonVariants({ size: 'sm' })}>
-            Get started
+          <Link href="/#cli" className={buttonVariants({ size: 'sm' })}>
+            Install CLI
           </Link>
+          <ThemeToggle />
         </div>
       </div>
     </header>

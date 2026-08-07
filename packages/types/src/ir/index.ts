@@ -2,15 +2,15 @@ import type { AuthScheme, HttpMethod, JsonType } from '../common.js';
 
 /**
  * The Intermediate Representation (IR) is Carbon's canonical, format-agnostic
- * description of an API. Every parser — OpenAPI, GraphQL, HAR, Postman, live
- * traffic — normalizes into this shape. Every downstream stage (behavior graph,
- * runtime, sdk generation) reads only the IR.
+ * description of an API. Every parser — OpenAPI, AsyncAPI, GraphQL, protobuf,
+ * gRPC, HAR, Postman, live traffic — normalizes into this shape. Every
+ * downstream stage (behavior graph, runtime, sdk generation) reads only the IR.
  *
  * Design goals:
  *   1. Small. Not a superset of every input format — a common core.
  *   2. Stable. Adding a new parser must never change existing IR consumers.
- *   3. Losless enough for emulation. Anything the runtime needs must live here.
- *   4. Losseful for aesthetics. Presentation details (descriptions, tags) stay in `meta`.
+ *   3. Lossless enough for emulation. Anything the runtime needs must live here.
+ *   4. Useful for presentation. Descriptions, tags, and source details stay in `meta`.
  */
 export interface IntermediateRepresentation {
   readonly version: 1;
@@ -31,7 +31,18 @@ export interface ApiMeta {
 }
 
 export interface SourceProvenance {
-  readonly kind: 'openapi' | 'swagger' | 'graphql' | 'postman' | 'har' | 'traffic' | 'docs' | 'mixed';
+  readonly kind:
+    | 'openapi'
+    | 'swagger'
+    | 'graphql'
+    | 'asyncapi'
+    | 'protobuf'
+    | 'grpc'
+    | 'postman'
+    | 'har'
+    | 'traffic'
+    | 'docs'
+    | 'mixed';
   /** Optional origin URL or file path — for debugging & diffing later ingests. */
   readonly origin?: string;
   /** Ingestion timestamp in ms since epoch. */
@@ -75,7 +86,8 @@ export interface EndpointDef {
 export type EndpointId = string & { readonly __brand: 'EndpointId' };
 
 /** Inferred CRUD-ish semantic. Best-effort. `custom` when nothing fits. */
-export type OperationKind = 'list' | 'get' | 'create' | 'update' | 'replace' | 'delete' | 'action' | 'custom';
+export type OperationKind =
+  'list' | 'get' | 'create' | 'update' | 'replace' | 'delete' | 'action' | 'custom';
 
 export interface ParamDef {
   readonly name: string;

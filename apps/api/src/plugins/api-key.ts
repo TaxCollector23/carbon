@@ -98,13 +98,14 @@ export async function registerApiKeyAuth(
     (req as AuthenticatedRequest).apiKey = { id: row.id, orgId: row.orgId, prefix: row.prefix };
 
     // Fire-and-forget touch — never block the request path on a metadata write.
-    void ctx.db
-      .update(schema.apiKeys)
-      .set({ lastUsedAt: new Date() })
-      .where(eq(schema.apiKeys.id, row.id))
-      .catch(() => {
-        /* observability handles this */
-      });
+    void (async () => {
+      await ctx.db
+        .update(schema.apiKeys)
+        .set({ lastUsedAt: new Date() })
+        .where(eq(schema.apiKeys.id, row.id));
+    })().catch(() => {
+      /* observability handles this */
+    });
 
     reply.header('x-carbon-key-prefix', row.prefix);
   });

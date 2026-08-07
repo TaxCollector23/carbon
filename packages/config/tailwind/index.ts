@@ -5,7 +5,7 @@ import type { Config } from 'tailwindcss';
  * design system stays consistent across surfaces.
  */
 export const preset = {
-  darkMode: ['class'],
+  darkMode: ['class'] as ['class'],
   content: [],
   theme: {
     container: {
@@ -64,7 +64,7 @@ export const preset = {
         mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       fontSize: {
-        '2xs': ['0.6875rem', { lineHeight: '1rem' }],
+        '2xs': ['0.6875rem', { lineHeight: '1rem' }] as [string, { lineHeight: string }],
       },
       keyframes: {
         'fade-in': {

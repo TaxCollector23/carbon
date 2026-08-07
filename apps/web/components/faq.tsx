@@ -8,11 +8,11 @@ import { Section, SectionHeading } from './section';
 const items = [
   {
     q: 'Is the runtime deterministic?',
-    a: 'Yes. Once ingestion produces the behavior graph, request handling is pure code — no AI, no network, no randomness unless you enable it. Same input, same output.',
+    a: 'Yes. Once ingestion produces the behavior graph, request handling is code running against the state engine. AI is not used on the request path.',
   },
   {
     q: 'How is this different from MSW or nock?',
-    a: 'MSW/nock return the response you scripted. Carbon runs a state engine: POST /customers actually creates a customer; the next GET /customers/:id returns it; DELETE removes it. You do not write the responses.',
+    a: 'MSW and nock are useful for scripted responses. Carbon adds a state engine, so POST /customers can change what the next GET returns.',
   },
   {
     q: 'Does Carbon call out to my API in production?',
@@ -20,7 +20,7 @@ const items = [
   },
   {
     q: 'What inputs work?',
-    a: 'OpenAPI 3.x / Swagger 2.0, GraphQL SDL, Postman v2.1 collections, HAR files, and observed traffic via carbon record. gRPC and AsyncAPI are on the roadmap.',
+    a: 'OpenAPI 3.x, Swagger 2.0, AsyncAPI, protobuf, gRPC service declarations, GraphQL SDL, Postman v2.1 collections, HAR files, and observed traffic via carbon record.',
   },
   {
     q: 'How well does it handle GraphQL?',
@@ -28,7 +28,7 @@ const items = [
   },
   {
     q: 'Can I self-host?',
-    a: 'The CLI and runtime are already local. The control plane (dashboard, cloud sync, shared snapshots) can be self-hosted on the Enterprise plan — one Postgres, one Redis, one Docker image.',
+    a: 'The CLI and runtime run on your machine today. The control plane can be deployed with Postgres, Redis, and object storage when your team needs shared state.',
   },
 ];
 
@@ -36,38 +36,33 @@ export function Faq() {
   const [open, setOpen] = useState<number | null>(0);
   return (
     <Section id="faq" className="py-24">
-      <SectionHeading
-        eyebrow="FAQ"
-        title="Questions, answered."
-        align="center"
-        className="mx-auto"
-      />
-      <div className="mx-auto mt-12 max-w-2xl overflow-hidden rounded-lg border border-border">
+      <SectionHeading title="Questions, answered." align="center" className="mx-auto" />
+      <div className="border-border mx-auto mt-12 max-w-2xl border-y">
         {items.map((item, i) => {
           const expanded = open === i;
           return (
-            <div key={item.q} className={i > 0 ? 'border-t border-border' : ''}>
+            <div key={item.q} className={i > 0 ? 'border-border border-t' : ''}>
               <button
                 type="button"
                 aria-expanded={expanded}
                 onClick={() => setOpen(expanded ? null : i)}
-                className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left text-sm font-medium transition-colors hover:bg-subtle"
+                className="hover:text-muted-foreground focus-visible:ring-ring focus-visible:ring-offset-background flex w-full items-center justify-between gap-4 py-5 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-4"
               >
                 <span>{item.q}</span>
                 {expanded ? (
-                  <Minus className="h-4 w-4 text-muted-foreground" />
+                  <Minus className="text-muted-foreground h-4 w-4" />
                 ) : (
-                  <Plus className="h-4 w-4 text-muted-foreground" />
+                  <Plus className="text-muted-foreground h-4 w-4" />
                 )}
               </button>
               <div
                 className={cn(
-                  'grid overflow-hidden text-sm text-muted-foreground transition-[grid-template-rows] duration-200',
+                  'text-muted-foreground grid overflow-hidden text-sm transition-[grid-template-rows] duration-200',
                   expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
                 )}
               >
                 <div className="min-h-0">
-                  <p className="px-6 pb-5 pt-0">{item.a}</p>
+                  <p className="pb-5 pt-0 leading-6">{item.a}</p>
                 </div>
               </div>
             </div>

@@ -1,13 +1,13 @@
 import { createHmac } from 'node:crypto';
 import { CarbonError, type Logger } from '@carbon/core';
 import { QueueRegistry, Queues, type WebhookDeliveryPayload } from '@carbon/workers';
-import type IORedis from 'ioredis';
+import type { Redis } from 'ioredis';
 
 /**
  * Embedded workers.
  *
  * When EMBED_WORKERS=true, the API process also runs BullMQ workers so we
- * don't need a second Render service. This is the right shape for early scale
+ * don't need a second worker process. This is the right shape for early scale
  * — the workers are I/O-bound (fetch, DB writes) and don't compete
  * meaningfully with request handling.
  *
@@ -15,10 +15,9 @@ import type IORedis from 'ioredis';
  * its own service. The handlers here are intentionally a subset — webhooks
  * only — so an operator can start there and add more without duplicating logic.
  */
-export function startEmbeddedWorkers(deps: {
-  redis: IORedis;
-  logger: Logger;
-}): { close: () => Promise<void> } {
+export function startEmbeddedWorkers(deps: { redis: Redis; logger: Logger }): {
+  close: () => Promise<void>;
+} {
   const registry = new QueueRegistry({ redis: deps.redis, logger: deps.logger });
 
   registry.handle(Queues.webhookDelivery, async (job) =>
@@ -51,7 +50,9 @@ async function deliverWebhook(
   };
   if (payload.secret) {
     const timestamp = Math.floor(Date.now() / 1000);
-    const signature = createHmac('sha256', payload.secret).update(`${timestamp}.${body}`).digest('hex');
+    const signature = createHmac('sha256', payload.secret)
+      .update(`${timestamp}.${body}`)
+      .digest('hex');
     headers['x-carbon-signature'] = `t=${timestamp},v1=${signature}`;
   }
 
@@ -61,7 +62,12 @@ async function deliverWebhook(
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await fetch(payload.url, { method: 'POST', headers, body, signal: controller.signal });
+      const res = await fetch(payload.url, {
+        method: 'POST',
+        headers,
+        body,
+        signal: controller.signal,
+      });
       clearTimeout(timer);
       if (res.status < 500 && res.status !== 429) {
         logger.info('webhook.delivered', { status: res.status, attempt });

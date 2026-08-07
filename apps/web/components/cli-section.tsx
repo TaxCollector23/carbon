@@ -2,42 +2,50 @@ import { Section, SectionHeading } from './section';
 
 const commands = [
   ['carbon init', 'Scaffold a project in the current directory.'],
-  ['carbon login', 'Authenticate with your Carbon account.'],
+  ['carbon login', 'Use API keys for account-backed workflows.'],
   ['carbon record <url>', 'Observe live traffic and build a recording.'],
-  ['carbon ingest <spec>', 'Pull in an OpenAPI, Postman, or HAR file.'],
+  ['carbon ingest <spec>', 'Parse OpenAPI, AsyncAPI, protobuf, gRPC, Postman, HAR, or GraphQL.'],
   ['carbon emulate', 'Boot the deterministic local runtime.'],
   ['carbon inspect', 'Explore the resource graph in your terminal.'],
   ['carbon snapshot save <name>', 'Freeze state for reproducible tests.'],
-  ['carbon replay <recording>', 'Deterministically replay a captured session.'],
+  ['carbon replay <recording>', 'Replay a captured session against the same request order.'],
 ];
 
 export function CliSection() {
   return (
     <Section id="cli" className="py-24">
-      <div className="grid gap-12 lg:grid-cols-[1fr_1.2fr] lg:items-start">
+      <div className="grid gap-12 lg:grid-cols-[0.75fr_1.25fr] lg:items-start">
         <SectionHeading
-          eyebrow="CLI"
           title="Eight commands you'll use."
-          description="Everything the dashboard does, you can do from a terminal or a CI script."
+          description="Build and run stateful API replicas from a terminal or CI script."
         />
-        <div className="overflow-hidden rounded-lg border border-border">
-          <table className="w-full text-sm">
-            <tbody>
-              {commands.map(([cmd, desc], i) => (
-                <tr
-                  key={cmd}
-                  className={
-                    i < commands.length - 1 ? 'border-b border-border' : undefined
-                  }
-                >
-                  <td className="w-[45%] whitespace-nowrap px-5 py-3.5 font-mono text-xs text-foreground">
-                    {cmd}
-                  </td>
-                  <td className="px-5 py-3.5 text-sm text-muted-foreground">{desc}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="border-border border-y">
+          <div className="border-border flex flex-col gap-3 border-b py-4 sm:flex-row sm:items-center sm:justify-between">
+            <code className="break-all font-mono text-sm">
+              curl -fsSL https://raw.githubusercontent.com/TaxCollector23/carbon/master/install.sh |
+              sh
+            </code>
+            <a
+              href="#pricing"
+              className="text-muted-foreground hover:text-foreground shrink-0 text-sm transition-colors"
+            >
+              choose plan
+            </a>
+          </div>
+          <div className="divide-border divide-y">
+            {commands.map(([cmd, desc]) => (
+              <a
+                key={cmd}
+                href="#workflow"
+                className="hover:bg-subtle/70 focus-visible:bg-subtle/70 group grid gap-3 py-4 transition-colors focus-visible:outline-none sm:grid-cols-[minmax(12rem,0.85fr)_1fr]"
+              >
+                <code className="text-foreground font-mono text-xs transition-transform group-hover:translate-x-1">
+                  {cmd}
+                </code>
+                <span className="text-muted-foreground text-sm">{desc}</span>
+              </a>
+            ))}
+          </div>
         </div>
       </div>
     </Section>

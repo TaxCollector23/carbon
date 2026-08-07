@@ -12,7 +12,7 @@ const IngestBody = z.object({
   enrich: z.boolean().default(false),
   /**
    * When true, return 202 with a jobId and run ingestion in the background.
-   * Recommended for large specs to avoid Render's request timeout (30s).
+   * Recommended for large specs and hosts with short request timeouts.
    */
   async: z.boolean().default(false),
 });

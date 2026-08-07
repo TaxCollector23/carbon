@@ -110,9 +110,8 @@ export class OpenRouterProvider implements AiProvider {
     return {
       'content-type': 'application/json',
       authorization: `Bearer ${this.apiKey}`,
-      'http-referer': 'https://carbon.dev',
+      'http-referer': process.env.CARBON_SITE_URL ?? 'https://github.com/TaxCollector23/carbon',
       'x-title': 'Carbon',
     };
   }
 }
-

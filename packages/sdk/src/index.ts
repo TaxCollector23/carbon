@@ -1,11 +1,11 @@
 import { createLogger, type Logger } from '@carbon/core';
 import { BehaviorGraphBuilder } from '@carbon/graph';
-import { OpenApiParser, HarParser, PostmanParser, ParserRegistry, createParserContext, type ParserInput } from '@carbon/parser';
+import { createDefaultParserRegistry, createParserContext, type ParserInput } from '@carbon/parser';
 import { createRuntime, type Runtime } from '@carbon/runtime';
 import { InMemoryStateEngine, type StateEngine, type StateSnapshot } from '@carbon/state';
 
 export interface EmulateOptions {
-  /** OpenAPI URL/file, HAR, Postman collection, or preloaded ParserInput. */
+  /** API source path/URL, recorded traffic, or preloaded ParserInput. */
   readonly from: ParserInput | string;
   readonly port?: number;
   readonly host?: string;
@@ -35,10 +35,7 @@ export const carbon = {
   async emulate(opts: EmulateOptions): Promise<Replica> {
     const logger = opts.logger ?? createLogger({ level: 'info', pretty: true, name: 'sdk' });
 
-    const parsers = new ParserRegistry()
-      .register(new OpenApiParser())
-      .register(new HarParser())
-      .register(new PostmanParser());
+    const parsers = createDefaultParserRegistry();
 
     const input: ParserInput =
       typeof opts.from === 'string' ? await loadInput(opts.from) : opts.from;

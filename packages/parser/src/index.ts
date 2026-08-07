@@ -1,6 +1,10 @@
 export * from './parser.js';
 export * from './registry.js';
+export * from './builtins.js';
 export { OpenApiParser } from './adapters/openapi.js';
 export { HarParser } from './adapters/har.js';
 export { PostmanParser } from './adapters/postman.js';
 export { GraphQLParser } from './adapters/graphql.js';
+export { AsyncApiParser } from './adapters/asyncapi.js';
+export { ProtobufParser } from './adapters/protobuf.js';
+export { GrpcParser } from './adapters/grpc.js';

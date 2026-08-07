@@ -64,7 +64,9 @@ export async function createRuntime(opts: RuntimeOptions): Promise<Runtime> {
       reply.status(mapped.status).send(mapped.body);
       return;
     }
-    logger.error('runtime.internal_error', { message: err.message });
+    logger.error('runtime.internal_error', {
+      message: err instanceof Error ? err.message : String(err),
+    });
     reply.status(500).send({ error: { code: 'CARBON_INTERNAL', message: 'Internal error' } });
   });
 

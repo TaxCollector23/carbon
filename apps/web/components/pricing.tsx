@@ -5,47 +5,50 @@ import { Section, SectionHeading } from './section';
 
 const tiers = [
   {
-    name: 'Local',
+    name: 'Developer',
     price: '$0',
-    period: '/ forever',
-    description: 'The full runtime and CLI. Runs on your machine.',
+    period: '',
+    description: 'CLI, runtime, imports, and snapshots for one developer or one repo.',
     features: [
-      'Unlimited emulators, unlimited requests',
-      'All parser formats (OpenAPI, HAR, Postman, GraphQL)',
-      'Snapshots saved locally',
-      'MIT-licensed CLI',
+      'Unlimited local runtimes',
+      'OpenAPI, AsyncAPI, protobuf, gRPC, HAR, Postman, GraphQL, and recorded traffic imports',
+      'JSON snapshots for tests and review',
+      'GitHub-based install and updates',
     ],
-    cta: { label: 'Install the CLI', href: '/docs/installation' },
+    cta: { label: 'Install the CLI', href: '#cli' },
     highlighted: false,
   },
   {
     name: 'Team',
     price: '$29',
     period: '/ developer / month',
-    description: 'Cloud sync, shared graphs, CI runners, dashboard.',
+    description: 'Shared projects and snapshots for teams building against the same APIs.',
     features: [
-      'Cloud-synced snapshots and graphs',
-      'Shared behavior across your org',
-      'Hosted CI runners for emulators',
-      'Web dashboard',
-      'Email support, one-day SLA',
+      'Shared graphs, recordings, and snapshots',
+      'Dashboard for projects, runs, and activity',
+      'CI-friendly auth and project keys',
+      'Team retention settings',
+      'Email support',
     ],
-    cta: { label: 'Start 14-day trial', href: '/get-started?plan=team' },
+    cta: {
+      label: 'Enter Dashboard',
+      href: '/dashboard',
+    },
     highlighted: true,
   },
   {
     name: 'Enterprise',
     price: 'Talk to us',
     period: '',
-    description: 'Self-hosted control plane, SSO, audit logs, custom SLA.',
+    description: 'Deployment and governance controls for larger teams.',
     features: [
       'Self-hosted control plane',
-      'SSO (Okta, Azure AD, Google Workspace)',
-      'SCIM provisioning',
+      'SSO and SCIM',
       'Audit logs, retention controls',
-      'Named support engineer',
+      'Private storage configuration',
+      'Support and onboarding plan',
     ],
-    cta: { label: 'Contact sales', href: '/contact' },
+    cta: { label: 'Enter Dashboard', href: '/dashboard' },
     highlighted: false,
   },
 ];
@@ -54,52 +57,52 @@ export function Pricing() {
   return (
     <Section id="pricing" className="py-24">
       <SectionHeading
-        eyebrow="Pricing"
-        title="The runtime is free."
-        description="You pay when you want cloud sync and shared state across your team."
+        title="Start with the runtime. Add team features when shared state matters."
+        description="The CLI and runtime stay simple. Shared workspace features can sit behind the dashboard when your team needs them."
         align="center"
         className="mx-auto"
       />
-      <div className="mx-auto mt-14 grid max-w-5xl gap-6 md:grid-cols-3">
+      <div className="mx-auto mt-14 grid max-w-3xl gap-4">
         {tiers.map((tier) => (
-          <div
+          <section
             key={tier.name}
             className={cn(
-              'flex flex-col rounded-lg border bg-card p-8',
-              tier.highlighted ? 'border-foreground shadow-sm' : 'border-border',
+              'border-border bg-background flex flex-col border-y p-6 sm:p-8',
+              tier.highlighted && 'bg-subtle/60',
             )}
           >
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-medium">{tier.name}</h3>
-              {tier.highlighted ? (
-                <span className="rounded-full border border-border px-2 py-0.5 text-2xs uppercase tracking-widest text-muted-foreground">
-                  Most teams
-                </span>
-              ) : null}
+            <div>
+              <div className="flex items-center gap-3">
+                <h3 className="text-base font-medium">{tier.name}</h3>
+              </div>
+              <div className="mt-5 flex flex-wrap items-baseline gap-1">
+                <span className="text-3xl font-medium tracking-tight">{tier.price}</span>
+                <span className="text-muted-foreground text-sm">{tier.period}</span>
+              </div>
+              <p className="text-muted-foreground mt-3 max-w-xs text-sm leading-6">
+                {tier.description}
+              </p>
             </div>
-            <div className="mt-5 flex items-baseline gap-1">
-              <span className="text-3xl font-medium tracking-tight">{tier.price}</span>
-              <span className="text-sm text-muted-foreground">{tier.period}</span>
-            </div>
-            <p className="mt-3 text-sm text-muted-foreground">{tier.description}</p>
-            <ul className="mt-6 flex flex-col gap-3 text-sm">
+            <ul className="mt-6 grid gap-3 text-sm sm:grid-cols-2">
               {tier.features.map((f) => (
                 <li key={f} className="flex items-start gap-2.5">
-                  <Check className="mt-0.5 h-4 w-4 text-foreground" />
+                  <Check className="text-foreground mt-0.5 h-4 w-4" />
                   <span>{f}</span>
                 </li>
               ))}
             </ul>
-            <Link
-              href={tier.cta.href}
-              className={cn(
-                'mt-8',
-                buttonVariants({ variant: tier.highlighted ? 'primary' : 'secondary' }),
-              )}
-            >
-              {tier.cta.label}
-            </Link>
-          </div>
+            <div className="mt-7">
+              <Link
+                href={tier.cta.href}
+                className={cn(
+                  buttonVariants({ variant: tier.highlighted ? 'primary' : 'secondary' }),
+                  'w-full sm:w-auto',
+                )}
+              >
+                {tier.cta.label}
+              </Link>
+            </div>
+          </section>
         ))}
       </div>
     </Section>

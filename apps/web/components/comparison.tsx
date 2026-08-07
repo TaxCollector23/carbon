@@ -24,26 +24,22 @@ const rows: Row[] = [
 ];
 
 function Marker({ value }: { value: Cell }) {
-  if (value === true)
-    return <Check className="h-4 w-4 text-foreground" aria-label="Yes" />;
+  if (value === true) return <Check className="text-foreground h-4 w-4" aria-label="Yes" />;
   if (value === 'partial')
-    return <Minus className="h-4 w-4 text-muted-foreground" aria-label="Partial" />;
-  return <X className="h-4 w-4 text-muted-foreground/40" aria-label="No" />;
+    return <Minus className="text-muted-foreground h-4 w-4" aria-label="Partial" />;
+  return <X className="text-muted-foreground/40 h-4 w-4" aria-label="No" />;
 }
 
 export function Comparison() {
   return (
     <Section id="comparison" className="py-24">
-      <SectionHeading
-        eyebrow="Comparison"
-        title="What each option gives you."
-      />
-      <div className="mt-12 overflow-hidden rounded-lg border border-border">
+      <SectionHeading title="What each option gives you." />
+      <div className="border-border mt-12 overflow-x-auto border-y">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border bg-subtle text-left text-muted-foreground">
+            <tr className="border-border text-muted-foreground border-b text-left">
               <th className="px-6 py-4 font-medium">Capability</th>
-              <th className="px-4 py-4 text-center font-medium text-foreground">Carbon</th>
+              <th className="text-foreground px-4 py-4 text-center font-medium">Carbon</th>
               <th className="px-4 py-4 text-center font-medium">Mock libs</th>
               <th className="px-4 py-4 text-center font-medium">Shared staging</th>
               <th className="px-4 py-4 text-center font-medium">Postman / Insomnia</th>
@@ -54,8 +50,8 @@ export function Comparison() {
               <tr
                 key={row.label}
                 className={cn(
-                  'border-b border-border last:border-b-0',
-                  i % 2 === 1 && 'bg-subtle/40',
+                  'border-border border-b last:border-b-0',
+                  i % 2 === 1 && 'bg-subtle/50',
                 )}
               >
                 <td className="px-6 py-3.5">{row.label}</td>

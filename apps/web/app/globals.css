@@ -6,12 +6,87 @@ html {
 
 body {
   min-height: 100dvh;
+  background: hsl(var(--background));
 }
 
-.grid-pattern {
-  background-image:
-    linear-gradient(to right, hsl(var(--border) / 0.5) 1px, transparent 1px),
-    linear-gradient(to bottom, hsl(var(--border) / 0.5) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse at top, black 40%, transparent 75%);
+:root {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: 0 0% 0%;
+  --foreground: 0 0% 100%;
+  --card: 0 0% 4%;
+  --card-foreground: 0 0% 100%;
+  --popover: 0 0% 4%;
+  --popover-foreground: 0 0% 100%;
+  --muted: 0 0% 9%;
+  --muted-foreground: 0 0% 82%;
+  --subtle: 0 0% 6%;
+  --subtle-foreground: 0 0% 90%;
+  --accent: 158 64% 34%;
+  --accent-foreground: 0 0% 100%;
+  --border: 0 0% 18%;
+  --input: 0 0% 18%;
+}
+
+.animate-rise {
+  animation: rise 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.terminal-float {
+  animation: terminal-float 7s ease-in-out infinite;
+}
+
+.solution-cell {
+  min-height: 190px;
+  transition:
+    background-color 180ms ease,
+    transform 180ms ease;
+}
+
+.solution-cell:hover {
+  background: hsl(var(--subtle));
+  transform: translateY(-2px);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes terminal-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .animate-rise,
+  .terminal-float {
+    animation: none;
+  }
+
+  .solution-cell {
+    transition: none;
+  }
+
+  .solution-cell:hover {
+    transform: none;
+  }
 }

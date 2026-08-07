@@ -10,7 +10,7 @@ type Line =
 
 const script: Line[] = [
   { kind: 'prompt', command: 'carbon init', typedMs: 900 },
-  { kind: 'output', text: '✓ Project linked to carbon.dev/acme', delayMs: 400 },
+  { kind: 'output', text: '✓ Workspace linked: acme', delayMs: 400 },
   { kind: 'output', text: '✓ carbon.config.ts created', delayMs: 200 },
   { kind: 'blank' },
   { kind: 'prompt', command: 'carbon record https://api.stripe.com', typedMs: 1400 },
@@ -21,8 +21,18 @@ const script: Line[] = [
   { kind: 'blank' },
   { kind: 'prompt', command: 'carbon emulate', typedMs: 700 },
   { kind: 'output', text: '● runtime ready at http://localhost:8787', delayMs: 900 },
-  { kind: 'output', text: '● state engine · in-memory · snapshot: fresh', muted: true, delayMs: 200 },
-  { kind: 'output', text: '● 12 resources · 38 endpoints · deterministic', muted: true, delayMs: 200 },
+  {
+    kind: 'output',
+    text: '● state engine · in-memory · snapshot: fresh',
+    muted: true,
+    delayMs: 200,
+  },
+  {
+    kind: 'output',
+    text: '● 12 resources · 38 endpoints · deterministic',
+    muted: true,
+    delayMs: 200,
+  },
 ];
 
 export function TerminalDemo({ className }: { className?: string }) {
@@ -74,18 +84,18 @@ export function TerminalDemo({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'overflow-hidden rounded-lg border border-border bg-[hsl(220_15%_8%)] text-[hsl(220_10%_92%)] shadow-[0_20px_60px_-30px_rgba(0,0,0,0.4)]',
+        'border-border overflow-hidden rounded-lg border bg-[hsl(226_18%_14%)] text-[hsl(220_10%_92%)] shadow-[0_20px_60px_-30px_rgba(0,0,0,0.4)]',
         className,
       )}
-      aria-label="Carbon CLI demonstration"
+      aria-label="Carbon CLI preview"
     >
       <div className="flex items-center justify-between border-b border-white/5 px-4 py-2.5">
         <div className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-white/10" />
-          <span className="h-2.5 w-2.5 rounded-full bg-white/10" />
-          <span className="h-2.5 w-2.5 rounded-full bg-white/10" />
+          <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+          <span className="h-2.5 w-2.5 rounded-full bg-yellow-400" />
+          <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
         </div>
-        <span className="font-mono text-2xs uppercase tracking-widest text-white/40">
+        <span className="text-2xs font-mono uppercase tracking-widest text-white/40">
           ~/acme · carbon
         </span>
         <span className="h-2.5 w-2.5" />
@@ -99,13 +109,13 @@ export function TerminalDemo({ className }: { className?: string }) {
             <>
               <span className="text-white/40">$ </span>
               <span>{typing.command}</span>
-              <span className="ml-0.5 inline-block h-4 w-1.5 -translate-y-[1px] animate-blink bg-white/70 align-middle" />
+              <span className="animate-blink ml-0.5 inline-block h-4 w-1.5 -translate-y-[1px] bg-white/70 align-middle" />
               {'\n'}
             </>
           ) : (
             <>
               <span className="text-white/40">$ </span>
-              <span className="ml-0.5 inline-block h-4 w-1.5 -translate-y-[1px] animate-blink bg-white/70 align-middle" />
+              <span className="animate-blink ml-0.5 inline-block h-4 w-1.5 -translate-y-[1px] bg-white/70 align-middle" />
             </>
           )}
         </code>

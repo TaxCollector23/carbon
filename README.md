@@ -1,12 +1,12 @@
 # Carbon
 
-**Develop against production without production.**
+**Build and test API integrations without depending on shared staging or live third-party APIs.**
 
-Carbon creates intelligent local replicas of the APIs your product depends on. It records real
-traffic, learns behavior, and emulates the API on your machine — so you can build offline, avoid
-flaky staging, dodge rate limits, and iterate faster.
+Carbon creates stateful replicas of the APIs your product depends on. It can ingest specs,
+recorded traffic, and service definitions, then run the API behavior on your machine for
+development, tests, and CI.
 
-Existing mocks are static. Carbon is behavioral.
+After import, the runtime serves requests from the compiled graph and state engine.
 
 ## Repository
 
@@ -17,7 +17,7 @@ apps/
   web         Marketing website (Next.js)
   dashboard   Product dashboard (Next.js + Better Auth)
   docs        Mintlify documentation site
-  cli         Carbon CLI (`carbon`)
+  cli         Carbon CLI (`carbon`, published as `carbon-api`)
   desktop     Desktop app (stub — Phase Two)
 
 packages/

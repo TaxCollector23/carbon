@@ -99,7 +99,7 @@ export class HarParser implements Parser {
       if (!paths.every((p) => p.length === length)) continue;
       const refinedSegments = tpl.segments.map((seg, i) => {
         const values = new Set(paths.map((p) => p[i]));
-        if (values.size > 1) return `{id${i}}`;
+        if (values.size > 1) return isIdLike(seg) ? '{id}' : `{id${i}}`;
         return seg;
       });
       templates.set(key, {

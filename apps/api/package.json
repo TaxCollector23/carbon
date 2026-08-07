@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "node --enable-source-maps dist/index.js",
-    "build": "tsup src/index.ts --format esm --dts --clean",
+    "build": "tsup src/index.ts --format esm --clean",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "bootstrap": "tsx src/scripts/bootstrap.ts"
@@ -19,6 +19,7 @@
     "@carbon/graph": "workspace:*",
     "@carbon/ingestion": "workspace:*",
     "@carbon/parser": "workspace:*",
+    "@carbon/runtime": "workspace:*",
     "@carbon/state": "workspace:*",
     "@carbon/storage": "workspace:*",
     "@carbon/types": "workspace:*",
@@ -29,6 +30,7 @@
     "@fastify/sensible": "^6.0.2",
     "@fastify/swagger": "^9.4.0",
     "@scalar/fastify-api-reference": "^1.25.100",
+    "drizzle-orm": "^0.38.2",
     "fastify": "^5.2.1",
     "ioredis": "^5.4.2",
     "zod": "^3.24.1"
