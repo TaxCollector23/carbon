@@ -6,6 +6,7 @@ import { registerHealthRoutes } from './routes/health.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { registerIngestRoutes } from './routes/ingest.js';
 import { registerEmulatorRoutes } from './routes/emulators.js';
+import { registerSnapshotRoutes } from './routes/snapshots.js';
 import type { AppContext } from './context.js';
 
 /**
@@ -50,6 +51,7 @@ export async function buildServer(ctx: AppContext, logger?: Logger): Promise<Fas
   await registerProjectRoutes(app, ctx);
   await registerIngestRoutes(app, ctx);
   await registerEmulatorRoutes(app, ctx);
+  await registerSnapshotRoutes(app, ctx);
 
   return app;
 }
