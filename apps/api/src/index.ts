@@ -1,3 +1,4 @@
+import IORedis from 'ioredis';
 import { createLogger } from '@carbon/core';
 import { createDatabase } from '@carbon/database';
 import { FsStorage } from '@carbon/storage';
@@ -22,8 +23,12 @@ async function main(): Promise<void> {
 
   logger.info('api.boot', { env: env.NODE_ENV, port: env.API_PORT });
 
-  const { db } = createDatabase({ url: env.DATABASE_URL });
+  const { db } = createDatabase({
+    url: env.DATABASE_URL,
+    ssl: env.NODE_ENV === 'production',
+  });
   const storage = new FsStorage(env.STORAGE_ROOT);
+  const redis = env.REDIS_URL ? new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null }) : undefined;
   const parsers = new ParserRegistry()
     .register(new OpenApiParser())
     .register(new HarParser())
@@ -43,7 +48,12 @@ async function main(): Promise<void> {
   const emulators = createEmulatorRegistry({ storage, logger });
 
   const ctx: AppContext = { logger, db, storage, ingestion, emulators };
-  const server = await buildServer(ctx, logger, { auth: { mode: env.CARBON_AUTH_MODE } });
+  const server = await buildServer(ctx, logger, {
+    auth: { mode: env.CARBON_AUTH_MODE },
+    allowedOrigins: env.ALLOWED_ORIGINS,
+    release: env.CARBON_RELEASE,
+    redis,
+  });
 
   const address = await server.listen({ host: env.API_HOST, port: env.API_PORT });
   logger.info('api.listening', { address });

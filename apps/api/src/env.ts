@@ -14,6 +14,12 @@ const EnvSchema = z.object({
   CARBON_AUTH_MODE: z.enum(['enforced', 'disabled']).default('disabled'),
   CARBON_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(120),
   CARBON_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(60_000),
+  /**
+   * Comma-separated list of origins to allow CORS from. Use `*` for open
+   * public API mode. Defaults to the dashboard origin in dev.
+   */
+  ALLOWED_ORIGINS: z.string().default('http://localhost:3001,http://localhost:1223'),
+  CARBON_RELEASE: z.string().default('dev'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -25,5 +31,30 @@ export function loadEnv(): Env {
     console.error('Invalid environment variables:', parsed.error.flatten().fieldErrors);
     process.exit(1);
   }
+  assertProductionSafety(parsed.data);
   return parsed.data;
+}
+
+/**
+ * Production booth-time safety checks. Every one of these is a mistake that
+ * should be caught before serving a single request, not after an incident.
+ */
+function assertProductionSafety(env: Env): void {
+  if (env.NODE_ENV !== 'production') return;
+  const problems: string[] = [];
+  if (env.CARBON_AUTH_MODE !== 'enforced') {
+    problems.push('CARBON_AUTH_MODE must be "enforced" in production');
+  }
+  if (env.API_HOST === '127.0.0.1') {
+    problems.push('API_HOST cannot be 127.0.0.1 in production — the process will only accept local traffic');
+  }
+  if (env.ALLOWED_ORIGINS === '*') {
+    // Allowed, but noisy — the operator should have opted in explicitly.
+    console.warn('carbon: ALLOWED_ORIGINS=* in production — every browser origin can call the API');
+  }
+  if (problems.length > 0) {
+    console.error('carbon: refusing to boot in production — fix the following:');
+    for (const p of problems) console.error(`  · ${p}`);
+    process.exit(1);
+  }
 }

@@ -1,5 +1,7 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
+import compress from '@fastify/compress';
 import sensible from '@fastify/sensible';
 import { ZodError } from 'zod';
 import { createLogger, isCarbonError, type Logger } from '@carbon/core';
@@ -11,10 +13,17 @@ import { registerSnapshotRoutes } from './routes/snapshots.js';
 import { registerApiKeyRoutes } from './routes/api-keys.js';
 import { registerArtifactRoutes } from './routes/artifacts.js';
 import { registerApiKeyAuth, type ApiKeyPluginOptions } from './plugins/api-key.js';
+import { registerIdempotency } from './plugins/idempotency.js';
+import type { Redis } from 'ioredis';
 import type { AppContext } from './context.js';
 
 export interface BuildServerOptions {
   readonly auth?: ApiKeyPluginOptions;
+  /** Comma-separated origin list, or `*` to allow all. */
+  readonly allowedOrigins?: string;
+  readonly release?: string;
+  /** If provided, enables Idempotency-Key dedup for POST/PATCH/DELETE. */
+  readonly redis?: Redis;
 }
 
 /**
@@ -36,11 +45,30 @@ export async function buildServer(
     bodyLimit: 10 * 1024 * 1024, // 10MB — big enough for large OpenAPI docs, small enough to reject abuse
   });
 
-  await app.register(cors, { origin: true, credentials: true });
+  const origins = parseOrigins(options.allowedOrigins);
+  await app.register(cors, {
+    origin: origins === '*' ? true : origins,
+    credentials: true,
+    exposedHeaders: ['x-request-id', 'x-carbon-key-prefix', 'x-ratelimit-limit', 'x-ratelimit-remaining'],
+  });
+  await app.register(helmet, {
+    // The API serves JSON; we don't need Helmet's HTML-oriented CSP. Turn it
+    // off so the response is not weighed down by unused directives.
+    contentSecurityPolicy: false,
+    // API responses are same-origin from the dashboard, cross-origin from
+    // SDKs. crossOriginResourcePolicy 'cross-origin' is the correct posture.
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  });
+  await app.register(compress, { global: true, threshold: 1024 });
   await app.register(sensible);
+  app.setGenReqId(() => cryptoRandomId());
 
   if (options.auth) {
     await registerApiKeyAuth(app, ctx, options.auth);
+  }
+
+  if (options.redis) {
+    await registerIdempotency(app, ctx, { redis: options.redis });
   }
 
   app.addHook('onRequest', async (req) => {
@@ -82,7 +110,7 @@ export async function buildServer(
     reply.status(500).send({ error: { code: 'CARBON_INTERNAL', message: 'Internal error' } });
   });
 
-  await registerHealthRoutes(app, ctx);
+  await registerHealthRoutes(app, ctx, { release: options.release });
   await registerProjectRoutes(app, ctx);
   await registerIngestRoutes(app, ctx);
   await registerEmulatorRoutes(app, ctx);
@@ -91,6 +119,18 @@ export async function buildServer(
   await registerArtifactRoutes(app, ctx);
 
   return app;
+}
+
+function parseOrigins(raw: string | undefined): '*' | string[] {
+  if (!raw) return [];
+  const trimmed = raw.trim();
+  if (trimmed === '*') return '*';
+  return trimmed.split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+function cryptoRandomId(): string {
+  // Web crypto is available in Node 20+, avoids a Node-specific import.
+  return crypto.randomUUID();
 }
 
 function statusFor(code: string): number {

@@ -38,4 +38,6 @@ COPY --from=build /app/apps/api/package.json ./apps/api/package.json
 COPY --from=build /app/packages ./packages
 USER carbon
 EXPOSE 4000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+ (process.env.API_PORT || 4000) + '/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["node", "--enable-source-maps", "apps/api/dist/index.js"]

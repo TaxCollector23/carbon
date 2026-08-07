@@ -9,7 +9,8 @@
     "start": "node --enable-source-maps dist/index.js",
     "build": "tsup src/index.ts --format esm --dts --clean",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "bootstrap": "tsx src/scripts/bootstrap.ts"
   },
   "dependencies": {
     "@carbon/ai": "workspace:*",
@@ -22,9 +23,12 @@
     "@carbon/storage": "workspace:*",
     "@carbon/types": "workspace:*",
     "@carbon/workers": "workspace:*",
+    "@fastify/compress": "^8.0.1",
     "@fastify/cors": "^10.0.1",
+    "@fastify/helmet": "^13.0.1",
     "@fastify/sensible": "^6.0.2",
     "fastify": "^5.2.1",
+    "ioredis": "^5.4.2",
     "zod": "^3.24.1"
   },
   "devDependencies": {

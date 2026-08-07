@@ -12,7 +12,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "generate": "drizzle-kit generate",
-    "migrate": "drizzle-kit migrate"
+    "migrate": "drizzle-kit migrate",
+    "migrate:apply": "tsx src/migrate.ts"
   },
   "dependencies": {
     "@carbon/core": "workspace:*",
@@ -22,6 +23,7 @@
   "devDependencies": {
     "@carbon/config": "workspace:*",
     "drizzle-kit": "^0.30.1",
+    "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }
 }

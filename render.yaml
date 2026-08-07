@@ -1,0 +1,124 @@
+# Carbon — Render Blueprint
+# ─────────────────────────────────────────────────────────────────────────────
+# One-file deploy for the Carbon backend on render.com.
+#
+# Usage:
+#   1. Push this file to your GitHub repo.
+#   2. In Render → New → Blueprint → point at your repo.
+#   3. Render provisions api + workers + Postgres + Redis, wires envs.
+#   4. Open the api service shell and run `pnpm --filter @carbon/api bootstrap`
+#      to mint your first API key. It's printed once.
+#
+# Frontend (apps/web, apps/dashboard) belongs on Vercel — Vercel handles
+# Next.js better than Render does, and it's free at your scale.
+#
+# What runs where:
+#   · carbon-api      → Web Service (Fastify, HTTP)
+#   · carbon-workers  → Background Worker (BullMQ)
+#   · carbon-postgres → Managed Postgres (Render)
+#   · carbon-redis    → Managed Key-Value (Render)
+#
+# If you'd rather use Neon/Upstash for cheaper serverless Postgres+Redis:
+#   delete the `databases:` and `services: type: keyvalue` blocks and set
+#   DATABASE_URL / REDIS_URL manually in the api + workers env sections.
+
+services:
+  # ─── Control-plane API ────────────────────────────────────────────────────
+  - type: web
+    name: carbon-api
+    runtime: docker
+    plan: starter                    # $7/mo — bump to standard when needed
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    region: oregon
+    healthCheckPath: /health
+    autoDeploy: true
+    # Migrations run before the new container takes traffic. Idempotent —
+    # Drizzle tracks state in its own metadata table.
+    preDeployCommand: pnpm --filter @carbon/database migrate:apply
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_HOST
+        value: 0.0.0.0
+      - key: API_PORT
+        value: 4000
+      - key: LOG_LEVEL
+        value: info
+      - key: CARBON_AUTH_MODE
+        value: enforced
+      - key: CARBON_RATE_LIMIT_MAX
+        value: 300
+      - key: CARBON_RATE_LIMIT_WINDOW_MS
+        value: 60000
+      - key: ALLOWED_ORIGINS
+        # Comma-separated. Add your dashboard and marketing origins here.
+        value: https://carbon.dev,https://dashboard.carbon.dev
+      - key: STORAGE_ROOT
+        # Render persistent disk mount below.
+        value: /var/carbon/data
+      - key: CARBON_RELEASE
+        # Auto-populated by Render on every deploy.
+        fromService:
+          type: web
+          name: carbon-api
+          property: commit
+      - key: DATABASE_URL
+        fromDatabase:
+          name: carbon-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: carbon-redis
+          property: connectionString
+      - key: CARBON_AI_PROVIDER
+        value: openrouter
+      - key: CARBON_AI_API_KEY
+        sync: false                    # set manually in the Render UI
+    disk:
+      name: carbon-api-data
+      mountPath: /var/carbon/data
+      sizeGB: 10
+
+  # ─── Background workers (BullMQ) ──────────────────────────────────────────
+  - type: worker
+    name: carbon-workers
+    runtime: docker
+    plan: starter                    # $7/mo
+    dockerfilePath: ./apps/workers/Dockerfile
+    dockerContext: .
+    region: oregon
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      - key: STORAGE_ROOT
+        value: /var/carbon/data
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: carbon-redis
+          property: connectionString
+    disk:
+      name: carbon-workers-data
+      mountPath: /var/carbon/data
+      sizeGB: 10
+
+  # ─── Redis ────────────────────────────────────────────────────────────────
+  - type: keyvalue
+    name: carbon-redis
+    plan: starter                    # $10/mo — swap for Upstash to save
+    region: oregon
+    ipAllowList: []                  # only allow internal Render services
+
+databases:
+  # ─── Postgres ─────────────────────────────────────────────────────────────
+  - name: carbon-postgres
+    databaseName: carbon
+    user: carbon
+    plan: basic-256mb                # $6/mo — bump when you outgrow
+    region: oregon
+    postgresMajorVersion: '16'
