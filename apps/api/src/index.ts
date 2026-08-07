@@ -14,6 +14,7 @@ import { AiCapabilities, OpenRouterProvider } from '@carbon/ai';
 import { loadEnv } from './env.js';
 import { buildServer } from './server.js';
 import type { AppContext } from './context.js';
+import { createEmulatorRegistry } from './services/emulator-registry.js';
 
 async function main(): Promise<void> {
   const env = loadEnv();
@@ -39,15 +40,17 @@ async function main(): Promise<void> {
     : undefined;
 
   const ingestion = createIngestionPipeline({ parsers, storage, logger, ai });
+  const emulators = createEmulatorRegistry({ storage, logger });
 
-  const ctx: AppContext = { logger, db, storage, ingestion };
-  const server = await buildServer(ctx, logger);
+  const ctx: AppContext = { logger, db, storage, ingestion, emulators };
+  const server = await buildServer(ctx, logger, { auth: { mode: env.CARBON_AUTH_MODE } });
 
   const address = await server.listen({ host: env.API_HOST, port: env.API_PORT });
   logger.info('api.listening', { address });
 
   const shutdown = async (signal: string) => {
     logger.info('api.shutdown', { signal });
+    await emulators.shutdown();
     await server.close();
     process.exit(0);
   };
