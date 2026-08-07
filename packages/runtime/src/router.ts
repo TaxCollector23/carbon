@@ -32,6 +32,24 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: RuntimeCont
   }
 
   app.get('/__carbon/health', async () => ({ ok: true, api: ctx.ir.api.name }));
+
+  // State control endpoints — used by the CLI, SDK, and dashboard to introspect
+  // and manage the runtime without touching the state engine directly.
+  app.post('/__carbon/state/snapshot', async () => ctx.state.snapshot());
+  app.post('/__carbon/state/restore', async (req, reply) => {
+    await ctx.state.restore(req.body as never);
+    reply.status(204);
+  });
+  app.post('/__carbon/state/reset', async (_req, reply) => {
+    await ctx.state.reset();
+    reply.status(204);
+  });
+  app.get('/__carbon/inspect', async () => ({
+    api: ctx.ir.api,
+    endpoints: ctx.ir.endpoints.length,
+    resources: ctx.ir.resources.length,
+    relationships: ctx.ir.relationships.length,
+  }));
 }
 
 interface Handled {

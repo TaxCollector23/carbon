@@ -159,4 +159,23 @@ describe('runtime', () => {
     const res = await rt.app.inject({ method: 'GET', url: '/customers' });
     expect(res.statusCode).toBe(200);
   });
+
+  it('exposes state snapshot/restore/reset control routes', async () => {
+    rt = await boot();
+    await rt.app.inject({ method: 'POST', url: '/customers', payload: { name: 'seed' } });
+    const snap = await rt.app.inject({ method: 'POST', url: '/__carbon/state/snapshot' });
+    expect(snap.statusCode).toBe(200);
+    const reset = await rt.app.inject({ method: 'POST', url: '/__carbon/state/reset' });
+    expect(reset.statusCode).toBe(204);
+    const listAfterReset = await rt.app.inject({ method: 'GET', url: '/customers' });
+    expect((listAfterReset.json() as { data: unknown[] }).data).toHaveLength(0);
+    const restore = await rt.app.inject({
+      method: 'POST',
+      url: '/__carbon/state/restore',
+      payload: snap.json(),
+    });
+    expect(restore.statusCode).toBe(204);
+    const listAfterRestore = await rt.app.inject({ method: 'GET', url: '/customers' });
+    expect((listAfterRestore.json() as { data: unknown[] }).data).toHaveLength(1);
+  });
 });
