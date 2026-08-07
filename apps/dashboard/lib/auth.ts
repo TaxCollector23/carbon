@@ -21,7 +21,18 @@ export const auth = (() => {
       secret,
       baseURL,
       emailAndPassword: { enabled: true },
-      database: drizzleAdapter(db, { provider: 'pg', schema }),
+      // Better Auth looks up tables by singular name (`user`, `session`, ...).
+      // Our Drizzle exports are plural, so we map explicitly. Do not remove
+      // this mapping unless you also rename the tables in @carbon/database.
+      database: drizzleAdapter(db, {
+        provider: 'pg',
+        schema: {
+          user: schema.users,
+          session: schema.sessions,
+          account: schema.accounts,
+          verification: schema.verifications,
+        },
+      }),
     });
   }
 
