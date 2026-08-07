@@ -1,6 +1,7 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import sensible from '@fastify/sensible';
+import { ZodError } from 'zod';
 import { createLogger, isCarbonError, type Logger } from '@carbon/core';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerProjectRoutes } from './routes/projects.js';
@@ -8,6 +9,7 @@ import { registerIngestRoutes } from './routes/ingest.js';
 import { registerEmulatorRoutes } from './routes/emulators.js';
 import { registerSnapshotRoutes } from './routes/snapshots.js';
 import { registerApiKeyRoutes } from './routes/api-keys.js';
+import { registerArtifactRoutes } from './routes/artifacts.js';
 import { registerApiKeyAuth, type ApiKeyPluginOptions } from './plugins/api-key.js';
 import type { AppContext } from './context.js';
 
@@ -45,7 +47,21 @@ export async function buildServer(
     log.debug('api.request', { method: req.method, url: req.url, id: req.id });
   });
 
-  app.setErrorHandler((err, _req, reply) => {
+  app.setErrorHandler((err, req, reply) => {
+    if (err instanceof ZodError) {
+      reply.status(400).send({
+        error: {
+          code: 'CARBON_INVALID_INPUT',
+          message: 'Request validation failed',
+          issues: err.issues.map((i) => ({
+            path: i.path.join('.'),
+            message: i.message,
+            code: i.code,
+          })),
+        },
+      });
+      return;
+    }
     if (isCarbonError(err)) {
       const status = statusFor(err.code);
       reply.status(status).send({
@@ -57,7 +73,12 @@ export async function buildServer(
       });
       return;
     }
-    log.error('api.internal_error', { message: err.message, name: err.name });
+    log.error('api.internal_error', {
+      message: err.message,
+      name: err.name,
+      url: req.url,
+      method: req.method,
+    });
     reply.status(500).send({ error: { code: 'CARBON_INTERNAL', message: 'Internal error' } });
   });
 
@@ -67,6 +88,7 @@ export async function buildServer(
   await registerEmulatorRoutes(app, ctx);
   await registerSnapshotRoutes(app, ctx);
   await registerApiKeyRoutes(app, ctx);
+  await registerArtifactRoutes(app, ctx);
 
   return app;
 }
