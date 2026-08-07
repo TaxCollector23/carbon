@@ -12,8 +12,12 @@ import { registerEmulatorRoutes } from './routes/emulators.js';
 import { registerSnapshotRoutes } from './routes/snapshots.js';
 import { registerApiKeyRoutes } from './routes/api-keys.js';
 import { registerArtifactRoutes } from './routes/artifacts.js';
+import { registerJobRoutes } from './routes/jobs.js';
 import { registerApiKeyAuth, type ApiKeyPluginOptions } from './plugins/api-key.js';
 import { registerIdempotency } from './plugins/idempotency.js';
+import { registerControlPlaneRateLimit } from './plugins/rate-limit.js';
+import { registerDocs } from './plugins/docs.js';
+import { registerMetrics } from './plugins/metrics.js';
 import type { Redis } from 'ioredis';
 import type { AppContext } from './context.js';
 
@@ -24,6 +28,7 @@ export interface BuildServerOptions {
   readonly release?: string;
   /** If provided, enables Idempotency-Key dedup for POST/PATCH/DELETE. */
   readonly redis?: Redis;
+  readonly rateLimit?: { max: number; windowMs: number };
 }
 
 /**
@@ -63,11 +68,22 @@ export async function buildServer(
   await app.register(sensible);
   app.setGenReqId(() => cryptoRandomId());
 
+  // Docs BEFORE routes: @fastify/swagger snapshots the route table at
+  // ready-time, so we need every subsequent register() call to be visible.
+  await registerDocs(app, options.release ?? 'dev');
+
   if (options.auth) {
     await registerApiKeyAuth(app, ctx, options.auth);
   }
 
   if (options.redis) {
+    if (options.rateLimit) {
+      await registerControlPlaneRateLimit(app, ctx, {
+        redis: options.redis,
+        max: options.rateLimit.max,
+        windowMs: options.rateLimit.windowMs,
+      });
+    }
     await registerIdempotency(app, ctx, { redis: options.redis });
   }
 
@@ -110,6 +126,7 @@ export async function buildServer(
     reply.status(500).send({ error: { code: 'CARBON_INTERNAL', message: 'Internal error' } });
   });
 
+  await registerMetrics(app, ctx);
   await registerHealthRoutes(app, ctx, { release: options.release });
   await registerProjectRoutes(app, ctx);
   await registerIngestRoutes(app, ctx);
@@ -117,6 +134,7 @@ export async function buildServer(
   await registerSnapshotRoutes(app, ctx);
   await registerApiKeyRoutes(app, ctx);
   await registerArtifactRoutes(app, ctx);
+  await registerJobRoutes(app, ctx);
 
   return app;
 }

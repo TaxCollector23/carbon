@@ -28,6 +28,14 @@ const EnvSchema = z.object({
     .string()
     .default('false')
     .transform((v) => v === 'true' || v === '1'),
+  /** `fs` (local disk) or `s3` (any S3-compatible endpoint incl. R2/B2/MinIO). */
+  STORAGE_BACKEND: z.enum(['fs', 's3']).default('fs'),
+  S3_ENDPOINT: z.string().url().optional(),
+  S3_BUCKET: z.string().optional(),
+  S3_REGION: z.string().default('auto'),
+  S3_ACCESS_KEY: z.string().optional(),
+  S3_SECRET_KEY: z.string().optional(),
+  S3_PREFIX: z.string().optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

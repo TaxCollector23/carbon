@@ -7,7 +7,10 @@
   "types": "./src/index.ts",
   "exports": { ".": "./src/index.ts" },
   "scripts": { "typecheck": "tsc --noEmit" },
-  "dependencies": { "@carbon/core": "workspace:*" },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.717.0",
+    "@carbon/core": "workspace:*"
+  },
   "devDependencies": {
     "@carbon/config": "workspace:*",
     "@types/node": "^22.10.0",
