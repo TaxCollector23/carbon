@@ -21,21 +21,28 @@ export function defineQueue<Payload, Result = void>(
 }
 
 export interface QueueRegistryOptions {
-  readonly redis: RedisOptions | string;
+  readonly redis: RedisOptions | string | IORedis;
   readonly logger: Logger;
 }
 
 export class QueueRegistry {
   private readonly connection: IORedis;
+  private readonly ownsConnection: boolean;
   private readonly logger: Logger;
   private readonly queues = new Map<string, Queue>();
   private readonly workers: Worker[] = [];
 
   constructor(opts: QueueRegistryOptions) {
-    this.connection =
-      typeof opts.redis === 'string'
-        ? new IORedis(opts.redis, { maxRetriesPerRequest: null })
-        : new IORedis({ ...opts.redis, maxRetriesPerRequest: null });
+    if (opts.redis instanceof IORedis) {
+      this.connection = opts.redis;
+      this.ownsConnection = false;
+    } else if (typeof opts.redis === 'string') {
+      this.connection = new IORedis(opts.redis, { maxRetriesPerRequest: null });
+      this.ownsConnection = true;
+    } else {
+      this.connection = new IORedis({ ...opts.redis, maxRetriesPerRequest: null });
+      this.ownsConnection = true;
+    }
     this.logger = opts.logger.child({ component: 'workers' });
   }
 
@@ -71,7 +78,7 @@ export class QueueRegistry {
   async close(): Promise<void> {
     await Promise.all(this.workers.map((w) => w.close()));
     await Promise.all(Array.from(this.queues.values()).map((q) => q.close()));
-    await this.connection.quit();
+    if (this.ownsConnection) await this.connection.quit();
   }
 }
 

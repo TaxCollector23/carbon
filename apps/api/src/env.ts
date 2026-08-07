@@ -20,6 +20,14 @@ const EnvSchema = z.object({
    */
   ALLOWED_ORIGINS: z.string().default('http://localhost:3001,http://localhost:1223'),
   CARBON_RELEASE: z.string().default('dev'),
+  /**
+   * When true, the API process also runs BullMQ workers in-process. Enable
+   * on single-service free deploys; disable once you scale workers out.
+   */
+  EMBED_WORKERS: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true' || v === '1'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

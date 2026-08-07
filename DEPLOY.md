@@ -1,57 +1,87 @@
-# Deploying Carbon
+# Deploying Carbon — the free path
 
-Two systems, two hosts.
+Everything runs on free tiers. Total cost: **$0**.
 
-- **Frontend** (`apps/web`, `apps/dashboard`, `apps/docs`) → **Vercel**
-- **Backend** (`apps/api`, `apps/workers`, Postgres, Redis) → **Render**
+## Stack
 
-## Frontend on Vercel
+| Component | Host | Free tier |
+|---|---|---|
+| Marketing (`apps/web`) | Vercel | Free forever |
+| Dashboard (`apps/dashboard`) | Vercel | Free forever |
+| Docs (`apps/docs`) | Vercel or Mintlify | Free forever |
+| API + workers (`apps/api`) | Render Web Service | 750h/mo, spins down after 15min idle |
+| Postgres | **Neon** | 0.5 GB, always-on, no card required |
+| Redis | **Upstash** | 256 MB, 500k commands/mo |
+| AI (optional) | OpenRouter | Pay-per-token; skip to run without AI |
 
-1. Import the repo into Vercel three times — once per Next app.
-2. For each project, set **Root Directory** to the app path:
-   - `apps/web`
-   - `apps/dashboard`
-   - `apps/docs` *(Mintlify — you can also host on Mintlify directly)*
-3. Vercel autodetects Next.js. The `vercel.json` in each app tells it to install from the repo root so pnpm workspaces resolve.
-4. Set `NEXT_PUBLIC_API_URL=https://carbon-api.onrender.com` on the dashboard project (once the API is deployed).
+## Two things you should know before you deploy
 
-## Backend on Render
+1. **Free Render web spins down after 15 minutes of inactivity.** The first request after that takes ~30–60s to wake it up. Fine for demos and personal projects. Not fine as a public production API. `plan: starter` in `render.yaml` fixes this for $7/mo.
+2. **No persistent disk on Render free.** `STORAGE_ROOT=/tmp/carbon` is ephemeral — a redeploy wipes stored IRs, graphs, and snapshots (they can be re-ingested). For durability, wire an S3-compatible store; Cloudflare R2 has a real free tier (10 GB, no egress fees).
 
-1. Push the repo to GitHub (already done).
-2. Render → **New** → **Blueprint** → point at your repo.
-3. Render reads `render.yaml` and provisions:
-   - `carbon-api` — Fastify web service
-   - `carbon-workers` — BullMQ background worker
-   - `carbon-postgres` — managed Postgres 16
-   - `carbon-redis` — managed Redis
-4. First deploy runs `pnpm --filter @carbon/database migrate:apply` as `preDeployCommand`.
-5. Set `CARBON_AI_API_KEY` in the Render dashboard (marked `sync: false` — never in git).
-6. Open the `carbon-api` shell tab and run:
+Everything critical (users, orgs, API keys, project metadata) lives in Postgres, so those survive.
+
+## Step-by-step
+
+### 1. Neon (Postgres)
+1. Go to [neon.tech](https://neon.tech) → sign in with GitHub.
+2. Create a project → give it a name → region close to Render (Oregon = US West).
+3. Copy the **pooled** connection string. It looks like:
    ```
-   pnpm --filter @carbon/api bootstrap
+   postgres://user:pass@ep-cool-fog-xxx-pooler.us-west-2.aws.neon.tech/neondb?sslmode=require
    ```
-   This mints your first org and API key. Copy the key — it's printed once.
+   Save it as `DATABASE_URL`.
 
-Total baseline: **~$30/mo** (Postgres $6 + Redis $10 + API $7 + Workers $7).
+### 2. Upstash (Redis)
+1. Go to [upstash.com](https://upstash.com) → sign in with GitHub.
+2. Create a Redis database → Global type → region close to Render.
+3. On the DB page, find the **TLS/rediss** URL (starts with `rediss://`). Save it as `REDIS_URL`.
 
-## Cheaper: swap Render Postgres/Redis for serverless
+### 3. Vercel (frontend)
+1. [vercel.com](https://vercel.com) → **Add New Project** → import your GitHub repo.
+2. **Root Directory** = `apps/web`. Framework = Next.js. Deploy.
+3. Repeat for `apps/dashboard` (Root = `apps/dashboard`).
+4. Note the URLs — you'll paste them into Render as `ALLOWED_ORIGINS`.
 
-- **Neon** — Postgres with a real free tier, scales to zero.
-- **Upstash** — Redis priced per request.
+### 4. Render (API + embedded workers)
+1. [render.com](https://render.com) → **New** → **Blueprint** → connect your repo.
+2. Render reads `render.yaml` and asks you to fill in four secrets:
+   - `DATABASE_URL` — from Neon (step 1)
+   - `REDIS_URL` — from Upstash (step 2)
+   - `ALLOWED_ORIGINS` — your Vercel URLs, comma-separated
+   - `CARBON_AI_API_KEY` — optional (skip if you don't want AI)
+3. Apply. First deploy takes ~5 min. Migrations run automatically as `preDeployCommand`.
 
-In `render.yaml`, delete the `databases:` block and the `keyvalue` service, then set `DATABASE_URL` and `REDIS_URL` on both services from the Render UI.
+### 5. Mint your first API key
+Open the `carbon-api` service in Render → **Shell** tab:
+```bash
+pnpm --filter @carbon/api bootstrap
+```
+Copy the key it prints (`ck_live_...`) — it's shown once.
 
-## Custom domain
+### 6. Verify
+```bash
+curl https://carbon-api.onrender.com/health
+# → { "ok": true, "service": "carbon-api", "version": "0.1.0" }
 
-- Marketing: `carbon.dev` → Vercel `apps/web`
-- Dashboard: `dashboard.carbon.dev` → Vercel `apps/dashboard`
+curl https://carbon-api.onrender.com/ready
+# → { "ok": true, "checks": { "database": { "ok": true }, "storage": { "ok": true } } }
+
+curl -H "x-carbon-key: ck_live_..." https://carbon-api.onrender.com/v1/projects
+# → { "data": [], "nextCursor": null, "total": 0 }
+```
+
+## When to upgrade off free
+
+- **API paying users hit "site loading" for 30s** → bump Render `plan: free` to `plan: starter` ($7/mo). This is the single most-worth-it upgrade.
+- **You're regenerating IRs after every deploy** → move `STORAGE_ROOT` to Cloudflare R2 (free 10 GB) or S3.
+- **Neon 0.5 GB fills up** → their $19/mo tier gives you 10 GB.
+- **Upstash 500k commands/mo runs out** → their $10/mo tier gives you unlimited within reason.
+
+## Custom domain (optional, still free)
+
+- Marketing: `carbon.dev` → point at Vercel `apps/web`
+- Dashboard: `app.carbon.dev` → Vercel `apps/dashboard`
 - API: `api.carbon.dev` → Render `carbon-api`
 
-Add the domains in each host's UI. Render and Vercel both handle SSL automatically.
-
-## What to check after first deploy
-
-- `curl https://carbon-api.onrender.com/health` returns `{"ok":true}`
-- `curl https://carbon-api.onrender.com/ready` returns `{"ok":true, "checks": {"database": {"ok":true}, "storage": {"ok":true}}}`
-- `carbon-api` logs show `api.listening`
-- `carbon-workers` logs show `workers.ready`
+Add domains in each host's UI. SSL is automatic on both.

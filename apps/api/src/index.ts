@@ -16,6 +16,7 @@ import { loadEnv } from './env.js';
 import { buildServer } from './server.js';
 import type { AppContext } from './context.js';
 import { createEmulatorRegistry } from './services/emulator-registry.js';
+import { startEmbeddedWorkers } from './workers.js';
 
 async function main(): Promise<void> {
   const env = loadEnv();
@@ -47,6 +48,15 @@ async function main(): Promise<void> {
   const ingestion = createIngestionPipeline({ parsers, storage, logger, ai });
   const emulators = createEmulatorRegistry({ storage, logger });
 
+  const workers = env.EMBED_WORKERS && redis
+    ? startEmbeddedWorkers({ redis, logger })
+    : null;
+  if (env.EMBED_WORKERS && !redis) {
+    logger.warn('api.embedded_workers_skipped', {
+      reason: 'REDIS_URL not set — set it to enable webhook delivery',
+    });
+  }
+
   const ctx: AppContext = { logger, db, storage, ingestion, emulators };
   const server = await buildServer(ctx, logger, {
     auth: { mode: env.CARBON_AUTH_MODE },
@@ -71,6 +81,8 @@ async function main(): Promise<void> {
       try {
         await server.close();
         await emulators.shutdown();
+        if (workers) await workers.close();
+        if (redis) await redis.quit();
         clearTimeout(forceKill);
         process.exit(0);
       } catch (err) {
