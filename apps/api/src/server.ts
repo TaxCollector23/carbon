@@ -7,14 +7,24 @@ import { registerProjectRoutes } from './routes/projects.js';
 import { registerIngestRoutes } from './routes/ingest.js';
 import { registerEmulatorRoutes } from './routes/emulators.js';
 import { registerSnapshotRoutes } from './routes/snapshots.js';
+import { registerApiKeyRoutes } from './routes/api-keys.js';
+import { registerApiKeyAuth, type ApiKeyPluginOptions } from './plugins/api-key.js';
 import type { AppContext } from './context.js';
+
+export interface BuildServerOptions {
+  readonly auth?: ApiKeyPluginOptions;
+}
 
 /**
  * Carbon's control-plane HTTP server. Kept intentionally thin: every route is
  * a Zod-validated adapter over a service in the packages/ layer. Business
  * logic never lives inline in a route handler.
  */
-export async function buildServer(ctx: AppContext, logger?: Logger): Promise<FastifyInstance> {
+export async function buildServer(
+  ctx: AppContext,
+  logger?: Logger,
+  options: BuildServerOptions = {},
+): Promise<FastifyInstance> {
   const log = logger ?? createLogger({ level: 'info', pretty: true, name: 'api' });
 
   const app = Fastify({
@@ -26,6 +36,10 @@ export async function buildServer(ctx: AppContext, logger?: Logger): Promise<Fas
 
   await app.register(cors, { origin: true, credentials: true });
   await app.register(sensible);
+
+  if (options.auth) {
+    await registerApiKeyAuth(app, ctx, options.auth);
+  }
 
   app.addHook('onRequest', async (req) => {
     log.debug('api.request', { method: req.method, url: req.url, id: req.id });
@@ -52,6 +66,7 @@ export async function buildServer(ctx: AppContext, logger?: Logger): Promise<Fas
   await registerIngestRoutes(app, ctx);
   await registerEmulatorRoutes(app, ctx);
   await registerSnapshotRoutes(app, ctx);
+  await registerApiKeyRoutes(app, ctx);
 
   return app;
 }

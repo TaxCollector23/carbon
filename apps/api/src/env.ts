@@ -11,6 +11,9 @@ const EnvSchema = z.object({
   CARBON_AI_PROVIDER: z.enum(['openrouter', 'openai', 'anthropic', 'gemini', 'local']).default('openrouter'),
   CARBON_AI_API_KEY: z.string().optional(),
   CARBON_AI_MODEL: z.string().optional(),
+  CARBON_AUTH_MODE: z.enum(['enforced', 'disabled']).default('disabled'),
+  CARBON_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(120),
+  CARBON_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(60_000),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
