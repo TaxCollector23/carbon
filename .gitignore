@@ -42,3 +42,4 @@ coverage/
 # Tool local state
 .claude/settings.local.json
 .neon
+.vercel
