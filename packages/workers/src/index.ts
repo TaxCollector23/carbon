@@ -82,9 +82,18 @@ export interface Producer<Payload> {
   ): Promise<{ jobId: string }>;
 }
 
+export interface WebhookDeliveryPayload {
+  readonly url: string;
+  readonly event: string;
+  readonly body: unknown;
+  readonly secret?: string;
+  readonly attempt?: number;
+}
+
 /** Canonical queue definitions consumed across the backend. */
 export const Queues = {
   ingest: defineQueue<{ projectSlug: string; source: string }>('carbon.ingest'),
   enrich: defineQueue<{ projectSlug: string; irId: string }>('carbon.enrich'),
   snapshot: defineQueue<{ projectSlug: string; name: string }>('carbon.snapshot'),
+  webhookDelivery: defineQueue<WebhookDeliveryPayload, { status: number }>('carbon.webhook.delivery'),
 } as const;
