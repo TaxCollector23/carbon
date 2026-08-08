@@ -118,6 +118,52 @@ describe('health routes', () => {
     expect(leftovers).toEqual([]);
   });
 
+  it('reports queue status when an ingest queue is wired in', async () => {
+    const app = Fastify();
+    const { db } = countingDb();
+    let calls = 0;
+    const queue = {
+      getJobCounts: async () => {
+        calls += 1;
+        return { waiting: 0, active: 0 };
+      },
+    } as unknown as NonNullable<AppContext['ingestionQueue']>;
+    const ctx: AppContext = { ...makeCtx(db), ingestionQueue: queue };
+    await registerHealthRoutes(app, ctx, { cacheMs: 0 });
+
+    const res = await app.inject('/ready');
+    expect(res.statusCode).toBe(200);
+    expect(res.json().checks.queue).toEqual({ ok: true });
+    expect(calls).toBe(1);
+  });
+
+  it('surfaces queue probe failures on /ready', async () => {
+    const app = Fastify();
+    const { db } = countingDb();
+    const queue = {
+      getJobCounts: async () => {
+        throw new Error('redis: ECONNREFUSED');
+      },
+    } as unknown as NonNullable<AppContext['ingestionQueue']>;
+    const ctx: AppContext = { ...makeCtx(db), ingestionQueue: queue };
+    await registerHealthRoutes(app, ctx, { cacheMs: 0 });
+
+    const res = await app.inject('/ready');
+    expect(res.statusCode).toBe(503);
+    expect(res.json().checks.queue.ok).toBe(false);
+    expect(res.json().checks.queue.error).toContain('ECONNREFUSED');
+  });
+
+  it('omits the queue field when no queue is configured', async () => {
+    const app = Fastify();
+    const { db } = countingDb();
+    await registerHealthRoutes(app, makeCtx(db), { cacheMs: 0 });
+
+    const res = await app.inject('/ready');
+    expect(res.statusCode).toBe(200);
+    expect(res.json().checks.queue).toBeUndefined();
+  });
+
   it('/health stays cheap and never consults a dependency', async () => {
     const app = Fastify();
     const { db, calls } = countingDb();

@@ -1,8 +1,9 @@
+import { Readable } from 'node:stream';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { createHash } from 'node:crypto';
 import type { Redis } from 'ioredis';
 import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from './api-key.js';
+import { recordIdempotencyOutcome } from './metrics.js';
 
 export interface IdempotencyOptions {
   readonly redis: Redis;
@@ -10,74 +11,103 @@ export interface IdempotencyOptions {
   readonly ttlSec?: number;
   /** Prefix for keys. */
   readonly keyPrefix?: string;
+  /** How long the inflight lock lives before it self-expires. Default 30s. */
+  readonly lockTtlSec?: number;
 }
 
-const CLAIM_SCRIPT = `
-if redis.call("EXISTS", KEYS[1]) == 0 then
-  redis.call("HSET", KEYS[1], "hash", ARGV[1])
-  redis.call("EXPIRE", KEYS[1], ARGV[2])
-  return 1
-end
-return 0
-`;
-
 /**
- * Stripe-style idempotency. If a client sends `Idempotency-Key: <uuid>` on a
- * write (POST/PATCH/DELETE), we cache the first response and replay it for
- * every retry with the same key. This is the single biggest thing you can add
- * to make a public API safe under retries.
+ * Stripe-style idempotency, implemented with Fastify's `preHandler` +
+ * `onSend` hooks. We used to monkey-patch `reply.send` to intercept the
+ * outgoing payload; that reached into Fastify's reply pipeline in a way that
+ * a future minor version could quietly break. The hook API is Fastify's
+ * public contract and is the right place to do this.
  *
- * We hash the request body along with the key: if a caller reuses a key but
- * sends a materially different body, we return 409 instead of silently
- * replaying a stale response — matches the spec Stripe published.
- *
- * Redis is required. In dev without Redis, register the plugin only if a
- * client is available; otherwise skip.
+ * Flow (POST/PATCH/DELETE with `Idempotency-Key: <key>`):
+ *   preHandler  →  1. If a cached response exists, replay it with
+ *                    `idempotent-replay: true` and return.
+ *                  2. Otherwise SETNX a lock with a 30s TTL. If the lock is
+ *                     already held (concurrent retry of an inflight request)
+ *                     return 409 CARBON_CONFLICT + `retry-after: 1`.
+ *                  3. On success, remember the storage keys on the request so
+ *                     `onSend` can populate them later.
+ *   onSend      →  1. If the payload is a stream, skip caching entirely — we
+ *                    would have to buffer the whole thing in memory, which is
+ *                    exactly the wrong trade-off for large artifact downloads.
+ *                  2. If the status is >= 400, skip caching and release the
+ *                    lock so a fresh retry hits the handler.
+ *                  3. Otherwise store `{status, headers, body}` under a 24h
+ *                    TTL and release the lock in the same MULTI.
  */
+const KEY_PATTERN = /^[A-Za-z0-9._~-]{16,128}$/;
+
+interface CachedResponse {
+  readonly status: number;
+  /** Headers to replay verbatim (minus hop-by-hop and per-request ones). */
+  readonly headers: Record<string, string | string[]>;
+  /** Payload bytes, base64-encoded so Redis stores a plain string. */
+  readonly bodyB64: string;
+}
+
+interface IdemState {
+  readonly respKey: string;
+  readonly lockKey: string;
+}
+
+const STATE = Symbol('carbon.idempotencyState');
+
+interface StatefulRequest extends FastifyRequest {
+  [STATE]?: IdemState;
+}
+
 export async function registerIdempotency(
   app: FastifyInstance,
   ctx: AppContext,
   opts: IdempotencyOptions,
 ): Promise<void> {
   const ttl = opts.ttlSec ?? 60 * 60 * 24;
+  const lockTtl = opts.lockTtlSec ?? 30;
   const prefix = opts.keyPrefix ?? 'carbon:idem';
 
   app.addHook('preHandler', async (req, reply) => {
     const method = req.method.toUpperCase();
     if (method !== 'POST' && method !== 'PATCH' && method !== 'DELETE') return;
+
     const raw = req.headers['idempotency-key'];
     const key = Array.isArray(raw) ? raw[0] : raw;
     if (!key) return;
-    if (!isValidIdempotencyKey(key)) {
+    if (!KEY_PATTERN.test(key)) {
       reply.status(400).send({
         error: {
           code: 'CARBON_INVALID_INPUT',
-          message: 'Idempotency-Key must be 8-128 visible ASCII chars',
+          message:
+            'Idempotency-Key must be 16-128 chars from the URL-safe set [A-Za-z0-9._~-]',
         },
       });
       return reply;
     }
 
-    const bodyHash = hashBody(req.body);
-    const storageKey = [
-      prefix,
-      hashSegment(identify(req)),
-      method,
-      hashSegment(routeId(req)),
-      hashSegment(key),
-    ].join(':');
-    const cached = await opts.redis.hgetall(storageKey);
+    const storageKey = `${prefix}:${identify(req)}:${key}`;
+    const respKey = `${storageKey}:resp`;
+    const lockKey = `${storageKey}:lock`;
 
-    if (sendCachedOrConflict(reply, cached, bodyHash)) {
-      return reply;
-    }
-
-    const claimed = await opts.redis.eval(CLAIM_SCRIPT, 1, storageKey, bodyHash, String(ttl));
-    if (Number(claimed) !== 1) {
-      const latest = await opts.redis.hgetall(storageKey);
-      if (sendCachedOrConflict(reply, latest, bodyHash)) {
+    // Cache lookup first: a hit skips both the lock and the handler.
+    const cachedRaw = await opts.redis.get(respKey);
+    if (cachedRaw) {
+      const cached = safeParse(cachedRaw);
+      if (cached) {
+        recordIdempotencyOutcome('hit');
+        replayCached(reply, cached);
         return reply;
       }
+      // Corrupt entry — fall through and treat like a miss.
+    }
+
+    // Concurrent inflight guard: SET NX so only the first retry wins.
+    // If we lose the race, the response is not yet cached, so we can't
+    // replay — surface a 409 and let the client retry after the lock expires.
+    const acquired = await opts.redis.set(lockKey, '1', 'EX', lockTtl, 'NX');
+    if (acquired !== 'OK') {
+      recordIdempotencyOutcome('conflict');
       reply.header('retry-after', '1');
       reply.status(409).send({
         error: {
@@ -88,116 +118,139 @@ export async function registerIdempotency(
       return reply;
     }
 
-    // Attach a serializer hook so we can capture the response for later replay.
+    recordIdempotencyOutcome('miss');
+    (req as StatefulRequest)[STATE] = { respKey, lockKey };
     reply.header('idempotent-replay', 'false');
-    const original = reply.send.bind(reply);
-    reply.send = ((payload: unknown) => {
-      // Only cache 2xx responses; retrying a 500 with the same key should
-      // hit the server, not return a cached failure.
-      const statusCode = reply.statusCode;
-      if (statusCode >= 200 && statusCode < 300) {
-        const serialized = serializePayload(payload);
-        void opts.redis
-          .multi()
-          .hset(storageKey, {
-            status: String(statusCode),
-            hash: bodyHash,
-            body: serialized.body,
-            bodyEncoding: serialized.encoding,
-          })
-          .expire(storageKey, ttl)
-          .exec()
-          .catch((err) =>
-            ctx.logger.warn('idempotency.write_failed', { err: (err as Error).message }),
-          );
-      } else {
-        void opts.redis
-          .del(storageKey)
-          .catch((err) =>
-            ctx.logger.warn('idempotency.release_failed', { err: (err as Error).message }),
-          );
-      }
-      return original(payload);
-    }) as typeof reply.send;
+  });
+
+  app.addHook('onSend', async (req, reply, payload) => {
+    const state = (req as StatefulRequest)[STATE];
+    if (!state) return payload;
+
+    // Streams are single-consumption and can be arbitrarily large (think
+    // artifact downloads). Buffering them here would either OOM the process
+    // or drain the pipe before the client sees any bytes. Skip caching and
+    // release the lock so retries hit the handler again.
+    if (payload instanceof Readable) {
+      recordIdempotencyOutcome('skipped_stream');
+      ctx.logger.debug('idempotency.skip_stream', { key: state.respKey });
+      opts.redis.del(state.lockKey).catch((err: unknown) => {
+        ctx.logger.warn('idempotency.release_failed', {
+          err: (err as Error).message,
+        });
+      });
+      return payload;
+    }
+
+    // Only cache successes. A cached 500 would poison every retry with the
+    // same key; a cached 4xx would deny a legitimate corrected retry.
+    if (reply.statusCode >= 400) {
+      opts.redis.del(state.lockKey).catch((err: unknown) => {
+        ctx.logger.warn('idempotency.release_failed', {
+          err: (err as Error).message,
+        });
+      });
+      return payload;
+    }
+
+    const buffer = toBuffer(payload);
+    const stored: CachedResponse = {
+      status: reply.statusCode,
+      headers: sanitizeHeaders(reply.getHeaders()),
+      bodyB64: buffer.toString('base64'),
+    };
+
+    opts.redis
+      .multi()
+      .set(state.respKey, JSON.stringify(stored), 'EX', ttl)
+      .del(state.lockKey)
+      .exec()
+      .catch((err: unknown) => {
+        ctx.logger.warn('idempotency.write_failed', {
+          err: (err as Error).message,
+        });
+      });
+
+    return payload;
   });
 }
 
-function sendCachedOrConflict(
-  reply: FastifyReply,
-  cached: Record<string, string>,
-  bodyHash: string,
-): boolean {
-  if (!cached.hash) return false;
-  if (cached.hash !== bodyHash) {
-    reply.status(409).send({
-      error: {
-        code: 'CARBON_CONFLICT',
-        message: 'Idempotency-Key reused with a different request body',
-      },
-    });
-    return true;
-  }
-  if (!cached.status) {
-    reply.header('retry-after', '1');
-    reply.status(409).send({
-      error: {
-        code: 'CARBON_CONFLICT',
-        message: 'An idempotent request with this key is already in progress',
-      },
-    });
-    return true;
+function replayCached(reply: FastifyReply, cached: CachedResponse): void {
+  for (const [name, value] of Object.entries(cached.headers)) {
+    if (value === undefined) continue;
+    reply.header(name, value);
   }
   reply.header('idempotent-replay', 'true');
-  reply
-    .status(Number(cached.status))
-    .send(deserializePayload(cached.body ?? '', cached.bodyEncoding));
-  return true;
+  reply.status(cached.status).send(Buffer.from(cached.bodyB64, 'base64'));
 }
 
-function isValidIdempotencyKey(key: string): boolean {
-  return /^[\x21-\x7e]{8,128}$/.test(key);
+function toBuffer(payload: unknown): Buffer {
+  if (payload === undefined || payload === null) return Buffer.alloc(0);
+  if (Buffer.isBuffer(payload)) return payload;
+  if (payload instanceof Uint8Array) return Buffer.from(payload);
+  if (typeof payload === 'string') return Buffer.from(payload);
+  // Fastify normally serializes objects before onSend, but a hook earlier in
+  // the chain might return one raw. Fall back to a JSON encoding so we still
+  // replay something sensible.
+  return Buffer.from(JSON.stringify(payload));
 }
 
-function hashBody(body: unknown): string {
-  if (body === undefined || body === null) return '';
-  const canonical = typeof body === 'string' ? body : JSON.stringify(body);
-  return createHash('sha256').update(canonical).digest('hex');
+/**
+ * Skim per-request and hop-by-hop headers off the cached response.
+ *
+ * `content-length` and `transfer-encoding` describe the wire framing of this
+ * specific reply — Fastify re-derives them on replay. `date`, `x-request-id`
+ * and `set-cookie` are per-request identity that would be misleading to
+ * duplicate. Everything else (notably `content-type`) is preserved verbatim.
+ */
+function sanitizeHeaders(
+  raw: ReturnType<FastifyReply['getHeaders']>,
+): Record<string, string | string[]> {
+  const drop = new Set([
+    'content-length',
+    'transfer-encoding',
+    'connection',
+    'date',
+    'x-request-id',
+    'set-cookie',
+    'idempotent-replay',
+  ]);
+  const out: Record<string, string | string[]> = {};
+  for (const [name, value] of Object.entries(raw)) {
+    const lower = name.toLowerCase();
+    if (drop.has(lower)) continue;
+    if (value === undefined) continue;
+    if (typeof value === 'number') {
+      out[lower] = String(value);
+    } else if (Array.isArray(value)) {
+      out[lower] = value.map(String);
+    } else {
+      out[lower] = String(value);
+    }
+  }
+  return out;
 }
 
+function safeParse(raw: string): CachedResponse | null {
+  try {
+    const parsed = JSON.parse(raw) as CachedResponse;
+    if (typeof parsed?.status !== 'number' || typeof parsed?.bodyB64 !== 'string') {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Caller scope for the key namespace. Authenticated requests are keyed by
+ * the API key id (which is per-org), so two callers in the same org still
+ * get isolated idempotency spaces. Anonymous requests fall back to remote
+ * address — good enough for local dev; production requires auth anyway.
+ */
 function identify(req: FastifyRequest): string {
   const apiKey = (req as AuthenticatedRequest).apiKey;
-  if (apiKey?.prefix) return `key:${apiKey.prefix}`;
-  return `ip:${req.ip}`;
-}
-
-function routeId(req: FastifyRequest): string {
-  return req.routeOptions.url ?? new URL(req.url, 'http://carbon.internal').pathname;
-}
-
-function hashSegment(value: string): string {
-  return createHash('sha256').update(value).digest('hex').slice(0, 32);
-}
-
-function serializePayload(payload: unknown): { body: string; encoding: string } {
-  if (payload === undefined) return { body: '', encoding: 'empty' };
-  if (typeof payload === 'string') return { body: payload, encoding: 'text' };
-  if (Buffer.isBuffer(payload)) return { body: payload.toString('base64'), encoding: 'base64' };
-  if (payload instanceof Uint8Array) {
-    return { body: Buffer.from(payload).toString('base64'), encoding: 'base64' };
-  }
-  return { body: JSON.stringify(payload), encoding: 'json' };
-}
-
-function deserializePayload(body: string, encoding: string | undefined): unknown {
-  switch (encoding) {
-    case 'empty':
-      return undefined;
-    case 'text':
-      return body;
-    case 'base64':
-      return Buffer.from(body, 'base64');
-    case 'json':
-    default:
-      return body ? JSON.parse(body) : null;
-  }
+  if (apiKey?.id) return `key:${apiKey.id}`;
+  return `anon:${req.ip}`;
 }

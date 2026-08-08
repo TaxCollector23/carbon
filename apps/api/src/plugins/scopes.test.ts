@@ -58,7 +58,7 @@ describe('keyHasScope', () => {
 describe('requireScope guard', () => {
   it('read-only key is rejected on a write route', async () => {
     const app = buildApp(
-      { id: 'k', orgId: 'o', prefix: 'p', scopes: ['read'], projectIds: null },
+      { id: 'k', orgId: 'o', prefix: 'p', scopes: ['read'], projectIds: null, expiresAt: null },
       (a) =>
         a.post('/w', { preHandler: requireScope('write') }, async () => ({ ok: true })),
     );
@@ -69,7 +69,7 @@ describe('requireScope guard', () => {
 
   it('write key is accepted on write and read routes', async () => {
     const app = buildApp(
-      { id: 'k', orgId: 'o', prefix: 'p', scopes: ['write'], projectIds: null },
+      { id: 'k', orgId: 'o', prefix: 'p', scopes: ['write'], projectIds: null, expiresAt: null },
       (a) => {
         a.get('/r', { preHandler: requireScope('read') }, async () => ({ ok: true }));
         a.post('/w', { preHandler: requireScope('write') }, async () => ({ ok: true }));
@@ -81,7 +81,7 @@ describe('requireScope guard', () => {
 
   it('admin key can hit an admin-scoped api-keys route', async () => {
     const app = buildApp(
-      { id: 'k', orgId: 'o', prefix: 'p', scopes: ['admin'], projectIds: null },
+      { id: 'k', orgId: 'o', prefix: 'p', scopes: ['admin'], projectIds: null, expiresAt: null },
       (a) =>
         a.post('/a', { preHandler: requireScope('admin') }, async () => ({ ok: true })),
     );
@@ -90,7 +90,7 @@ describe('requireScope guard', () => {
 
   it('write key is rejected on an admin-scoped route', async () => {
     const app = buildApp(
-      { id: 'k', orgId: 'o', prefix: 'p', scopes: ['write'], projectIds: null },
+      { id: 'k', orgId: 'o', prefix: 'p', scopes: ['write'], projectIds: null, expiresAt: null },
       (a) =>
         a.post('/a', { preHandler: requireScope('admin') }, async () => ({ ok: true })),
     );
@@ -147,7 +147,7 @@ describe('project pinning via resolveProjectAccess', () => {
   it('unpinned key (projectIds: null) has access to any project in its org', async () => {
     const ctx = makeCtx([{ id: 'prj_a', slug: 'a', orgId: 'org_1' }]);
     const req = {
-      apiKey: { id: 'k', orgId: 'org_1', prefix: 'p', scopes: ['admin'], projectIds: null },
+      apiKey: { id: 'k', orgId: 'org_1', prefix: 'p', scopes: ['admin'], projectIds: null, expiresAt: null },
     } as unknown as Parameters<typeof resolveProjectAccess>[1];
     const access = await resolveProjectAccess(ctx, req, 'a');
     expect(access.slug).toBe('a');

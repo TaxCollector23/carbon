@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, or, gt, sql as dsql } from 'drizzle-orm';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { CarbonError } from '@carbon/core';
 import { schema } from '@carbon/database';
@@ -53,6 +53,8 @@ export interface AuthenticatedRequest extends FastifyRequest {
     scopes: string[];
     /** null → key has access to every project in its org. */
     projectIds: string[] | null;
+    /** null → never expires; a Date past now() is rejected before this fires. */
+    expiresAt: Date | null;
   };
 }
 
@@ -100,7 +102,13 @@ export async function registerApiKeyAuth(
     const rows = await ctx.db
       .select()
       .from(schema.apiKeys)
-      .where(and(eq(schema.apiKeys.prefix, prefix), isNull(schema.apiKeys.revokedAt)))
+      .where(
+        and(
+          eq(schema.apiKeys.prefix, prefix),
+          isNull(schema.apiKeys.revokedAt),
+          or(isNull(schema.apiKeys.expiresAt), gt(schema.apiKeys.expiresAt, dsql`now()`)),
+        ),
+      )
       .limit(1);
     if (rows.length === 0) {
       throw new CarbonError({
@@ -120,6 +128,18 @@ export async function registerApiKeyAuth(
       });
     }
 
+    // Belt-and-suspenders: the SQL guard above already excludes expired rows
+    // in production, but the app clock is the source of truth for the error
+    // message and lets tests exercise the boundary without stubbing SQL now().
+    if (row.expiresAt && row.expiresAt.getTime() <= Date.now()) {
+      throw new CarbonError({
+        code: 'CARBON_UNAUTHENTICATED',
+        message: 'API key expired',
+        details: { expiredAt: row.expiresAt.toISOString() },
+        expose: true,
+      });
+    }
+
     (req as AuthenticatedRequest).apiKey = {
       id: row.id,
       orgId: row.orgId,
@@ -129,6 +149,7 @@ export async function registerApiKeyAuth(
       // hand-inserted rows.
       scopes: Array.isArray(row.scopes) && row.scopes.length > 0 ? row.scopes : ['admin'],
       projectIds: Array.isArray(row.projectIds) ? row.projectIds : null,
+      expiresAt: row.expiresAt ?? null,
     };
 
     // Throttle lastUsedAt writes — write-amplifying Postgres on every request

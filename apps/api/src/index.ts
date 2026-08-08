@@ -12,6 +12,7 @@ import { createEmulatorRegistry } from './services/emulator-registry.js';
 import { createJobService } from './services/jobs.js';
 import { startEmbeddedWorkers } from './workers.js';
 import { createLifecycle } from './lifecycle.js';
+import { createIngestMetrics } from './plugins/metrics.js';
 
 async function main(): Promise<void> {
   const env = loadEnv();
@@ -53,6 +54,10 @@ async function main(): Promise<void> {
   });
   const jobs = redis ? createJobService({ redis, logger }) : undefined;
   const ingestionQueue = redis ? createIngestionQueue({ connection: redis }) : undefined;
+  // One collector, shared between the metrics endpoint (which polls depth and
+  // renders series) and the embedded worker (which reports outcomes into the
+  // same sink). Skipped entirely when no queue exists.
+  const ingestMetrics = ingestionQueue ? createIngestMetrics({ logger }) : undefined;
 
   const workers =
     env.EMBED_WORKERS && redis && jobs
@@ -62,6 +67,8 @@ async function main(): Promise<void> {
           ingestion,
           jobs,
           ingestConcurrency: env.CARBON_INGEST_CONCURRENCY,
+          ingestMetrics: ingestMetrics?.sink,
+          redisUrl: env.REDIS_URL,
         })
       : null;
   if (env.EMBED_WORKERS && !redis) {
@@ -89,6 +96,7 @@ async function main(): Promise<void> {
     redis,
     rateLimit: { max: env.CARBON_RATE_LIMIT_MAX, windowMs: env.CARBON_RATE_LIMIT_WINDOW_MS },
     metricsToken: env.CARBON_METRICS_TOKEN,
+    ingestMetrics,
     requestTimeoutMs: env.CARBON_REQUEST_TIMEOUT_MS,
     trustedProxyHops: env.CARBON_TRUSTED_PROXY_HOPS,
     publicDocs: env.CARBON_PUBLIC_DOCS,

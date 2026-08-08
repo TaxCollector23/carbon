@@ -101,6 +101,14 @@ export async function registerHealthRoutes(
         ? runCheck(checks, 'redis', timeoutMs, () => ctx.redis?.ping() ?? Promise.resolve())
         : Promise.resolve(),
       runCheck(checks, 'storage', timeoutMs, () => probeStorage(writeProbe)),
+      // The ingest queue's health is not just Redis reachability: BullMQ's
+      // internal client can be disconnected even when a plain PING would
+      // succeed. `getJobCounts` exercises the same commands the worker uses.
+      ctx.ingestionQueue
+        ? runCheck(checks, 'queue', timeoutMs, async () => {
+            await ctx.ingestionQueue!.getJobCounts('waiting', 'active');
+          })
+        : Promise.resolve(),
     ]);
 
     return { ok: Object.values(checks).every((c) => c.ok), checks };

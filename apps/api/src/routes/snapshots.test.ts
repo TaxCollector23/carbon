@@ -43,7 +43,7 @@ async function build() {
     (req as AuthenticatedRequest).apiKey = {
       id: 'key_1',
       orgId: 'org_1',
-      prefix: 'aa11bb22cc33', scopes: ['admin'], projectIds: null,
+      prefix: 'aa11bb22cc33', scopes: ['admin'], projectIds: null, expiresAt: null,
     };
   });
   await registerSnapshotRoutes(app, makeCtx());

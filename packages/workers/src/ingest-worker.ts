@@ -93,6 +93,19 @@ export function createIngestionQueue(opts: CreateIngestionQueueOptions): Queue<I
   });
 }
 
+/**
+ * Callback surface the worker uses to report timing/outcome to whatever metrics
+ * system the host process happens to run. Kept as a plain interface so
+ * `packages/workers` never has to depend on prom-client — the API wires a
+ * prom-backed implementation, and the standalone worker can ignore it.
+ */
+export interface IngestMetricsSink {
+  /** Delta the local process should apply to its "active jobs" gauge. */
+  onActiveDelta(delta: number): void;
+  /** Called once per terminal job outcome (after all retries are exhausted). */
+  onJobResult(input: { outcome: 'succeeded' | 'failed'; durationMs: number }): void;
+}
+
 export interface RegisterIngestWorkerOptions {
   readonly connection: Redis;
   readonly ingestion: IngestionRunner;
@@ -100,6 +113,32 @@ export interface RegisterIngestWorkerOptions {
   readonly logger: Logger;
   /** Max jobs processed in parallel by this worker. Defaults to 4. */
   readonly concurrency?: number;
+  /** Optional metrics hook — see {@link IngestMetricsSink}. */
+  readonly metrics?: IngestMetricsSink;
+  /**
+   * Redis URL, logged with credentials redacted so operators can tell which
+   * Redis a given worker attached to. Never log the raw URL.
+   */
+  readonly redisUrl?: string;
+}
+
+/**
+ * Strip credentials from a Redis URL so it's safe to log. Uses WHATWG URL
+ * parsing rather than a regex — the shape of a userinfo section is subtle
+ * (percent-encoding, empty-user forms like `redis://:pw@host`, IPv6 hosts).
+ */
+export function redactRedisUrl(raw: string | undefined): string | undefined {
+  if (!raw) return raw;
+  try {
+    const url = new URL(raw);
+    if (url.password || url.username) {
+      url.password = '';
+      url.username = '';
+    }
+    return url.toString();
+  } catch {
+    return 'invalid-url';
+  }
 }
 
 /**
@@ -116,6 +155,10 @@ export function registerIngestWorker(opts: RegisterIngestWorkerOptions): Worker<
 > {
   const concurrency = opts.concurrency ?? 4;
   const logger = opts.logger.child({ component: 'ingest-worker' });
+  const metrics = opts.metrics;
+  // Per-job start times so `completed`/`failed` events can compute duration
+  // without smuggling wall-clocks through the job payload.
+  const startedAt = new Map<string, number>();
 
   const worker = new Worker<IngestJobPayload, IngestJobResult>(
     INGEST_QUEUE_NAME,
@@ -156,15 +199,58 @@ export function registerIngestWorker(opts: RegisterIngestWorkerOptions): Worker<
     { connection: opts.connection, concurrency },
   );
 
+  worker.on('active', (job) => {
+    if (job.id) startedAt.set(job.id, Date.now());
+    metrics?.onActiveDelta(1);
+    logger.info('ingest.worker.active', {
+      jobId: job.id,
+      kind: job.name,
+      statusJobId: job.data?.statusJobId,
+    });
+  });
+
+  worker.on('completed', (job) => {
+    metrics?.onActiveDelta(-1);
+    const start = job.id ? startedAt.get(job.id) : undefined;
+    const durationMs = start === undefined ? 0 : Date.now() - start;
+    if (job.id) startedAt.delete(job.id);
+    metrics?.onJobResult({ outcome: 'succeeded', durationMs });
+    logger.info('ingest.worker.completed', {
+      jobId: job.id,
+      kind: job.name,
+      durationMs,
+    });
+  });
+
   worker.on('failed', (job, err) => {
+    metrics?.onActiveDelta(-1);
+    const start = job?.id ? startedAt.get(job.id) : undefined;
+    const durationMs = start === undefined ? 0 : Date.now() - start;
+    // Terminal failure = attempts exhausted. Only then does the metric fire
+    // as `failed`; a retryable attempt is not a job outcome.
+    const attemptsMade = (job?.attemptsMade ?? 0) + 1;
+    const totalAttempts = job?.opts?.attempts ?? 1;
+    const terminal = attemptsMade >= totalAttempts;
+    if (terminal) {
+      if (job?.id) startedAt.delete(job.id);
+      metrics?.onJobResult({ outcome: 'failed', durationMs });
+    }
     logger.warn('ingest.worker.attempt_failed', {
       jobId: job?.id,
-      attemptsMade: job?.attemptsMade,
+      kind: job?.name,
+      attemptsMade,
+      totalAttempts,
+      terminal,
+      durationMs,
       message: err.message,
     });
   });
 
-  logger.info('ingest.worker.ready', { queue: INGEST_QUEUE_NAME, concurrency });
+  logger.info('ingest.worker.ready', {
+    queue: INGEST_QUEUE_NAME,
+    concurrency,
+    redisUrl: redactRedisUrl(opts.redisUrl),
+  });
   return worker;
 }
 

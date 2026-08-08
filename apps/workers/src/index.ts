@@ -7,6 +7,7 @@ import {
   createRedisIngestJobStatusWriter,
   QueueRegistry,
   Queues,
+  redactRedisUrl,
   registerIngestWorker,
 } from '@carbon/workers';
 import { deliverWebhook } from './handlers/webhook.js';
@@ -36,6 +37,7 @@ async function main(): Promise<void> {
     jobs,
     logger,
     concurrency: env.CARBON_INGEST_CONCURRENCY,
+    redisUrl: env.REDIS_URL,
   });
 
   const shutdown = async (signal: string) => {
@@ -51,12 +53,7 @@ async function main(): Promise<void> {
 }
 
 function describeRedisUrl(raw: string): string {
-  try {
-    const url = new URL(raw);
-    return `${url.protocol}//${url.hostname}:${url.port || '6379'}`;
-  } catch {
-    return 'invalid-url';
-  }
+  return redactRedisUrl(raw) ?? 'invalid-url';
 }
 
 function buildStorage(env: ReturnType<typeof loadEnv>): Storage {

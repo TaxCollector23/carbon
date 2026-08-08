@@ -1,5 +1,14 @@
 import { sql } from 'drizzle-orm';
-import { boolean, index, jsonb, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  index,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  type AnyPgColumn,
+} from 'drizzle-orm/pg-core';
 
 /**
  * Carbon's control-plane schema. The runtime's state engine is separate —
@@ -164,6 +173,17 @@ export const apiKeys = pgTable(
      * org). Null means "all projects in org".
      */
     projectIds: text('project_ids').array(),
+    /**
+     * When non-null, the key is treated as revoked once now() > expiresAt.
+     * Used both for short-lived (CI) keys and for the grace window on a
+     * rotated predecessor. Null → never-expiring (legacy behavior).
+     */
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    /**
+     * When non-null, points at the source key this row was minted from via
+     * the rotation flow. Purely informational — auth never dereferences it.
+     */
+    rotatedFromId: text('rotated_from_id').references((): AnyPgColumn => apiKeys.id),
   },
   (t) => ({
     prefixIdx: uniqueIndex('api_keys_prefix_unique').on(t.prefix),

@@ -25,9 +25,25 @@ export interface AccessLogOptions {
 const DEFAULT_IGNORED = ['/health', '/ready', '/metrics'];
 
 const START_KEY = Symbol('carbon.accessLogStart');
+const JOB_ID_KEY = Symbol('carbon.accessLogJobId');
 
 interface TimedRequest extends FastifyRequest {
   [START_KEY]?: bigint;
+  [JOB_ID_KEY]?: string;
+}
+
+/**
+ * Job ids are short, opaque, and safe to log. Pattern is deliberately narrow
+ * (base64url-ish + hyphens) so a stray field on some other route can't inject
+ * unbounded strings into log output.
+ */
+const JOB_ID_PATTERN = /^[A-Za-z0-9._:-]{1,64}$/;
+
+function extractJobId(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== 'object') return undefined;
+  const value = (payload as { jobId?: unknown }).jobId;
+  if (typeof value !== 'string' || !JOB_ID_PATTERN.test(value)) return undefined;
+  return value;
 }
 
 export async function registerAccessLog(
@@ -40,6 +56,23 @@ export async function registerAccessLog(
 
   app.addHook('onRequest', async (req) => {
     (req as TimedRequest)[START_KEY] = process.hrtime.bigint();
+  });
+
+  // Capture the jobId from either the response body (async ingest returns
+  // `{jobId}` with a 202) or the route param (GET /v1/jobs/:id). `preSerialization`
+  // runs before Fastify turns the payload into JSON, so we get the object.
+  app.addHook('preSerialization', async (req, _reply, payload) => {
+    const routeParamId = (req.params as { id?: string } | undefined)?.id;
+    const routeUrl = req.routeOptions?.url;
+    if (routeUrl === '/v1/jobs/:id' && typeof routeParamId === 'string') {
+      if (JOB_ID_PATTERN.test(routeParamId)) {
+        (req as TimedRequest)[JOB_ID_KEY] = routeParamId;
+      }
+      return payload;
+    }
+    const bodyId = extractJobId(payload);
+    if (bodyId) (req as TimedRequest)[JOB_ID_KEY] = bodyId;
+    return payload;
   });
 
   app.addHook('onResponse', async (req, reply) => {
@@ -58,6 +91,7 @@ export async function registerAccessLog(
       reqId: String(req.id),
       ip: req.ip,
       key: (req as AuthenticatedRequest).apiKey?.prefix,
+      jobId: (req as TimedRequest)[JOB_ID_KEY],
     };
 
     if (status >= 500) ctx.logger.error('api.access', fields);

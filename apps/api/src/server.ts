@@ -20,7 +20,7 @@ import { registerIdempotency } from './plugins/idempotency.js';
 import { registerControlPlaneRateLimit } from './plugins/rate-limit.js';
 import { registerAccessLog } from './plugins/access-log.js';
 import { registerDocs } from './plugins/docs.js';
-import { registerMetrics } from './plugins/metrics.js';
+import { registerMetrics, type IngestMetrics } from './plugins/metrics.js';
 import { isTransient, mapDriverError } from './errors.js';
 import { AlwaysReady, type Lifecycle } from './lifecycle.js';
 import type { Redis } from 'ioredis';
@@ -78,6 +78,8 @@ export interface BuildServerOptions {
   readonly rateLimit?: { max: number; windowMs: number };
   /** When set, `/metrics` requires `Authorization: Bearer <token>`. */
   readonly metricsToken?: string;
+  /** Optional ingest queue metrics collector, from `createIngestMetrics()`. */
+  readonly ingestMetrics?: IngestMetrics;
   /** Drives `/ready` during shutdown. Defaults to a never-draining stub. */
   readonly lifecycle?: Lifecycle;
   /** Hard ceiling on a single request, in ms. Default 30s. */
@@ -190,7 +192,15 @@ export async function buildServer(
   // Metrics and access logging register their timing hooks first so they
   // measure the *whole* request, auth and rate limiting included — otherwise
   // every rejected request looks free.
-  await registerMetrics(app, ctx, { token: options.metricsToken });
+  // Attach the ingest queue depth poller now that we have a live queue handle.
+  // Poller cleanup is chained to the metrics plugin's onClose hook.
+  if (options.ingestMetrics && ctx.ingestionQueue) {
+    options.ingestMetrics.attachQueue(ctx.ingestionQueue);
+  }
+  await registerMetrics(app, ctx, {
+    token: options.metricsToken,
+    ingest: options.ingestMetrics,
+  });
   await registerAccessLog(app, ctx);
 
   if (options.auth) {

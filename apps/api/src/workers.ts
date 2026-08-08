@@ -6,6 +6,7 @@ import {
   registerIngestWorker,
   type IngestionRunner,
   type IngestJobStatusWriter,
+  type IngestMetricsSink,
   type WebhookDeliveryPayload,
 } from '@carbon/workers';
 import type { Worker } from 'bullmq';
@@ -29,6 +30,9 @@ export function startEmbeddedWorkers(deps: {
   ingestion: IngestionRunner;
   jobs: IngestJobStatusWriter;
   ingestConcurrency?: number;
+  ingestMetrics?: IngestMetricsSink;
+  /** Raw REDIS_URL, redacted before logging. */
+  redisUrl?: string;
 }): { close: () => Promise<void> } {
   const registry = new QueueRegistry({ redis: deps.redis, logger: deps.logger });
 
@@ -42,6 +46,8 @@ export function startEmbeddedWorkers(deps: {
     jobs: deps.jobs,
     logger: deps.logger,
     concurrency: deps.ingestConcurrency,
+    metrics: deps.ingestMetrics,
+    redisUrl: deps.redisUrl,
   });
 
   deps.logger.info('workers.embedded_ready', {

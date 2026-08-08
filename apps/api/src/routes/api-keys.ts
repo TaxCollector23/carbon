@@ -6,7 +6,10 @@ import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import { requireScope } from '../plugins/scopes.js';
-import { mintApiKey } from '../services/api-keys.js';
+import { mintApiKey, rotateApiKey } from '../services/api-keys.js';
+
+const MAX_EXPIRES_IN_SECONDS = 90 * 24 * 60 * 60; // 90 days
+const MAX_GRACE_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
 const ScopeEnum = z.enum(['read', 'write', 'admin']);
 
@@ -20,6 +23,22 @@ const CreateBody = z.object({
   // null (or omitted) means "all projects in org". A non-empty list pins the
   // key to those project ids only.
   projectIds: z.array(z.string().min(1)).nullable().default(null),
+  /**
+   * When set, the minted key auto-expires after this many seconds. Use for
+   * CI/short-lived credentials. 60s minimum, 90 days maximum.
+   */
+  expiresInSeconds: z
+    .number()
+    .int()
+    .min(60)
+    .max(MAX_EXPIRES_IN_SECONDS)
+    .optional(),
+});
+
+const RotateBody = z.object({
+  graceSeconds: z.number().int().min(60).max(MAX_GRACE_SECONDS).default(3600),
+  scopes: z.array(ScopeEnum).min(1).optional(),
+  projectIds: z.array(z.string().min(1)).nullable().optional(),
 });
 
 const ListQuery = z.object({
@@ -48,6 +67,8 @@ export async function registerApiKeyRoutes(app: FastifyInstance, ctx: AppContext
         projectIds: schema.apiKeys.projectIds,
         lastUsedAt: schema.apiKeys.lastUsedAt,
         createdAt: schema.apiKeys.createdAt,
+        expiresAt: schema.apiKeys.expiresAt,
+        rotatedFromId: schema.apiKeys.rotatedFromId,
       })
       .from(schema.apiKeys)
       .where(where)
@@ -88,15 +109,74 @@ export async function registerApiKeyRoutes(app: FastifyInstance, ctx: AppContext
         });
       }
     }
+    const expiresAt = body.expiresInSeconds
+      ? new Date(Date.now() + body.expiresInSeconds * 1000)
+      : null;
     const key = await mintApiKey(ctx, {
       orgId,
       name: body.name,
       scopes: body.scopes,
       projectIds: body.projectIds,
+      expiresAt,
     });
     reply.status(201);
     return key;
   });
+
+  app.post<{ Params: { id: string } }>(
+    '/v1/api-keys/:id/rotate',
+    { preHandler: requireScope('admin') },
+    async (req, reply) => {
+      const body = RotateBody.parse(req.body ?? {});
+      const orgId = requestOrgId(req);
+      if (!orgId) {
+        throw new CarbonError({
+          code: 'CARBON_INVALID_INPUT',
+          message: 'orgId is required when API auth is disabled',
+          expose: true,
+        });
+      }
+      // Same ownership check as create: reject project ids the caller's org
+      // does not own before touching the source key.
+      if (body.projectIds && body.projectIds.length > 0) {
+        const rows = await ctx.db
+          .select({ id: schema.projects.id })
+          .from(schema.projects)
+          .where(
+            and(eq(schema.projects.orgId, orgId), inArray(schema.projects.id, body.projectIds)),
+          );
+        const owned = new Set(rows.map((r) => r.id));
+        const missing = body.projectIds.filter((id) => !owned.has(id));
+        if (missing.length > 0) {
+          throw new CarbonError({
+            code: 'CARBON_INVALID_INPUT',
+            message: 'projectIds contains ids not owned by this org',
+            details: { missing },
+            expose: true,
+          });
+        }
+      }
+      const { minted, source } = await rotateApiKey(ctx, {
+        sourceId: req.params.id,
+        orgId,
+        graceSeconds: body.graceSeconds,
+        scopes: body.scopes,
+        projectIds: body.projectIds,
+      });
+      reply.status(201);
+      return {
+        id: minted.id,
+        secret: minted.presented,
+        prefix: minted.prefix,
+        scopes: minted.scopes,
+        projectIds: minted.projectIds,
+        expiresAt: minted.expiresAt,
+        rotatedFromId: minted.rotatedFromId,
+        sourceId: source.id,
+        sourceExpiresAt: source.expiresAt,
+      };
+    },
+  );
 
   app.delete<{ Params: { id: string } }>(
     '/v1/api-keys/:id',
