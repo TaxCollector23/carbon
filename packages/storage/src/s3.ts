@@ -7,8 +7,9 @@ import {
   ListObjectsV2Command,
   NotFound,
 } from '@aws-sdk/client-s3';
+import { Readable } from 'node:stream';
 import { ConflictError } from '@carbon/core';
-import type { PutOptions, Storage, StorageObject } from './storage.js';
+import type { PutOptions, Storage, StorageObject, StorageStream } from './storage.js';
 
 export interface S3StorageOptions {
   readonly bucket: string;
@@ -64,6 +65,36 @@ export class S3Storage implements Storage {
       );
       if (!res.Body) return null;
       return await streamToBytes(res.Body as unknown as AsyncIterable<Uint8Array>);
+    } catch (err) {
+      if (isNotFound(err)) return null;
+      throw err;
+    }
+  }
+
+  async getStream(key: string): Promise<StorageStream | null> {
+    try {
+      const res = await this.client.send(
+        new GetObjectCommand({ Bucket: this.bucket, Key: this.k(key) }),
+      );
+      if (!res.Body) return null;
+      const body = res.Body as {
+        transformToWebStream?: () => ReadableStream<Uint8Array>;
+      } & AsyncIterable<Uint8Array>;
+      const stream = body.transformToWebStream
+        ? Readable.fromWeb(body.transformToWebStream() as Parameters<typeof Readable.fromWeb>[0])
+        : Readable.from(body);
+      // S3/R2 return their own ETag (usually the object MD5 in strong quotes).
+      // Prefer it verbatim; fall back to the artifact-id convention when the
+      // server omits it. Marked weak because JSON representations can vary
+      // byte-for-byte without changing the logical artifact.
+      const rawEtag = (res.ETag ?? '').replace(/^"|"$/g, '');
+      const id = key.split('/').pop()?.replace(/\.[^.]+$/, '') ?? key;
+      const etag = rawEtag ? `W/"${rawEtag}"` : `W/"${id}"`;
+      return {
+        stream,
+        size: res.ContentLength ?? 0,
+        etag,
+      };
     } catch (err) {
       if (isNotFound(err)) return null;
       throw err;

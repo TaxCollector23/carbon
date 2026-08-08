@@ -1,6 +1,14 @@
 import { createHmac } from 'node:crypto';
 import { CarbonError, type Logger } from '@carbon/core';
-import { QueueRegistry, Queues, type WebhookDeliveryPayload } from '@carbon/workers';
+import {
+  QueueRegistry,
+  Queues,
+  registerIngestWorker,
+  type IngestionRunner,
+  type IngestJobStatusWriter,
+  type WebhookDeliveryPayload,
+} from '@carbon/workers';
+import type { Worker } from 'bullmq';
 import type { Redis } from 'ioredis';
 
 /**
@@ -15,17 +23,36 @@ import type { Redis } from 'ioredis';
  * its own service. The handlers here are intentionally a subset — webhooks
  * only — so an operator can start there and add more without duplicating logic.
  */
-export function startEmbeddedWorkers(deps: { redis: Redis; logger: Logger }): {
-  close: () => Promise<void>;
-} {
+export function startEmbeddedWorkers(deps: {
+  redis: Redis;
+  logger: Logger;
+  ingestion: IngestionRunner;
+  jobs: IngestJobStatusWriter;
+  ingestConcurrency?: number;
+}): { close: () => Promise<void> } {
   const registry = new QueueRegistry({ redis: deps.redis, logger: deps.logger });
 
   registry.handle(Queues.webhookDelivery, async (job) =>
     deliverWebhook(job.data, { logger: deps.logger }),
   );
 
-  deps.logger.info('workers.embedded_ready', { queues: ['carbon.webhook.delivery'] });
-  return { close: () => registry.close() };
+  const ingestWorker: Worker = registerIngestWorker({
+    connection: deps.redis,
+    ingestion: deps.ingestion,
+    jobs: deps.jobs,
+    logger: deps.logger,
+    concurrency: deps.ingestConcurrency,
+  });
+
+  deps.logger.info('workers.embedded_ready', {
+    queues: ['carbon.webhook.delivery', 'carbon.ingest'],
+  });
+  return {
+    close: async () => {
+      await ingestWorker.close();
+      await registry.close();
+    },
+  };
 }
 
 interface DeliverOpts {

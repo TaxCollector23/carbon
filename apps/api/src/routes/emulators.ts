@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { InvalidInputError } from '@carbon/core';
 import type { AppContext } from '../context.js';
+import { requireScope } from '../plugins/scopes.js';
 import {
   filterStoredProjectRecords,
   ProjectSlug,
@@ -44,13 +45,13 @@ const SnapshotBody = z.object({
 const RestoreBody = z.object({ name: z.string().min(1) });
 
 export async function registerEmulatorRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
-  app.get('/v1/emulators', async (req) => ({
+  app.get('/v1/emulators', { preHandler: requireScope('read') }, async (req) => ({
     data: await filterStoredProjectRecords(ctx, req, ctx.emulators.list()),
   }));
 
   const allowedHosts = ctx.emulatorAllowedHosts ?? DEFAULT_ALLOWED_HOSTS;
 
-  app.post('/v1/emulators', async (req, reply) => {
+  app.post('/v1/emulators', { preHandler: requireScope('write') }, async (req, reply) => {
     const body = CreateBody.parse(req.body);
     // Default to loopback and reject anything the operator did not opt into.
     // Passing an arbitrary interface straight to `server.listen()` is how an
@@ -73,40 +74,60 @@ export async function registerEmulatorRoutes(app: FastifyInstance, ctx: AppConte
     return { ...record, projectSlug: project.slug };
   });
 
-  app.get<{ Params: { id: string } }>('/v1/emulators/:id', async (req) => {
+  app.get<{ Params: { id: string } }>(
+    '/v1/emulators/:id',
+    { preHandler: requireScope('read') },
+    async (req) => {
     const record = ctx.emulators.get(req.params.id);
     const project = await resolveStoredProjectAccess(ctx, req, record.projectSlug);
     return { ...record, projectSlug: project.slug };
-  });
+    },
+  );
 
-  app.delete<{ Params: { id: string } }>('/v1/emulators/:id', async (req, reply) => {
-    const record = ctx.emulators.get(req.params.id);
-    await resolveStoredProjectAccess(ctx, req, record.projectSlug);
-    await ctx.emulators.stop(req.params.id);
-    reply.status(204);
-  });
+  app.delete<{ Params: { id: string } }>(
+    '/v1/emulators/:id',
+    { preHandler: requireScope('write') },
+    async (req, reply) => {
+      const record = ctx.emulators.get(req.params.id);
+      await resolveStoredProjectAccess(ctx, req, record.projectSlug);
+      await ctx.emulators.stop(req.params.id);
+      reply.status(204);
+    },
+  );
 
-  app.post<{ Params: { id: string } }>('/v1/emulators/:id/reset', async (req, reply) => {
-    const record = ctx.emulators.get(req.params.id);
-    await resolveStoredProjectAccess(ctx, req, record.projectSlug);
-    await ctx.emulators.reset(req.params.id);
-    reply.status(204);
-  });
+  app.post<{ Params: { id: string } }>(
+    '/v1/emulators/:id/reset',
+    { preHandler: requireScope('write') },
+    async (req, reply) => {
+      const record = ctx.emulators.get(req.params.id);
+      await resolveStoredProjectAccess(ctx, req, record.projectSlug);
+      await ctx.emulators.reset(req.params.id);
+      reply.status(204);
+    },
+  );
 
-  app.post<{ Params: { id: string } }>('/v1/emulators/:id/snapshot', async (req, reply) => {
-    const body = SnapshotBody.parse(req.body);
-    const record = ctx.emulators.get(req.params.id);
-    await resolveStoredProjectAccess(ctx, req, record.projectSlug);
-    const result = await ctx.emulators.snapshot(req.params.id, body.name);
-    reply.status(201);
-    return { name: body.name, ...result };
-  });
+  app.post<{ Params: { id: string } }>(
+    '/v1/emulators/:id/snapshot',
+    { preHandler: requireScope('write') },
+    async (req, reply) => {
+      const body = SnapshotBody.parse(req.body);
+      const record = ctx.emulators.get(req.params.id);
+      await resolveStoredProjectAccess(ctx, req, record.projectSlug);
+      const result = await ctx.emulators.snapshot(req.params.id, body.name);
+      reply.status(201);
+      return { name: body.name, ...result };
+    },
+  );
 
-  app.post<{ Params: { id: string } }>('/v1/emulators/:id/restore', async (req, reply) => {
-    const body = RestoreBody.parse(req.body);
-    const record = ctx.emulators.get(req.params.id);
-    await resolveStoredProjectAccess(ctx, req, record.projectSlug);
-    await ctx.emulators.restore(req.params.id, body.name);
-    reply.status(204);
-  });
+  app.post<{ Params: { id: string } }>(
+    '/v1/emulators/:id/restore',
+    { preHandler: requireScope('write') },
+    async (req, reply) => {
+      const body = RestoreBody.parse(req.body);
+      const record = ctx.emulators.get(req.params.id);
+      await resolveStoredProjectAccess(ctx, req, record.projectSlug);
+      await ctx.emulators.restore(req.params.id, body.name);
+      reply.status(204);
+    },
+  );
 }

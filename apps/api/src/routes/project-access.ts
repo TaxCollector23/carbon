@@ -1,7 +1,7 @@
 import type { FastifyRequest } from 'fastify';
 import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
-import { NotFoundError } from '@carbon/core';
+import { CarbonError, NotFoundError } from '@carbon/core';
 import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
@@ -23,11 +23,13 @@ export async function resolveProjectAccess(
   req: FastifyRequest,
   slug: string,
 ): Promise<ProjectAccess> {
-  const orgId = (req as AuthenticatedRequest).apiKey?.orgId;
+  const apiKey = (req as AuthenticatedRequest).apiKey;
+  const orgId = apiKey?.orgId;
   if (!orgId) return { slug, storageSlug: slug };
 
   const [project] = await ctx.db
     .select({
+      id: schema.projects.id,
       orgId: schema.projects.orgId,
       slug: schema.projects.slug,
     })
@@ -36,6 +38,18 @@ export async function resolveProjectAccess(
     .limit(1);
 
   if (!project) throw new NotFoundError('project', slug);
+  // Project pinning — if the presenting key is scoped to a subset of the org's
+  // projects, refuse access to anything outside that subset even when the
+  // caller's org would otherwise permit it. Returning 404 here would leak the
+  // existence of the project to a key that isn't allowed to see it, so 403.
+  if (apiKey?.projectIds && !apiKey.projectIds.includes(project.id)) {
+    throw new CarbonError({
+      code: 'CARBON_FORBIDDEN',
+      message: 'API key not scoped to this project',
+      details: { projectId: project.id },
+      expose: true,
+    });
+  }
   return {
     orgId: project.orgId,
     slug: project.slug,
@@ -92,10 +106,13 @@ export async function filterStoredProjectRecords<T extends { readonly projectSlu
   if (candidates.size === 0) return [];
 
   const rows = await ctx.db
-    .select({ slug: schema.projects.slug })
+    .select({ id: schema.projects.id, slug: schema.projects.slug })
     .from(schema.projects)
     .where(and(eq(schema.projects.orgId, orgId), inArray(schema.projects.slug, [...candidates])));
-  const owned = new Set(rows.map((row) => row.slug));
+  const pinned = (req as AuthenticatedRequest).apiKey?.projectIds ?? null;
+  const owned = new Set(
+    rows.filter((row) => (pinned ? pinned.includes(row.id) : true)).map((row) => row.slug),
+  );
 
   const filtered: T[] = [];
   for (const record of records) {

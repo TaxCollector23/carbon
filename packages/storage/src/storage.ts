@@ -7,6 +7,8 @@
  * Keys are namespaced with forward slashes for portability across backends.
  * Example: `projects/prj_abc/graphs/latest.json`.
  */
+import type { Readable } from 'node:stream';
+
 export interface Storage {
   readonly kind: 'fs' | 's3' | 'memory';
 
@@ -15,6 +17,28 @@ export interface Storage {
   delete(key: string): Promise<void>;
   list(prefix: string): AsyncIterable<StorageObject>;
   head(key: string): Promise<StorageObject | null>;
+  /**
+   * Stream an object's bytes without buffering the whole payload in memory.
+   *
+   * Returns `null` when the key is missing. Backends that cannot stream
+   * (or callers that always need bytes — e.g. the ingestion pipeline) may
+   * continue to use {@link get}; this method is intentionally optional so
+   * both APIs coexist.
+   *
+   * ETag convention: Carbon artifact ids are content hashes, so the id
+   * itself is a strong content identifier. We still emit weak ETags
+   * (`W/"<id>"`) because downstream JSON serialization — pretty-printing,
+   * key ordering, trailing newlines — can vary byte-for-byte while the
+   * logical artifact is unchanged. Weak semantics let intermediaries
+   * treat those representations as equivalent for cache validation.
+   */
+  getStream?(key: string): Promise<StorageStream | null>;
+}
+
+export interface StorageStream {
+  readonly stream: Readable;
+  readonly size: number;
+  readonly etag: string;
 }
 
 export interface PutOptions {

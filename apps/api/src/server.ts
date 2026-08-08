@@ -148,8 +148,14 @@ export async function buildServer(
 
   const origins = parseOrigins(options.allowedOrigins);
   await app.register(cors, {
+    // The API is header-authenticated (`x-carbon-key`); it never sets or reads
+    // cookies. `credentials: false` prevents a future cookie from being sent
+    // cross-origin by mistake, and — combined with `origin: true` when
+    // `ALLOWED_ORIGINS=*` — keeps us from reflecting an arbitrary origin with
+    // `Access-Control-Allow-Credentials: true`, which is the classic CSRF
+    // footgun (a browser attaches credentials to the reflected origin).
     origin: origins === '*' ? true : origins,
-    credentials: true,
+    credentials: false,
     exposedHeaders: [
       'x-request-id',
       'x-carbon-key-prefix',

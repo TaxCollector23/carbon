@@ -1,10 +1,60 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyReply, FastifyInstance, FastifyRequest } from 'fastify';
 import { NotFoundError } from '@carbon/core';
 import { StorageKeys } from '@carbon/storage';
 import type { AppContext } from '../context.js';
 import { z } from 'zod';
+import { requireScope } from '../plugins/scopes.js';
 import { ProjectSlug, resolveProjectAccess } from './project-access.js';
 import { collectStorage } from './storage-listing.js';
+
+/**
+ * Content-addressed artifacts (IR, graph) are immutable — their ids are
+ * content hashes — so they are safe to cache aggressively. This value is
+ * one year in seconds; combined with `immutable`, browsers and CDNs will
+ * skip revalidation entirely for the artifact's lifetime.
+ */
+const IMMUTABLE_CACHE = 'public, max-age=31536000, immutable';
+
+/**
+ * Serve one artifact by key, streaming when the backend supports it and
+ * falling back to the buffered `get` path otherwise. Emits weak ETags
+ * derived from the artifact id (a content hash) so `If-None-Match`
+ * short-circuits to 304 without re-reading storage.
+ */
+async function sendArtifact(
+  ctx: AppContext,
+  req: FastifyRequest,
+  reply: FastifyReply,
+  key: string,
+  id: string,
+  notFoundKind: 'ir' | 'graph',
+): Promise<FastifyReply> {
+  const etag = `W/"${id}"`;
+  const ifNoneMatch = req.headers['if-none-match'];
+  if (ifNoneMatch && ifNoneMatch === etag) {
+    reply.header('etag', etag);
+    reply.header('cache-control', IMMUTABLE_CACHE);
+    return reply.status(304).send();
+  }
+
+  if (typeof ctx.storage.getStream === 'function') {
+    const result = await ctx.storage.getStream(key);
+    if (!result) throw new NotFoundError(notFoundKind, id);
+    reply.header('content-type', 'application/json');
+    reply.header('content-length', String(result.size));
+    reply.header('etag', etag);
+    reply.header('cache-control', IMMUTABLE_CACHE);
+    return reply.send(result.stream);
+  }
+
+  // Backend does not stream — preserve legacy buffered behavior.
+  const bytes = await ctx.storage.get(key);
+  if (!bytes) throw new NotFoundError(notFoundKind, id);
+  reply.header('content-type', 'application/json');
+  reply.header('etag', etag);
+  reply.header('cache-control', IMMUTABLE_CACHE);
+  return reply.send(bytes);
+}
 
 /**
  * Fetch persisted ingestion artifacts. The ingestion pipeline writes the IR
@@ -15,32 +65,29 @@ import { collectStorage } from './storage-listing.js';
 export async function registerArtifactRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
   app.get<{ Params: { slug: string; id: string } }>(
     '/v1/projects/:slug/ir/:id',
+    { preHandler: requireScope('read') },
     async (req, reply) => {
       const params = z.object({ slug: ProjectSlug, id: z.string().min(1) }).parse(req.params);
       const project = await resolveProjectAccess(ctx, req, params.slug);
       const key = StorageKeys.ir(project.storageSlug, params.id);
-      const bytes = await ctx.storage.get(key);
-      if (!bytes) throw new NotFoundError('ir', params.id);
-      reply.header('content-type', 'application/json');
-      return reply.send(bytes);
+      return sendArtifact(ctx, req, reply, key, params.id, 'ir');
     },
   );
 
   app.get<{ Params: { slug: string; id: string } }>(
     '/v1/projects/:slug/graphs/:id',
+    { preHandler: requireScope('read') },
     async (req, reply) => {
       const params = z.object({ slug: ProjectSlug, id: z.string().min(1) }).parse(req.params);
       const project = await resolveProjectAccess(ctx, req, params.slug);
       const key = StorageKeys.graph(project.storageSlug, params.id);
-      const bytes = await ctx.storage.get(key);
-      if (!bytes) throw new NotFoundError('graph', params.id);
-      reply.header('content-type', 'application/json');
-      return reply.send(bytes);
+      return sendArtifact(ctx, req, reply, key, params.id, 'graph');
     },
   );
 
   app.get<{ Params: { slug: string }; Querystring: { limit?: string } }>(
     '/v1/projects/:slug/artifacts',
+    { preHandler: requireScope('read') },
     async (req) => {
       const params = z.object({ slug: ProjectSlug }).parse(req.params);
       const query = z

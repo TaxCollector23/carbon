@@ -29,7 +29,15 @@ function makeCtx(projects: Array<{ orgId: string; slug: string }>): AppContext {
 }
 
 function req(orgId: string): FastifyRequest {
-  return { apiKey: { id: 'key_1', orgId, prefix: 'aa11bb22cc33' } } as AuthenticatedRequest;
+  return {
+    apiKey: {
+      id: 'key_1',
+      orgId,
+      prefix: 'aa11bb22cc33',
+      scopes: ['admin'],
+      projectIds: null,
+    },
+  } as unknown as AuthenticatedRequest;
 }
 
 describe('project access helpers', () => {

@@ -5,6 +5,7 @@ import { CarbonError, makeId, NotFoundError } from '@carbon/core';
 import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
+import { requireScope } from '../plugins/scopes.js';
 import { ProjectSlug } from './project-access.js';
 
 const CreateProjectBody = z.object({
@@ -24,7 +25,7 @@ const ListQuery = z.object({
 });
 
 export async function registerProjectRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
-  app.get('/v1/projects', async (req) => {
+  app.get('/v1/projects', { preHandler: requireScope('read') }, async (req) => {
     const { limit, cursor, orgId: queryOrgId, includeTotal } = ListQuery.parse(req.query);
     const orgId = requestOrgId(req, queryOrgId);
     const conditions = [];
@@ -54,7 +55,7 @@ export async function registerProjectRoutes(app: FastifyInstance, ctx: AppContex
     return { data: items, nextCursor, hasMore, total };
   });
 
-  app.post('/v1/projects', async (req, reply) => {
+  app.post('/v1/projects', { preHandler: requireScope('write') }, async (req, reply) => {
     const body = CreateProjectBody.parse(req.body);
     const orgId = requestOrgId(req, body.orgId);
     if (!orgId) {
@@ -75,7 +76,10 @@ export async function registerProjectRoutes(app: FastifyInstance, ctx: AppContex
     return { id, ...body, orgId };
   });
 
-  app.get<{ Params: { id: string } }>('/v1/projects/:id', async (req) => {
+  app.get<{ Params: { id: string } }>(
+    '/v1/projects/:id',
+    { preHandler: requireScope('read') },
+    async (req) => {
     const orgId = requestOrgId(req);
     const where = orgId
       ? and(eq(schema.projects.id, req.params.id), eq(schema.projects.orgId, orgId))
@@ -83,7 +87,8 @@ export async function registerProjectRoutes(app: FastifyInstance, ctx: AppContex
     const [row] = await ctx.db.select().from(schema.projects).where(where).limit(1);
     if (!row) throw new NotFoundError('project', req.params.id);
     return row;
-  });
+    },
+  );
 }
 
 async function countProjects(ctx: AppContext, orgId: string | undefined): Promise<number> {

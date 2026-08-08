@@ -1,8 +1,8 @@
-import { existsSync } from 'node:fs';
+import { createReadStream, existsSync } from 'node:fs';
 import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
-import { dirname, join, relative } from 'node:path';
+import { basename, dirname, join, relative } from 'node:path';
 import { ConflictError } from '@carbon/core';
-import type { PutOptions, Storage, StorageObject } from './storage.js';
+import type { PutOptions, Storage, StorageObject, StorageStream } from './storage.js';
 
 /** Filesystem-backed storage. Default backend for local development. */
 export class FsStorage implements Storage {
@@ -42,6 +42,21 @@ export class FsStorage implements Storage {
         modifiedAt: st.mtimeMs,
       };
     }
+  }
+
+  async getStream(key: string): Promise<StorageStream | null> {
+    const path = this.toPath(key);
+    if (!existsSync(path)) return null;
+    const st = await stat(path);
+    if (!st.isFile()) return null;
+    // Artifact filenames are `<content-hash>.<ext>`. That hash is a strong
+    // content identifier; we wrap it as a weak ETag per the interface note.
+    const id = basename(key).replace(/\.[^.]+$/, '');
+    return {
+      stream: createReadStream(path),
+      size: st.size,
+      etag: `W/"${id}"`,
+    };
   }
 
   async head(key: string): Promise<StorageObject | null> {

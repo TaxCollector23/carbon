@@ -50,6 +50,9 @@ export interface AuthenticatedRequest extends FastifyRequest {
     id: string;
     orgId: string;
     prefix: string;
+    scopes: string[];
+    /** null → key has access to every project in its org. */
+    projectIds: string[] | null;
   };
 }
 
@@ -117,7 +120,16 @@ export async function registerApiKeyAuth(
       });
     }
 
-    (req as AuthenticatedRequest).apiKey = { id: row.id, orgId: row.orgId, prefix: row.prefix };
+    (req as AuthenticatedRequest).apiKey = {
+      id: row.id,
+      orgId: row.orgId,
+      prefix: row.prefix,
+      // Legacy rows (pre-scopes migration) would have `scopes = ['admin']` via
+      // the column default; the guard here is belt-and-suspenders for tests or
+      // hand-inserted rows.
+      scopes: Array.isArray(row.scopes) && row.scopes.length > 0 ? row.scopes : ['admin'],
+      projectIds: Array.isArray(row.projectIds) ? row.projectIds : null,
+    };
 
     // Throttle lastUsedAt writes — write-amplifying Postgres on every request
     // (and busting HOT updates) is far worse than 5-minute staleness on a

@@ -68,7 +68,13 @@ async function buildApp(): Promise<FastifyInstance> {
 
   app.addHook('onRequest', async (req) => {
     const prefix = String(req.headers['x-test-key'] ?? 'anonymous');
-    (req as AuthenticatedRequest).apiKey = { id: `key-${prefix}`, orgId: 'org_1', prefix };
+    (req as AuthenticatedRequest).apiKey = {
+      id: `key-${prefix}`,
+      orgId: 'org_1',
+      prefix,
+      scopes: ['admin'],
+      projectIds: null,
+    };
   });
   await registerIdempotency(app, makeCtx(redis), { redis });
 

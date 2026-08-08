@@ -64,7 +64,14 @@ async function main(): Promise<void> {
     }
 
     const ctx = { db } as unknown as AppContext;
-    const key = await mintApiKey(ctx, { orgId, name: keyName });
+    // The bootstrap key is the only way in on a fresh deploy; it must be
+    // full-access so the operator can then mint scoped keys for real use.
+    const key = await mintApiKey(ctx, {
+      orgId,
+      name: keyName,
+      scopes: ['admin'],
+      projectIds: null,
+    });
     console.log('\ncarbon: bootstrap complete');
     console.log('  org        :', orgSlug, `(${orgId})`);
     console.log('  api key id :', key.id);

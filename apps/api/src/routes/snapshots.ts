@@ -4,6 +4,7 @@ import { NotFoundError } from '@carbon/core';
 import { parseSnapshot, serializeSnapshot, type StateSnapshot } from '@carbon/state';
 import { StorageKeys } from '@carbon/storage';
 import type { AppContext } from '../context.js';
+import { requireScope } from '../plugins/scopes.js';
 import { ProjectSlug, resolveProjectAccess } from './project-access.js';
 import { collectStorage } from './storage-listing.js';
 
@@ -38,6 +39,7 @@ const CreateSnapshotBody = z.object({
 export async function registerSnapshotRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
   app.get<{ Params: { slug: string }; Querystring: { limit?: string } }>(
     '/v1/projects/:slug/snapshots',
+    { preHandler: requireScope('read') },
     async (req) => {
       const params = z.object({ slug: ProjectSlug }).parse(req.params);
       const query = z
@@ -66,7 +68,7 @@ export async function registerSnapshotRoutes(app: FastifyInstance, ctx: AppConte
     },
   );
 
-  app.post('/v1/snapshots', async (req, reply) => {
+  app.post('/v1/snapshots', { preHandler: requireScope('write') }, async (req, reply) => {
     const body = CreateSnapshotBody.parse(req.body);
     const project = await resolveProjectAccess(ctx, req, body.projectSlug);
     const key = StorageKeys.snapshot(project.storageSlug, body.name);
@@ -79,6 +81,7 @@ export async function registerSnapshotRoutes(app: FastifyInstance, ctx: AppConte
 
   app.get<{ Params: { slug: string; name: string } }>(
     '/v1/projects/:slug/snapshots/:name',
+    { preHandler: requireScope('read') },
     async (req) => {
       const params = z.object({ slug: ProjectSlug, name: SnapshotName }).parse(req.params);
       const project = await resolveProjectAccess(ctx, req, params.slug);
@@ -92,6 +95,7 @@ export async function registerSnapshotRoutes(app: FastifyInstance, ctx: AppConte
 
   app.delete<{ Params: { slug: string; name: string } }>(
     '/v1/projects/:slug/snapshots/:name',
+    { preHandler: requireScope('write') },
     async (req, reply) => {
       const params = z.object({ slug: ProjectSlug, name: SnapshotName }).parse(req.params);
       const project = await resolveProjectAccess(ctx, req, params.slug);

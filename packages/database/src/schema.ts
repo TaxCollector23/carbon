@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import { boolean, index, jsonb, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
 /**
@@ -149,6 +150,20 @@ export const apiKeys = pgTable(
     lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    /**
+     * Additive permission scopes: `read`, `write`, `admin`. `admin` implies
+     * write; write implies read. Default preserves the pre-RBAC behavior — every
+     * existing key is `admin` after migration.
+     */
+    scopes: text('scopes')
+      .array()
+      .notNull()
+      .default(sql`ARRAY['admin']::text[]`),
+    /**
+     * When non-null, restricts this key to the given project ids (within its
+     * org). Null means "all projects in org".
+     */
+    projectIds: text('project_ids').array(),
   },
   (t) => ({
     prefixIdx: uniqueIndex('api_keys_prefix_unique').on(t.prefix),

@@ -83,6 +83,9 @@ importers:
       '@scalar/fastify-api-reference':
         specifier: ^1.25.100
         version: 1.64.0
+      bullmq:
+        specifier: ^5.34.4
+        version: 5.81.3
       drizzle-orm:
         specifier: ^0.38.2
         version: 0.38.4(@types/react@19.2.18)(kysely@0.29.4)(postgres@3.4.9)(react@19.2.8)
@@ -636,6 +639,9 @@ importers:
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)
 
   packages/types:
     dependencies:

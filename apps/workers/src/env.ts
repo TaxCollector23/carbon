@@ -18,6 +18,7 @@ const EnvSchema = z.object({
   S3_ACCESS_KEY: z.string().optional(),
   S3_SECRET_KEY: z.string().optional(),
   S3_PREFIX: z.string().optional(),
+  CARBON_INGEST_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(4),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

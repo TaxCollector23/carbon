@@ -71,6 +71,12 @@ const RawEnvSchema = z
       .string()
       .default('false')
       .transform((v) => v === 'true' || v === '1'),
+    /**
+     * Max concurrent ingestion jobs processed per worker. Applies both to a
+     * standalone `apps/workers` process and to the in-process worker when
+     * `EMBED_WORKERS=true`.
+     */
+    CARBON_INGEST_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(4),
     /** `fs` (local disk) or `s3` (any S3-compatible endpoint incl. R2/B2/MinIO). */
     STORAGE_BACKEND: z.enum(['fs', 's3']).default('fs'),
     S3_ENDPOINT: optionalUrl(),

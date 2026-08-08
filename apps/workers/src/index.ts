@@ -1,8 +1,15 @@
 import { createLogger } from '@carbon/core';
+import { createIngestionPipeline } from '@carbon/ingestion';
+import { createDefaultParserRegistry } from '@carbon/parser';
 import { FsStorage, S3Storage, type Storage } from '@carbon/storage';
-import { createRedisConnection, QueueRegistry, Queues } from '@carbon/workers';
+import {
+  createRedisConnection,
+  createRedisIngestJobStatusWriter,
+  QueueRegistry,
+  Queues,
+  registerIngestWorker,
+} from '@carbon/workers';
 import { deliverWebhook } from './handlers/webhook.js';
-import { makeIngestHandler } from './handlers/ingest.js';
 import { loadEnv } from './env.js';
 
 async function main(): Promise<void> {
@@ -16,17 +23,24 @@ async function main(): Promise<void> {
   const storage = buildStorage(env);
   const redis = createRedisConnection(env.REDIS_URL);
   redis.on('error', (err) => logger.warn('redis.error', { message: err.message }));
-  const registry = new QueueRegistry({ redis, logger });
 
+  const registry = new QueueRegistry({ redis, logger });
   registry.handle(Queues.webhookDelivery, async (job) => deliverWebhook(job.data, { logger }));
 
-  const ingestHandler = makeIngestHandler({ storage, logger });
-  registry.handle(Queues.ingest, async (job) => {
-    await ingestHandler(job.data);
+  const parsers = createDefaultParserRegistry();
+  const ingestion = createIngestionPipeline({ parsers, storage, logger });
+  const jobs = createRedisIngestJobStatusWriter({ redis });
+  const ingestWorker = registerIngestWorker({
+    connection: redis,
+    ingestion,
+    jobs,
+    logger,
+    concurrency: env.CARBON_INGEST_CONCURRENCY,
   });
 
   const shutdown = async (signal: string) => {
     logger.info('workers.shutdown', { signal });
+    await ingestWorker.close();
     await registry.close();
     process.exit(0);
   };

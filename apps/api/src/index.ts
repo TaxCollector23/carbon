@@ -3,7 +3,7 @@ import { createDatabase } from '@carbon/database';
 import { FsStorage, S3Storage, type Storage } from '@carbon/storage';
 import { createIngestionPipeline } from '@carbon/ingestion';
 import { createDefaultParserRegistry } from '@carbon/parser';
-import { createRedisConnection } from '@carbon/workers';
+import { createIngestionQueue, createRedisConnection } from '@carbon/workers';
 import { AiCapabilities, OpenRouterProvider } from '@carbon/ai';
 import { loadEnv } from './env.js';
 import { buildServer } from './server.js';
@@ -52,8 +52,18 @@ async function main(): Promise<void> {
     maxEmulators: env.CARBON_MAX_EMULATORS,
   });
   const jobs = redis ? createJobService({ redis, logger }) : undefined;
+  const ingestionQueue = redis ? createIngestionQueue({ connection: redis }) : undefined;
 
-  const workers = env.EMBED_WORKERS && redis ? startEmbeddedWorkers({ redis, logger }) : null;
+  const workers =
+    env.EMBED_WORKERS && redis && jobs
+      ? startEmbeddedWorkers({
+          redis,
+          logger,
+          ingestion,
+          jobs,
+          ingestConcurrency: env.CARBON_INGEST_CONCURRENCY,
+        })
+      : null;
   if (env.EMBED_WORKERS && !redis) {
     logger.warn('api.embedded_workers_skipped', {
       reason: 'REDIS_URL not set — set it to enable webhook delivery',
@@ -68,6 +78,7 @@ async function main(): Promise<void> {
     ingestion,
     emulators,
     jobs,
+    ingestionQueue,
     redis,
     emulatorAllowedHosts: env.CARBON_EMULATOR_ALLOWED_HOSTS,
   };
@@ -132,6 +143,7 @@ async function main(): Promise<void> {
         await server.close();
         await emulators.shutdown();
         if (workers) await workers.close();
+        if (ingestionQueue) await ingestionQueue.close();
         if (redis) await redis.quit();
         clearTimeout(forceKill);
         logger.info('api.shutdown_complete', { signal });

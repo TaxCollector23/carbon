@@ -129,6 +129,20 @@ export interface Producer<Payload> {
   ): Promise<{ jobId: string }>;
 }
 
+export {
+  INGEST_QUEUE_NAME,
+  createIngestionQueue,
+  createRedisIngestJobStatusWriter,
+  registerIngestWorker,
+  type IngestJobPayload,
+  type IngestJobResult,
+  type IngestJobSource,
+  type IngestJobStatusWriter,
+  type IngestionRunner,
+  type RegisterIngestWorkerOptions,
+  type CreateIngestionQueueOptions,
+} from './ingest-worker.js';
+
 export interface WebhookDeliveryPayload {
   readonly url: string;
   readonly event: string;
@@ -139,7 +153,6 @@ export interface WebhookDeliveryPayload {
 
 /** Canonical queue definitions consumed across the backend. */
 export const Queues = {
-  ingest: defineQueue<{ projectSlug: string; source: string }>('carbon.ingest'),
   enrich: defineQueue<{ projectSlug: string; irId: string }>('carbon.enrich'),
   snapshot: defineQueue<{ projectSlug: string; name: string }>('carbon.snapshot'),
   webhookDelivery: defineQueue<WebhookDeliveryPayload, { status: number }>(

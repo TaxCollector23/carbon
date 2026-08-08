@@ -15,6 +15,13 @@
       "when": 1786147210409,
       "tag": "0001_bored_senator_kelly",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786150219833,
+      "tag": "0002_api_key_scopes",
+      "breakpoints": true
     }
   ]
 }

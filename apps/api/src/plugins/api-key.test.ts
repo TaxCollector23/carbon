@@ -12,6 +12,8 @@ interface KeyRow {
   prefix: string;
   orgId: string;
   lastUsedAt?: Date | null;
+  scopes?: string[];
+  projectIds?: string[] | null;
 }
 
 /**
