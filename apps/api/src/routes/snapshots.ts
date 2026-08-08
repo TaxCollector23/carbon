@@ -1,10 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { NotFoundError } from '@carbon/core';
-import { parseSnapshot, serializeSnapshot, type StateSnapshot } from '@carbon/state';
+import { diffSnapshots, parseSnapshot, serializeSnapshot, type StateSnapshot } from '@carbon/state';
 import { StorageKeys } from '@carbon/storage';
 import type { AppContext } from '../context.js';
 import { requireScope } from '../plugins/scopes.js';
+import { getActor, recordEvent } from '../services/events.js';
 import { ProjectSlug, resolveProjectAccess } from './project-access.js';
 import { collectStorage } from './storage-listing.js';
 
@@ -75,6 +76,16 @@ export async function registerSnapshotRoutes(app: FastifyInstance, ctx: AppConte
     await ctx.storage.put(key, serializeSnapshot(body.snapshot as unknown as StateSnapshot), {
       contentType: 'application/json',
     });
+    if (project.orgId) {
+      const actor = getActor(req);
+      await recordEvent(ctx, {
+        orgId: project.orgId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        action: 'snapshot.saved',
+        metadata: { projectSlug: project.slug, name: body.name },
+      });
+    }
     reply.status(201);
     return { name: body.name, storageKey: key };
   });
@@ -93,6 +104,27 @@ export async function registerSnapshotRoutes(app: FastifyInstance, ctx: AppConte
     },
   );
 
+  app.get<{ Params: { slug: string }; Querystring: { a?: string; b?: string } }>(
+    '/v1/snapshots/:slug/diff',
+    { preHandler: requireScope('read') },
+    async (req) => {
+      const params = z.object({ slug: ProjectSlug }).parse(req.params);
+      const query = z.object({ a: SnapshotName, b: SnapshotName }).parse(req.query);
+      const project = await resolveProjectAccess(ctx, req, params.slug);
+
+      const [aBytes, bBytes] = await Promise.all([
+        ctx.storage.get(StorageKeys.snapshot(project.storageSlug, query.a)),
+        ctx.storage.get(StorageKeys.snapshot(project.storageSlug, query.b)),
+      ]);
+      if (!aBytes) throw new NotFoundError('snapshot', query.a);
+      if (!bBytes) throw new NotFoundError('snapshot', query.b);
+
+      const a = parseSnapshot(new TextDecoder().decode(aBytes));
+      const b = parseSnapshot(new TextDecoder().decode(bBytes));
+      return diffSnapshots(a, b);
+    },
+  );
+
   app.delete<{ Params: { slug: string; name: string } }>(
     '/v1/projects/:slug/snapshots/:name',
     { preHandler: requireScope('write') },
@@ -103,6 +135,16 @@ export async function registerSnapshotRoutes(app: FastifyInstance, ctx: AppConte
       const head = await ctx.storage.head(key);
       if (!head) throw new NotFoundError('snapshot', params.name);
       await ctx.storage.delete(key);
+      if (project.orgId) {
+        const actor = getActor(req);
+        await recordEvent(ctx, {
+          orgId: project.orgId,
+          actorType: actor.actorType,
+          actorId: actor.actorId,
+          action: 'snapshot.deleted',
+          metadata: { projectSlug: project.slug, name: params.name },
+        });
+      }
       reply.status(204);
     },
   );

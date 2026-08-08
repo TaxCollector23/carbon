@@ -1,5 +1,7 @@
 import type { CommandDef } from 'citty';
+import { doctorCommand } from './commands/doctor.js';
 import { emulateCommand } from './commands/emulate.js';
+import { generateTestsCommand } from './commands/generate-tests.js';
 import { ingestCommand } from './commands/ingest.js';
 import { initCommand } from './commands/init.js';
 import { inspectCommand } from './commands/inspect.js';
@@ -24,6 +26,8 @@ export const cliSubCommands = {
   inspect: inspectCommand,
   snapshot: snapshotCommand,
   replay: replayCommand,
+  doctor: doctorCommand,
+  'generate-tests': generateTestsCommand,
 } satisfies Record<string, AnyCommand>;
 
 export const cliCommandCatalog: readonly CliCommandInfo[] = [
@@ -39,6 +43,8 @@ export const cliCommandCatalog: readonly CliCommandInfo[] = [
   commandInfo('snapshot list', snapshotSubCommand('list')),
   commandInfo('snapshot delete', snapshotSubCommand('delete')),
   commandInfo('replay', replayCommand),
+  commandInfo('doctor', doctorCommand),
+  commandInfo('generate-tests', generateTestsCommand),
 ];
 
 function commandInfo(command: string, def: AnyCommand): CliCommandInfo {

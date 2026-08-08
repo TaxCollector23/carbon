@@ -10,8 +10,12 @@ import {
   redactRedisUrl,
   registerIngestWorker,
 } from '@carbon/workers';
-import { deliverWebhook } from './handlers/webhook.js';
+import { createDatabase } from '@carbon/database';
+import { deliverWebhook, startEventNotifier, type EventNotifier } from './handlers/webhook.js';
 import { loadEnv } from './env.js';
+import { startRetentionWorker, type RetentionWorker } from './retention-worker.js';
+import { startAnomalyWorker, type AnomalyWorker } from './anomaly-worker.js';
+import { startDriftWorker, type DriftWorkerHandle } from './drift-worker.js';
 
 async function main(): Promise<void> {
   const env = loadEnv();
@@ -40,8 +44,43 @@ async function main(): Promise<void> {
     redisUrl: env.REDIS_URL,
   });
 
+  let retention: RetentionWorker | undefined;
+  let anomaly: AnomalyWorker | undefined;
+  let notifier: EventNotifier | undefined;
+  let drift: DriftWorkerHandle | undefined;
+  if (env.DATABASE_URL) {
+    const { db } = createDatabase({
+      url: env.DATABASE_URL,
+      prepare: env.DATABASE_PREPARE,
+    });
+    retention = startRetentionWorker({
+      db,
+      logger,
+      intervalMs: env.CARBON_RETENTION_INTERVAL_MS,
+    });
+    logger.info('retention.enabled', { intervalMs: env.CARBON_RETENTION_INTERVAL_MS });
+    anomaly = startAnomalyWorker({ db, logger });
+    logger.info('anomaly.enabled', {});
+    notifier = startEventNotifier({ db, logger });
+    logger.info('notifier.enabled', {});
+    drift = startDriftWorker({
+      databaseUrl: env.DATABASE_URL,
+      intervalMinutes: env.DRIFT_INTERVAL_MINUTES,
+      sampleSize: env.DRIFT_SAMPLE_SIZE,
+      logger,
+      storage,
+    });
+  } else {
+    logger.info('retention.disabled', { reason: 'DATABASE_URL not set' });
+    drift = startDriftWorker({ logger });
+  }
+
   const shutdown = async (signal: string) => {
     logger.info('workers.shutdown', { signal });
+    retention?.stop();
+    anomaly?.stop();
+    notifier?.stop();
+    if (drift) await drift.stop();
     await ingestWorker.close();
     await registry.close();
     process.exit(0);

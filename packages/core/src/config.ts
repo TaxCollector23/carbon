@@ -42,6 +42,12 @@ export const CarbonConfigSchema = z.object({
       webhookReplay: z.boolean().default(false),
     })
     .default({}),
+  /**
+   * Custom seed data — a map of resource id → rows. When present, the runtime
+   * loads these rows into the state engine on `reset()` so the emulator starts
+   * from a known baseline instead of an empty store.
+   */
+  fixtures: z.record(z.array(z.record(z.unknown()))).default({}),
 });
 
 export type CarbonConfig = z.infer<typeof CarbonConfigSchema>;

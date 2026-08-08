@@ -1,12 +1,25 @@
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
 import { Topbar } from '@/components/topbar';
-import { sections, type SectionSlug } from '@/lib/empty-data';
+import { isSectionSlug, sections } from '@/lib/empty-data';
+import ProjectsSection from './_sections/projects';
+import SnapshotsSection from './_sections/snapshots';
+import EmulatorsSection from './_sections/emulators';
+import KeysSection from './_sections/keys';
+import GraphsSection from './_sections/graphs';
+import RecordingsSection from './_sections/recordings';
+import StateSection from './_sections/state';
+import ActivitySection from './_sections/activity';
+import SettingsSection from './_sections/settings';
 
 export function generateStaticParams() {
   return Object.keys(sections).map((section) => ({ section }));
 }
 
+/**
+ * Router page for every non-overview dashboard section. Dispatches to a
+ * per-section client component under `_sections/`. Each section owns its
+ * own fetching, loading/error UI, and mutations.
+ */
 export default async function DashboardSectionPage({
   params,
 }: {
@@ -15,29 +28,37 @@ export default async function DashboardSectionPage({
   const { section } = await params;
   if (!isSectionSlug(section)) notFound();
 
-  const data = sections[section];
+  const copy = sections[section];
 
   return (
     <>
-      <Topbar title={data.title} />
-      <main className="space-y-8 p-8">
-        <section className="border-border border-y py-7">
-          <div className="max-w-3xl">
-            <h2 className="text-2xl font-medium tracking-tight">{data.emptyTitle}</h2>
-            <p className="text-muted-foreground mt-3 text-sm leading-6">{data.description}</p>
-          </div>
-        </section>
-        <Link
-          href="/"
-          className="text-muted-foreground hover:text-foreground inline-flex text-sm transition-colors"
-        >
-          Back to overview
-        </Link>
-      </main>
+      <Topbar title={copy?.title ?? section} />
+      <main className="space-y-6 p-8">{renderSection(section)}</main>
     </>
   );
 }
 
-function isSectionSlug(section: string): section is SectionSlug {
-  return section in sections;
+function renderSection(slug: string) {
+  switch (slug) {
+    case 'projects':
+      return <ProjectsSection />;
+    case 'snapshots':
+      return <SnapshotsSection />;
+    case 'emulators':
+      return <EmulatorsSection />;
+    case 'keys':
+      return <KeysSection />;
+    case 'graphs':
+      return <GraphsSection />;
+    case 'recordings':
+      return <RecordingsSection />;
+    case 'state':
+      return <StateSection />;
+    case 'activity':
+      return <ActivitySection />;
+    case 'settings':
+      return <SettingsSection />;
+    default:
+      return null;
+  }
 }

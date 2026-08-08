@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Reproducible, honest benchmarks for Carbon: cold start, throughput, memory, snapshot/restore, and end-to-end state consistency.",
+  "exports": {
+    "./throughput-lib": "./scripts/throughput-lib.ts"
+  },
   "scripts": {
     "bench:cold-start": "tsx scripts/cold-start.ts",
     "bench:stateful": "tsx scripts/stateful-consistency.ts",

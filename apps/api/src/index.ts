@@ -101,14 +101,6 @@ async function main(): Promise<void> {
     requestTimeoutMs: env.CARBON_REQUEST_TIMEOUT_MS,
     trustedProxyHops: env.CARBON_TRUSTED_PROXY_HOPS,
     publicDocs: env.CARBON_PUBLIC_DOCS,
-    firebase:
-      env.FIREBASE_PROJECT_ID && env.FIREBASE_CLIENT_EMAIL && env.FIREBASE_PRIVATE_KEY
-        ? {
-            projectId: env.FIREBASE_PROJECT_ID,
-            clientEmail: env.FIREBASE_CLIENT_EMAIL,
-            privateKey: env.FIREBASE_PRIVATE_KEY,
-          }
-        : undefined,
     lifecycle,
   });
 

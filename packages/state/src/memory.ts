@@ -7,6 +7,14 @@ import type {
   StateRecord,
   StateSnapshot,
 } from './engine.js';
+import { MutationJournal, type JournalEntry, type JournalRow } from './journal.js';
+
+export interface InMemoryStateEngineOptions {
+  /** Cap for the built-in mutation journal. Defaults to 500 entries. */
+  readonly journalCapacity?: number;
+  /** Set to false to skip journaling entirely (marginal perf gain). */
+  readonly journalEnabled?: boolean;
+}
 
 interface TableRow {
   data: Record<string, unknown>;
@@ -24,8 +32,25 @@ type Store = Map<ResourceId, Map<string, TableRow>>;
  */
 export class InMemoryStateEngine implements StateEngine {
   private store: Store = new Map();
+  private readonly journal: MutationJournal | null;
 
-  constructor(private readonly clock: () => number = () => Date.now()) {}
+  constructor(
+    private readonly clock: () => number = () => Date.now(),
+    options: InMemoryStateEngineOptions = {},
+  ) {
+    this.journal = options.journalEnabled === false
+      ? null
+      : new MutationJournal(options.journalCapacity ?? 500);
+  }
+
+  private toJournalRow(row: TableRow): JournalRow {
+    return { data: { ...row.data }, createdAt: row.createdAt, updatedAt: row.updatedAt };
+  }
+
+  private snapshotRow(resource: ResourceId, id: string): JournalRow | null {
+    const existing = this.store.get(resource)?.get(id);
+    return existing ? this.toJournalRow(existing) : null;
+  }
 
   async read(resource: ResourceId, id: string): Promise<StateRecord | null> {
     const row = this.store.get(resource)?.get(id);
@@ -66,6 +91,14 @@ export class InMemoryStateEngine implements StateEngine {
     }
     const row: TableRow = { data: { ...data, id }, createdAt: now, updatedAt: now };
     table.set(id, row);
+    this.journal?.record({
+      at: now,
+      op: 'create',
+      resource,
+      id,
+      before: null,
+      after: this.toJournalRow(row),
+    });
     return this.toRecord(resource, id, row);
   }
 
@@ -74,12 +107,21 @@ export class InMemoryStateEngine implements StateEngine {
     const row = table?.get(id);
     if (!row) throw new NotFoundError(String(resource), id);
     const now = this.clock();
+    const before = this.toJournalRow(row);
     const updated: TableRow = {
       data: { ...row.data, ...ensureObject(patch), id },
       createdAt: row.createdAt,
       updatedAt: now,
     };
     table!.set(id, updated);
+    this.journal?.record({
+      at: now,
+      op: 'update',
+      resource,
+      id,
+      before,
+      after: this.toJournalRow(updated),
+    });
     return this.toRecord(resource, id, updated);
   }
 
@@ -88,18 +130,36 @@ export class InMemoryStateEngine implements StateEngine {
     const row = table?.get(id);
     if (!row) throw new NotFoundError(String(resource), id);
     const now = this.clock();
+    const before = this.toJournalRow(row);
     const next: TableRow = {
       data: { ...ensureObject(value), id },
       createdAt: row.createdAt,
       updatedAt: now,
     };
     table!.set(id, next);
+    this.journal?.record({
+      at: now,
+      op: 'replace',
+      resource,
+      id,
+      before,
+      after: this.toJournalRow(next),
+    });
     return this.toRecord(resource, id, next);
   }
 
   async delete(resource: ResourceId, id: string): Promise<void> {
     const table = this.store.get(resource);
-    if (!table?.delete(id)) throw new NotFoundError(String(resource), id);
+    const existing = table?.get(id);
+    if (!existing || !table?.delete(id)) throw new NotFoundError(String(resource), id);
+    this.journal?.record({
+      at: this.clock(),
+      op: 'delete',
+      resource,
+      id,
+      before: this.toJournalRow(existing),
+      after: null,
+    });
   }
 
   async transaction<T>(fn: (tx: StateEngine) => Promise<T>): Promise<T> {
@@ -126,6 +186,63 @@ export class InMemoryStateEngine implements StateEngine {
     return { version: 1, takenAt: this.clock(), records };
   }
 
+  history(): readonly JournalEntry[] {
+    return this.journal ? this.journal.history() : [];
+  }
+
+  async rewindTo(seq: number): Promise<void> {
+    if (!this.journal) throw new Error('Journal disabled — cannot rewind');
+    const plan = this.journal.planRewind(seq);
+    for (const entry of plan) {
+      this.applyInverse(entry);
+    }
+    this.journal.moveHeadBy(-plan.length);
+  }
+
+  async forwardTo(seq: number): Promise<void> {
+    if (!this.journal) throw new Error('Journal disabled — cannot forward');
+    const plan = this.journal.planForward(seq);
+    for (const entry of plan) {
+      this.applyForward(entry);
+    }
+    this.journal.moveHeadBy(plan.length);
+  }
+
+  private applyInverse(entry: JournalEntry): void {
+    // The inverse of `create` is `delete`; `delete` is `create`;
+    // `update`/`replace` restore `before`.
+    const table = this.tableFor(entry.resource);
+    switch (entry.op) {
+      case 'create':
+        table.delete(entry.id);
+        break;
+      case 'delete':
+        if (!entry.before) return;
+        table.set(entry.id, { ...entry.before, data: { ...entry.before.data } });
+        break;
+      case 'update':
+      case 'replace':
+        if (!entry.before) return;
+        table.set(entry.id, { ...entry.before, data: { ...entry.before.data } });
+        break;
+    }
+  }
+
+  private applyForward(entry: JournalEntry): void {
+    const table = this.tableFor(entry.resource);
+    switch (entry.op) {
+      case 'create':
+      case 'update':
+      case 'replace':
+        if (!entry.after) return;
+        table.set(entry.id, { ...entry.after, data: { ...entry.after.data } });
+        break;
+      case 'delete':
+        table.delete(entry.id);
+        break;
+    }
+  }
+
   async restore(snapshot: StateSnapshot): Promise<void> {
     const next: Store = new Map();
     for (const rec of snapshot.records) {
@@ -138,10 +255,12 @@ export class InMemoryStateEngine implements StateEngine {
       next.set(rec.resource, table);
     }
     this.store = next;
+    this.journal?.clear();
   }
 
   async reset(): Promise<void> {
     this.store = new Map();
+    this.journal?.clear();
   }
 
   private tableFor(resource: ResourceId): Map<string, TableRow> {

@@ -22,22 +22,75 @@ redeploy often, so they are a poor fit for durable control-plane data.
 
 ## API + Workers
 
-The backend is a Fastify Node service in `apps/api`. Run it as a long-lived Node
-process when you need public API traffic. It owns API-key auth, idempotency,
-rate limits, ingestion, emulator orchestration, and optional embedded workers.
+The backend is a Fastify Node service in `apps/api`. It expects a long-lived
+Node runtime — Vercel functions are the wrong shape for it. The two supported
+production paths are Fly.io (multi-tenant) and the self-hosted docker-compose
+bundle (single-VM). Both are covered below.
 
-For the lowest-friction setup:
+### Fly.io (recommended for hosted)
 
-- Use Vercel for the public web/dashboard URL.
-- Use Neon for Postgres.
-- Use Upstash for Redis.
-- Run `apps/api` from your machine during early development, or deploy it to a
-  Node runtime once you are ready to expose API traffic.
+Both `apps/api` and `apps/dashboard` ship with a `fly.toml`. The API's toml
+declares a `release_command` that runs `pnpm --filter @carbon/database
+migrate:apply`, so migrations are applied automatically on every deploy — do
+not run them by hand.
 
-Vercel can host request/response functions, but the current API is designed as a
-long-running Fastify service. To run API and web entirely on Vercel, first split
-workers from request handlers and add a Vercel function adapter for
-`buildServer()`. Keep queue workers out of serverless request handlers.
+1. Install flyctl and log in: `curl -L https://fly.io/install.sh | sh && fly auth login`.
+2. Provision Postgres and Redis. Options:
+   - **Fly-native:** `fly postgres create --name carbon-db` and
+     `fly redis create --name carbon-redis`. Fly attaches the connection URL
+     as a secret automatically when you run `fly postgres attach carbon-db`.
+   - **Neon + Upstash:** create databases in each console, then
+     `fly secrets set DATABASE_URL=... REDIS_URL=... --app carbon-api`.
+3. Bootstrap the API app once (creates it in Fly's registry, does not deploy):
+   ```bash
+   fly launch --config apps/api/fly.toml --copy-config --no-deploy --name carbon-api
+   fly secrets set --app carbon-api \
+     BETTER_AUTH_SECRET=$(openssl rand -hex 32) \
+     CARBON_METRICS_TOKEN=$(openssl rand -hex 16) \
+     ALLOWED_ORIGINS=https://dashboard.carbon.example
+   fly deploy --config apps/api/fly.toml --remote-only
+   ```
+4. Bootstrap the dashboard:
+   ```bash
+   fly launch --config apps/dashboard/fly.toml --copy-config --no-deploy --name carbon-dashboard
+   fly secrets set --app carbon-dashboard \
+     DATABASE_URL="$(fly secrets list --app carbon-api | grep DATABASE_URL | awk '{print $2}')" \
+     BETTER_AUTH_SECRET=... \
+     NEXT_PUBLIC_CARBON_API_URL=https://carbon-api.fly.dev
+   fly deploy --config apps/dashboard/fly.toml --remote-only
+   ```
+5. CI (see `.github/workflows/ci.yml`) redeploys both on push to `main`
+   using `FLY_API_TOKEN` — no manual `docker build` from a laptop after the
+   first bootstrap.
+
+### Self-hosted (single VM)
+
+For Enterprise customers who want everything on their own hardware, the repo
+ships a `docker-compose.selfhost.yml` that bundles Postgres, Redis, the
+migration sidecar, the API, the worker process, and the dashboard on one
+Docker network. Requires Docker Engine 24+ with the compose plugin.
+
+```bash
+# One-time: point compose at your public URL and set the auth secret.
+cat > .env <<'EOF'
+NEXT_PUBLIC_SITE_URL=https://carbon.internal.example
+NEXT_PUBLIC_CARBON_API_URL=https://carbon.internal.example/api
+BETTER_AUTH_SECRET=$(openssl rand -hex 32)
+ALLOWED_ORIGINS=https://carbon.internal.example
+CARBON_METRICS_TOKEN=$(openssl rand -hex 16)
+EOF
+
+docker compose -f docker-compose.selfhost.yml up -d
+```
+
+The `migrate` sidecar runs `pnpm --filter @carbon/database migrate:apply`
+against the compose-managed Postgres and exits. The `api`, `workers`, and
+`dashboard` services all wait on `service_completed_successfully` for the
+sidecar, so you should never run migrations by hand in the self-host path.
+
+Front the stack with your own TLS terminator (Caddy, nginx, Cloudflare
+Tunnel) — the compose file exposes plain HTTP on `:3001` (dashboard) and
+`:4000` (API).
 
 ## Vercel Web
 

@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { NoopLogger, isCarbonError, type Logger } from '@carbon/core';
 import type { BehaviorGraph, IntermediateRepresentation } from '@carbon/types';
 import type { StateEngine } from '@carbon/state';
+import type { ConsistencyMode } from '@carbon/graph';
 import { registerGraphRoutes } from './router.js';
 import { toHttpError } from './errors.js';
 
@@ -17,6 +18,12 @@ export interface RuntimeOptions {
   readonly state: StateEngine;
   readonly logger?: Logger;
   readonly plugins?: readonly RuntimePlugin[];
+  /**
+   * How strictly the runtime enforces referential integrity. `strict` (the
+   * default) drops rows whose foreign keys don't resolve; `loose` returns
+   * them as-is so callers can inspect the drift.
+   */
+  readonly consistency?: ConsistencyMode;
 }
 
 /**
@@ -34,6 +41,7 @@ export interface RuntimeContext {
   readonly graph: BehaviorGraph;
   readonly state: StateEngine;
   readonly logger: Logger;
+  readonly consistency: ConsistencyMode;
 }
 
 export interface Runtime {
@@ -52,7 +60,13 @@ export async function createRuntime(opts: RuntimeOptions): Promise<Runtime> {
     ajv: { customOptions: { removeAdditional: false, useDefaults: true } },
   });
 
-  const ctx: RuntimeContext = { ir: opts.ir, graph: opts.graph, state: opts.state, logger };
+  const ctx: RuntimeContext = {
+    ir: opts.ir,
+    graph: opts.graph,
+    state: opts.state,
+    logger,
+    consistency: opts.consistency ?? 'strict',
+  };
 
   app.addHook('onRequest', async (req) => {
     logger.debug('runtime.request', { method: req.method, url: req.url });

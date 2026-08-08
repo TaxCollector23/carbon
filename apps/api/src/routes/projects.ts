@@ -1,12 +1,16 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { and, asc, count, eq, gt } from 'drizzle-orm';
+import { and, asc, count, eq, gt, isNull, or } from 'drizzle-orm';
+import { randomBytes } from 'node:crypto';
 import { CarbonError, makeId, NotFoundError } from '@carbon/core';
 import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
+import type { SessionAuthenticatedRequest } from '../plugins/session-auth.js';
 import { requireScope } from '../plugins/scopes.js';
+import { getActor, recordEvent } from '../services/events.js';
 import { ProjectSlug } from './project-access.js';
+import { registerShareLinkRoutes } from './share-links.js';
 
 const CreateProjectBody = z.object({
   orgId: z.string().min(1).optional(),
@@ -72,6 +76,15 @@ export async function registerProjectRoutes(app: FastifyInstance, ctx: AppContex
       slug: body.slug,
       name: body.name,
     });
+    const actor = getActor(req);
+    await recordEvent(ctx, {
+      orgId,
+      projectId: id,
+      actorType: actor.actorType,
+      actorId: actor.actorId,
+      action: 'project.created',
+      metadata: { slug: body.slug, name: body.name },
+    });
     reply.status(201);
     return { id, ...body, orgId };
   });
@@ -89,7 +102,137 @@ export async function registerProjectRoutes(app: FastifyInstance, ctx: AppContex
     return row;
     },
   );
+
+  // Per-project ACL — add or remove a specific user's membership.
+  // Absence of any project_members row for a project preserves the legacy
+  // org-wide behavior (see project-access.ts). Creating the first row for a
+  // project effectively narrows access to just those members plus org admins.
+  const MemberBody = z.object({
+    userId: z.string().min(1),
+    role: z.enum(['viewer', 'editor', 'admin']).default('viewer'),
+  });
+
+  app.get<{ Params: { id: string } }>(
+    '/v1/projects/:id/members',
+    { preHandler: requireScope('read') },
+    async (req) => {
+      const project = await requireProjectInOrg(ctx, req, req.params.id);
+      const rows = await ctx.db
+        .select()
+        .from(schema.projectMembers)
+        .where(eq(schema.projectMembers.projectId, project.id));
+      return { data: rows };
+    },
+  );
+
+  app.post<{ Params: { id: string }; Body: unknown }>(
+    '/v1/projects/:id/members',
+    { preHandler: requireScope('write') },
+    async (req, reply) => {
+      const project = await requireProjectInOrg(ctx, req, req.params.id);
+      const body = MemberBody.parse(req.body);
+      const id = makeId('pmb');
+      try {
+        const [row] = await ctx.db
+          .insert(schema.projectMembers)
+          .values({ id, projectId: project.id, userId: body.userId, role: body.role })
+          .returning();
+        reply.status(201);
+        const actor = getActor(req);
+        await recordEvent(ctx, {
+          orgId: project.orgId,
+          projectId: project.id,
+          actorType: actor.actorType,
+          actorId: actor.actorId,
+          action: 'project.member_added',
+          metadata: { userId: body.userId, role: body.role },
+        });
+        return row;
+      } catch (err) {
+        if (err instanceof Error && /duplicate|unique/i.test(err.message)) {
+          const [existing] = await ctx.db
+            .select()
+            .from(schema.projectMembers)
+            .where(
+              and(
+                eq(schema.projectMembers.projectId, project.id),
+                eq(schema.projectMembers.userId, body.userId),
+              ),
+            )
+            .limit(1);
+          return existing;
+        }
+        throw err;
+      }
+    },
+  );
+
+  app.delete<{ Params: { id: string; userId: string } }>(
+    '/v1/projects/:id/members/:userId',
+    { preHandler: requireScope('write') },
+    async (req, reply) => {
+      const project = await requireProjectInOrg(ctx, req, req.params.id);
+      await ctx.db
+        .delete(schema.projectMembers)
+        .where(
+          and(
+            eq(schema.projectMembers.projectId, project.id),
+            eq(schema.projectMembers.userId, req.params.userId),
+          ),
+        );
+      const actor = getActor(req);
+      await recordEvent(ctx, {
+        orgId: project.orgId,
+        projectId: project.id,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        action: 'project.member_removed',
+        metadata: { userId: req.params.userId },
+      });
+      reply.status(204).send();
+    },
+  );
+
+  await registerShareLinkRoutes(app, ctx, { requireProjectInOrg });
 }
+
+export interface ProjectRow {
+  id: string;
+  orgId: string;
+  slug: string;
+}
+
+/**
+ * Resolve a project by id and confirm the caller's org owns it. Shared with
+ * the share-links module to keep authz consistent.
+ */
+export async function requireProjectInOrg(
+  ctx: AppContext,
+  req: FastifyRequest,
+  projectId: string,
+): Promise<ProjectRow> {
+  const orgId = requestOrgId(req);
+  const where = orgId
+    ? and(eq(schema.projects.id, projectId), eq(schema.projects.orgId, orgId))
+    : eq(schema.projects.id, projectId);
+  const [row] = await ctx.db.select().from(schema.projects).where(where).limit(1);
+  if (!row) throw new NotFoundError('project', projectId);
+  const apiKey = (req as AuthenticatedRequest).apiKey;
+  if (apiKey?.projectIds && !apiKey.projectIds.includes(row.id)) {
+    throw new CarbonError({
+      code: 'CARBON_FORBIDDEN',
+      message: 'API key not scoped to this project',
+      expose: true,
+    });
+  }
+  return { id: row.id, orgId: row.orgId, slug: row.slug };
+}
+
+// Suppress unused-import warnings when unrelated modules add these later.
+void or;
+void isNull;
+void randomBytes;
+void ({} as SessionAuthenticatedRequest);
 
 async function countProjects(ctx: AppContext, orgId: string | undefined): Promise<number> {
   let totalQuery = ctx.db.select({ total: count() }).from(schema.projects).$dynamic();

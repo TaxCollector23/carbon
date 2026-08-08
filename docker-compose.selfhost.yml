@@ -1,0 +1,130 @@
+# Self-hosted single-VM deployment for Carbon.
+#
+#   docker compose -f docker-compose.selfhost.yml up -d
+#
+# Bundles Postgres + Redis so Enterprise customers are not forced onto Neon
+# or Upstash. Run behind your own TLS terminator (Caddy, nginx, Cloudflare).
+#
+# Required env (set in a `.env` file next to this file, or export before `up`):
+#   BETTER_AUTH_SECRET   long random string; rotates all sessions on change
+#   CARBON_METRICS_TOKEN optional bearer for /metrics scraping
+#   NEXT_PUBLIC_SITE_URL public URL of the dashboard (e.g. https://carbon.example)
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: carbon
+      POSTGRES_PASSWORD: carbon
+      POSTGRES_DB: carbon
+    volumes:
+      - carbon-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U carbon -d carbon']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [carbon]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - carbon-redis:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [carbon]
+
+  # One-shot: apply pending migrations before api/dashboard boot.
+  migrate:
+    image: node:20-alpine
+    working_dir: /repo
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://carbon:carbon@postgres:5432/carbon
+      NODE_ENV: production
+    volumes:
+      - ./:/repo
+    command: >
+      sh -c "corepack enable && corepack prepare pnpm@11.6.0 --activate &&
+             pnpm install --frozen-lockfile=false --ignore-scripts &&
+             pnpm --filter @carbon/database migrate:apply"
+    restart: 'no'
+    networks: [carbon]
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      API_PORT: '4000'
+      DATABASE_URL: postgres://carbon:carbon@postgres:5432/carbon
+      DATABASE_PREPARE: 'true'
+      REDIS_URL: redis://redis:6379
+      CARBON_AUTH_MODE: enforced
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-*}
+      BETTER_AUTH_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3001}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-please-set-a-real-secret-in-env}
+      CARBON_METRICS_TOKEN: ${CARBON_METRICS_TOKEN:-}
+    ports:
+      - '4000:4000'
+    networks: [carbon]
+
+  workers:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://carbon:carbon@postgres:5432/carbon
+      REDIS_URL: redis://redis:6379
+    command: ['node', '--enable-source-maps', 'apps/workers/dist/index.js']
+    networks: [carbon]
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: apps/dashboard/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      PORT: '3001'
+      DATABASE_URL: postgres://carbon:carbon@postgres:5432/carbon
+      BETTER_AUTH_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3001}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-please-set-a-real-secret-in-env}
+      NEXT_PUBLIC_CARBON_API_URL: ${NEXT_PUBLIC_CARBON_API_URL:-http://localhost:4000}
+    ports:
+      - '3001:3001'
+    networks: [carbon]
+
+volumes:
+  carbon-postgres:
+  carbon-redis:
+
+networks:
+  carbon:
+    driver: bridge

@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppContext } from '../context.js';
 import { requireScope } from '../plugins/scopes.js';
+import { getActor, recordEvent } from '../services/events.js';
 import { ProjectSlug, resolveProjectAccess } from './project-access.js';
 
 const IngestBody = z.object({
@@ -60,6 +61,16 @@ export async function registerIngestRoutes(app: FastifyInstance, ctx: AppContext
           origin: body.origin,
           enrich: body.enrich,
         });
+        if (project.orgId) {
+          const actor = getActor(req);
+          await recordEvent(ctx, {
+            orgId: project.orgId,
+            actorType: actor.actorType,
+            actorId: actor.actorId,
+            action: 'ingest.enqueued',
+            metadata: { projectSlug: project.slug, jobId: job.id, origin: body.origin ?? null },
+          });
+        }
         reply.status(202);
         return { jobId: job.id, status: 'queued' };
       }
@@ -70,6 +81,72 @@ export async function registerIngestRoutes(app: FastifyInstance, ctx: AppContext
         origin: body.origin,
         enrich: body.enrich,
       });
+      if (project.orgId) {
+        const actor = getActor(req);
+        await recordEvent(ctx, {
+          orgId: project.orgId,
+          actorType: actor.actorType,
+          actorId: actor.actorId,
+          action: 'ingest.completed',
+          metadata: {
+            projectSlug: project.slug,
+            irId: result.irId,
+            graphId: result.graphId,
+            endpoints: result.ir.endpoints.length,
+            resources: result.ir.resources.length,
+            origin: body.origin ?? null,
+          },
+        });
+      }
+      reply.status(201);
+      return {
+        irId: result.irId,
+        graphId: result.graphId,
+        api: result.ir.api,
+        endpoints: result.ir.endpoints.length,
+        resources: result.ir.resources.length,
+        warnings: result.warnings,
+      };
+    },
+  );
+
+  // Shortcut: accept a raw Postman collection JSON body and route through
+  // the postman parser adapter. Callers pass ?projectSlug=<slug>.
+  app.post<{ Querystring: { projectSlug?: string; origin?: string } }>(
+    '/v1/ingest/postman',
+    {
+      bodyLimit: 32 * 1024 * 1024,
+      preHandler: requireScope('write'),
+    },
+    async (req, reply) => {
+      const query = z
+        .object({ projectSlug: ProjectSlug, origin: z.string().optional() })
+        .parse(req.query);
+      const project = await resolveProjectAccess(ctx, req, query.projectSlug);
+      const result = await ctx.ingestion.ingest({
+        projectSlug: project.storageSlug,
+        input: { kind: 'json', content: req.body as unknown, hint: 'postman' } as never,
+        origin: query.origin,
+        enrich: false,
+      });
+      if (project.orgId) {
+        const actor = getActor(req);
+        await recordEvent(ctx, {
+          orgId: project.orgId,
+          actorType: actor.actorType,
+          actorId: actor.actorId,
+          action: 'ingest.completed',
+          metadata: {
+            projectSlug: project.slug,
+            irId: result.irId,
+            graphId: result.graphId,
+            endpoints: result.ir.endpoints.length,
+            resources: result.ir.resources.length,
+            origin: query.origin ?? null,
+            source: 'postman',
+          },
+        });
+      }
       reply.status(201);
       return {
         irId: result.irId,

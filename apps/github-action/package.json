@@ -1,0 +1,24 @@
+{
+  "name": "@carbon/github-action",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GitHub Action that spins up a Carbon replica from an API spec on every pull request.",
+  "type": "module",
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@actions/core": "^1.11.1",
+    "@actions/github": "^6.0.0",
+    "@carbon/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2"
+  }
+}

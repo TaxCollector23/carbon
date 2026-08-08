@@ -1,11 +1,14 @@
 import type { FastifyReply, FastifyInstance, FastifyRequest } from 'fastify';
-import { NotFoundError } from '@carbon/core';
+import { and, desc, eq } from 'drizzle-orm';
+import { makeId, NotFoundError } from '@carbon/core';
+import { schema } from '@carbon/database';
 import { StorageKeys } from '@carbon/storage';
 import type { AppContext } from '../context.js';
 import { z } from 'zod';
 import { requireScope } from '../plugins/scopes.js';
 import { ProjectSlug, resolveProjectAccess } from './project-access.js';
 import { collectStorage } from './storage-listing.js';
+import type { SessionAuthenticatedRequest } from '../plugins/session-auth.js';
 
 /**
  * Content-addressed artifacts (IR, graph) are immutable — their ids are
@@ -121,4 +124,93 @@ export async function registerArtifactRoutes(app: FastifyInstance, ctx: AppConte
       return { data: items.slice(0, query.limit), limit: query.limit, truncated };
     },
   );
+
+  // ---------------------------------------------------------------------------
+  // Snapshot tags & comments — collaboration primitives on the artifact row.
+  //
+  // These endpoints deliberately live under `/v1/artifacts/:id` (the row id)
+  // rather than the storage-scoped `/v1/projects/:slug/...` prefix, because
+  // artifact ids are already globally unique and the join back to a project
+  // is a single DB row. Project-level access is still enforced.
+  // ---------------------------------------------------------------------------
+
+  app.patch<{ Params: { id: string }; Body: unknown }>(
+    '/v1/artifacts/:id',
+    { preHandler: requireScope('write') },
+    async (req) => {
+      const params = z.object({ id: z.string().min(1) }).parse(req.params);
+      const body = z.object({ tags: z.array(z.string().min(1).max(80)).max(50) }).parse(req.body);
+      const artifact = await requireArtifactForCaller(ctx, req, params.id);
+      const [updated] = await ctx.db
+        .update(schema.artifacts)
+        .set({ tags: body.tags })
+        .where(eq(schema.artifacts.id, artifact.id))
+        .returning();
+      return { id: updated!.id, tags: updated!.tags };
+    },
+  );
+
+  app.get<{ Params: { id: string } }>(
+    '/v1/artifacts/:id/comments',
+    { preHandler: requireScope('read') },
+    async (req) => {
+      const params = z.object({ id: z.string().min(1) }).parse(req.params);
+      await requireArtifactForCaller(ctx, req, params.id);
+      const rows = await ctx.db
+        .select()
+        .from(schema.artifactComments)
+        .where(eq(schema.artifactComments.artifactId, params.id))
+        .orderBy(desc(schema.artifactComments.createdAt))
+        .limit(500);
+      return { data: rows };
+    },
+  );
+
+  app.post<{ Params: { id: string }; Body: unknown }>(
+    '/v1/artifacts/:id/comments',
+    { preHandler: requireScope('write') },
+    async (req, reply) => {
+      const params = z.object({ id: z.string().min(1) }).parse(req.params);
+      const body = z.object({ body: z.string().min(1).max(10_000) }).parse(req.body);
+      await requireArtifactForCaller(ctx, req, params.id);
+      const id = makeId('cmt');
+      const authorId = (req as SessionAuthenticatedRequest).sessionUser?.id ?? null;
+      const [row] = await ctx.db
+        .insert(schema.artifactComments)
+        .values({
+          id,
+          artifactId: params.id,
+          authorId,
+          body: body.body,
+        })
+        .returning();
+      reply.status(201);
+      return row;
+    },
+  );
 }
+
+async function requireArtifactForCaller(
+  ctx: AppContext,
+  req: FastifyRequest,
+  artifactId: string,
+): Promise<{ id: string; projectId: string; projectSlug: string }> {
+  const [row] = await ctx.db
+    .select({
+      id: schema.artifacts.id,
+      projectId: schema.artifacts.projectId,
+      projectSlug: schema.projects.slug,
+    })
+    .from(schema.artifacts)
+    .innerJoin(schema.projects, eq(schema.artifacts.projectId, schema.projects.id))
+    .where(eq(schema.artifacts.id, artifactId))
+    .limit(1);
+  if (!row) throw new NotFoundError('artifact', artifactId);
+  // Reuse the existing project access resolver so the caller's org / API-key
+  // project pinning is honored consistently with the rest of the API.
+  await resolveProjectAccess(ctx, req, row.projectSlug);
+  return row;
+}
+
+// Suppress unused-import warning when tags/comments aren't the only consumers.
+void and;

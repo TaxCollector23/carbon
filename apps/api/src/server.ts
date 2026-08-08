@@ -15,11 +15,16 @@ import { registerSnapshotRoutes } from './routes/snapshots.js';
 import { registerApiKeyRoutes } from './routes/api-keys.js';
 import { registerArtifactRoutes } from './routes/artifacts.js';
 import { registerJobRoutes } from './routes/jobs.js';
+import { registerEventRoutes } from './routes/events.js';
+import { registerOrganizationRoutes } from './routes/organizations.js';
+import { registerBillingRoutes } from './routes/billing.js';
+import { registerScimRoutes } from './routes/scim.js';
+import { registerChaosPresetRoutes } from './routes/chaos-presets.js';
+import { registerContractRoutes } from './routes/contract.js';
+import { registerAssertionRoutes } from './routes/assertions.js';
+import { registerGraphRoutes } from './routes/graphs.js';
 import { registerApiKeyAuth, type ApiKeyPluginOptions } from './plugins/api-key.js';
-import {
-  registerFirebaseAuth,
-  type FirebaseAuthPluginOptions,
-} from './plugins/firebase-auth.js';
+import { registerSessionAuth } from './plugins/session-auth.js';
 import { registerIdempotency } from './plugins/idempotency.js';
 import { registerControlPlaneRateLimit } from './plugins/rate-limit.js';
 import { registerAccessLog } from './plugins/access-log.js';
@@ -103,12 +108,6 @@ export interface BuildServerOptions {
    * route. Defaults to true to preserve dev behaviour.
    */
   readonly publicDocs?: boolean;
-  /**
-   * When present, Firebase Admin token verification is registered alongside
-   * the API-key hook. Undefined skips registration entirely — the default in
-   * dev when no `FIREBASE_PROJECT_ID` is configured.
-   */
-  readonly firebase?: FirebaseAuthPluginOptions;
 }
 
 /**
@@ -223,8 +222,10 @@ export async function buildServer(
 
   // Registered *after* the api-key hook so that when both would accept a
   // request the api-key path runs first — deterministic ordering matters when
-  // an ambiguous Bearer token is presented.
-  await registerFirebaseAuth(app, ctx, options.firebase);
+  // an ambiguous Bearer token is presented. Human/browser auth is Better
+  // Auth session cookies (or bearer session tokens) resolved against the
+  // shared Postgres.
+  await registerSessionAuth(app, ctx);
 
   if (options.redis) {
     if (options.rateLimit) {
@@ -313,6 +314,14 @@ export async function buildServer(
   await registerApiKeyRoutes(app, ctx);
   await registerArtifactRoutes(app, ctx);
   await registerJobRoutes(app, ctx);
+  await registerEventRoutes(app, ctx);
+  await registerOrganizationRoutes(app, ctx);
+  await registerBillingRoutes(app, ctx);
+  await registerScimRoutes(app, ctx);
+  await registerChaosPresetRoutes(app, ctx);
+  await registerContractRoutes(app, ctx);
+  await registerAssertionRoutes(app, ctx);
+  await registerGraphRoutes(app, ctx);
 
   return app;
 }

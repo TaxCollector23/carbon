@@ -1,4 +1,5 @@
 import type { ResourceId } from '@carbon/types';
+import type { JournalEntry } from './journal.js';
 
 /**
  * The StateEngine is Carbon's deterministic backend. It behaves like a
@@ -22,6 +23,14 @@ export interface StateEngine {
   snapshot(): Promise<StateSnapshot>;
   restore(snapshot: StateSnapshot): Promise<void>;
   reset(): Promise<void>;
+
+  /**
+   * Time-travel hooks. Implementations that maintain a mutation journal
+   * expose them; the runtime plugin detects presence at runtime.
+   */
+  history?(): readonly JournalEntry[];
+  rewindTo?(seq: number): Promise<void>;
+  forwardTo?(seq: number): Promise<void>;
 }
 
 export interface StateRecord {

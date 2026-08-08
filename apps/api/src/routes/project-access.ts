@@ -5,18 +5,18 @@ import { CarbonError, NotFoundError } from '@carbon/core';
 import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
-import type { FirebaseAuthenticatedRequest } from '../plugins/firebase-auth.js';
+import type { SessionAuthenticatedRequest } from '../plugins/session-auth.js';
 
 /**
  * Which org is the caller acting as? Prefers the API-key org (machine calls
- * pin an org) and falls back to the Firebase-authenticated user's org
- * (browser calls). Returns undefined when neither auth path has run, e.g.
- * `CARBON_AUTH_MODE=disabled` in dev.
+ * pin an org) and falls back to the Better Auth session user's org (browser
+ * calls). Returns undefined when neither auth path has run, e.g.
+ * `CARBON_AUTH_MODE=disabled` in dev or an unauthenticated request.
  */
 function callerOrgId(req: FastifyRequest): string | undefined {
   const apiKey = (req as AuthenticatedRequest).apiKey;
   if (apiKey?.orgId) return apiKey.orgId;
-  return (req as FirebaseAuthenticatedRequest).firebaseUser?.orgId;
+  return (req as SessionAuthenticatedRequest).sessionUser?.orgId;
 }
 
 export const ProjectSlug = z
@@ -62,6 +62,38 @@ export async function resolveProjectAccess(
       details: { projectId: project.id },
       expose: true,
     });
+  }
+  // Per-project ACL. Presence of any project_members row for a project means
+  // access is no longer org-wide — a session user must be listed (owners/
+  // admins retain access via their org role). API-key callers are already
+  // gated by project pinning above.
+  const session = (req as SessionAuthenticatedRequest).sessionUser;
+  if (session && session.role !== 'owner' && session.role !== 'admin') {
+    const members = await ctx.db
+      .select({ userId: schema.projectMembers.userId })
+      .from(schema.projectMembers)
+      .where(eq(schema.projectMembers.projectId, project.id))
+      .limit(1);
+    if (members.length > 0) {
+      const [own] = await ctx.db
+        .select({ userId: schema.projectMembers.userId })
+        .from(schema.projectMembers)
+        .where(
+          and(
+            eq(schema.projectMembers.projectId, project.id),
+            eq(schema.projectMembers.userId, session.id),
+          ),
+        )
+        .limit(1);
+      if (!own) {
+        throw new CarbonError({
+          code: 'CARBON_FORBIDDEN',
+          message: 'Not a member of this project',
+          details: { projectId: project.id },
+          expose: true,
+        });
+      }
+    }
   }
   return {
     orgId: project.orgId,

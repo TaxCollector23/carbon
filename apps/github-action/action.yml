@@ -1,0 +1,22 @@
+name: 'Carbon Replica'
+description: 'Spin up a Carbon API replica from a spec and comment the URL on the PR.'
+author: 'carbon-dev'
+inputs:
+  spec-path:
+    description: 'Path to the OpenAPI / Postman / HAR spec file to emulate.'
+    required: true
+  upstream-url:
+    description: 'Optional upstream URL to proxy on cache miss.'
+    required: false
+  api-key:
+    description: 'Carbon API key (used only when talking to a hosted Carbon control plane).'
+    required: false
+outputs:
+  replica-url:
+    description: 'Ephemeral URL of the running replica.'
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
+branding:
+  icon: 'zap'
+  color: 'blue'

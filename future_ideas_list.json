@@ -1,0 +1,227 @@
+{
+  "project": "carbon",
+  "description": "Backlog of feature, UI, and monetization ideas for Carbon, a stateful API replica/emulation tool. Organized by theme, each item includes an implementation note pointing at where it would live in the existing monorepo.",
+  "themes": {
+    "core_runtime_and_state": [
+      {
+        "feature": "Snapshot diff viewer",
+        "description": "Compare two snapshots (or a snapshot against a live replica) resource-by-resource, showing added/removed/changed fields.",
+        "implementation_note": "New endpoint in apps/api/src/routes/snapshots.ts (e.g. GET /v1/snapshots/:slug/diff?a=&b=); diff logic can live in packages/state alongside StateSnapshot."
+      },
+      {
+        "feature": "Drift detection against the real API",
+        "description": "Periodically replay recorded traffic against the real upstream API and flag when responses no longer match the behavior graph, so mocks don't silently go stale.",
+        "implementation_note": "New scheduled job in apps/workers/src/index.ts; reuse packages/proxy for the real-API calls."
+      },
+      {
+        "feature": "Time-travel / state history scrubber",
+        "description": "Step backward and forward through state mutations within a single replica session, not just save/restore whole snapshots.",
+        "implementation_note": "Extend packages/state/src/engine.ts to log a mutation journal; UI in dashboard 'state' section."
+      },
+      {
+        "feature": "Custom resource seed data / fixtures",
+        "description": "Let users define starting fixtures per resource (e.g. 'always start with 3 users') instead of an empty state.",
+        "implementation_note": "Extend carbon.config.ts schema; wire into packages/state/src/snapshot.ts as an initial snapshot."
+      },
+      {
+        "feature": "Configurable consistency modes",
+        "description": "Toggle between strict relational consistency and 'anything goes' loose mode for teams testing error-handling paths.",
+        "implementation_note": "packages/graph/src/traversal.ts; expose as a runtime option in packages/runtime/src/runtime.ts."
+      }
+    ],
+    "chaos_and_testing": [
+      {
+        "feature": "Chaos scenario presets",
+        "description": "One-click presets like 'flaky network,' 'slow third-party,' '3rd-party outage' that bundle latency + error-injection rules.",
+        "implementation_note": "Build on packages/runtime/src/plugins/error-injection.ts and latency.ts; store presets in packages/database/src/schema.ts."
+      },
+      {
+        "feature": "Contract testing mode",
+        "description": "Validate that the real API's responses still match the ingested OpenAPI/protobuf schema, catching upstream breaking changes automatically in CI.",
+        "implementation_note": "New package packages/contract-test or extend packages/parser adapters with a validate() pass."
+      },
+      {
+        "feature": "Load/perf testing button",
+        "description": "Fire N concurrent synthetic requests at a running emulator and report latency percentiles, using the same harness as benchmarks/scripts/throughput.ts.",
+        "implementation_note": "Expose benchmarks/scripts/throughput.ts logic as an API action button in the emulators dashboard section."
+      },
+      {
+        "feature": "Assertion/expectation rules",
+        "description": "Let users assert 'this endpoint must always return under 200ms' or 'this field must never be null' and surface violations in the activity feed.",
+        "implementation_note": "New rules engine in packages/runtime/src/plugins/; violations recorded via the events table."
+      }
+    ],
+    "dashboard_ui_and_buttons": [
+      {
+        "feature": "'New project' wizard",
+        "description": "Multi-step modal: paste a spec URL or upload a file -> pick format -> confirm inferred resources (using packages/ai capabilities) -> create.",
+        "implementation_note": "apps/dashboard/app/projects; calls apps/api/src/routes/ingest.ts then apps/api/src/routes/projects.ts."
+      },
+      {
+        "feature": "'Start emulator' / 'Stop emulator' buttons with live status pill",
+        "description": "Inline actions on the projects and emulators list, polling apps/api/src/routes/emulators.ts action routes.",
+        "implementation_note": "apps/dashboard/app/[section]/page.tsx (emulators section) once wired per the hardening prompt Phase 1."
+      },
+      {
+        "feature": "'Copy curl' / 'Copy SDK snippet' button per endpoint",
+        "description": "On an endpoint detail view, one click copies a ready-to-run curl command or packages/sdk usage snippet.",
+        "implementation_note": "apps/dashboard graphs/endpoint detail view; generate from the IR already produced by packages/parser."
+      },
+      {
+        "feature": "'Regenerate resources with AI' button",
+        "description": "Re-run packages/ai inferResources/inferRelationships on an existing project after docs change, with a diff preview before applying.",
+        "implementation_note": "apps/api/src/routes/ingest.ts new action; packages/ai/src/capabilities.ts already has the logic."
+      },
+      {
+        "feature": "Command palette (Cmd+K)",
+        "description": "Quick-jump to any project, snapshot, or emulator, plus quick actions (new project, save snapshot).",
+        "implementation_note": "apps/dashboard, likely using packages/ui components; index built from the same api-client added in the hardening prompt."
+      },
+      {
+        "feature": "Dark/light theme toggle persistence per user",
+        "description": "theme-toggle.tsx already exists in both apps/web and apps/dashboard; persist preference to the user's account instead of just local state.",
+        "implementation_note": "apps/dashboard/components/theme-toggle.tsx + a user_preferences column."
+      },
+      {
+        "feature": "Inline API key scope editor",
+        "description": "Visual checkbox editor for read/write/admin scopes when creating a key, instead of raw scope strings.",
+        "implementation_note": "apps/dashboard 'keys' section; apps/api/src/routes/api-keys.ts already supports scoped keys."
+      },
+      {
+        "feature": "Empty-state CTAs that actually deep-link",
+        "description": "'No snapshots yet' should link straight to 'save your first snapshot' inline instead of just prose.",
+        "implementation_note": "apps/dashboard/lib/empty-data.ts descriptions -> actionable buttons per section."
+      }
+    ],
+    "collaboration_and_team": [
+      {
+        "feature": "Shared team snapshots with comments",
+        "description": "Snapshots become collaborative artifacts: tag them, comment on them, mark one as the CI baseline.",
+        "implementation_note": "Extend the artifacts table in packages/database/src/schema.ts with tags/comments; UI in dashboard 'snapshots'."
+      },
+      {
+        "feature": "Org member roles surfaced in UI",
+        "description": "Settings page showing owner/admin/member roles with invite/remove, using the memberships table that already exists.",
+        "implementation_note": "New apps/api/src/routes/organizations.ts per hardening prompt Phase 4; UI in apps/dashboard 'settings'."
+      },
+      {
+        "feature": "Per-project access control",
+        "description": "Restrict a project to specific org members, not just org-wide access.",
+        "implementation_note": "Extend project-access resolution in apps/api/src/routes/project-access.ts with a project_members join table."
+      },
+      {
+        "feature": "Slack/Discord notifications",
+        "description": "Notify a channel when a snapshot is overwritten, an emulator crashes, or drift is detected.",
+        "implementation_note": "apps/workers webhook handler (apps/workers/src/handlers/webhook.ts already exists as a pattern to extend)."
+      }
+    ],
+    "developer_experience": [
+      {
+        "feature": "VS Code extension",
+        "description": "Run carbon emulate, browse the behavior graph, and inspect resource state without leaving the editor.",
+        "implementation_note": "New apps/vscode-extension package wrapping packages/sdk."
+      },
+      {
+        "feature": "GitHub Action / App",
+        "description": "Auto-spin a per-PR replica from the committed spec, comment with a shareable inspect link, tear down on PR close.",
+        "implementation_note": "New apps/github-action package using packages/sdk's carbon.emulate()."
+      },
+      {
+        "feature": "Postman/Insomnia import shortcut",
+        "description": "One-click 'Open in Carbon' from a Postman collection, going straight through the existing postman.ts adapter.",
+        "implementation_note": "packages/parser/src/adapters/postman.ts already parses this; add a dashboard import shortcut."
+      },
+      {
+        "feature": "carbon doctor CLI command",
+        "description": "Diagnose common local setup issues (port conflicts, missing env vars, stale node_modules) in one command.",
+        "implementation_note": "apps/cli/src/commands/, following the pattern of apps/cli/src/commands/init.ts."
+      },
+      {
+        "feature": "Interactive graph explorer",
+        "description": "Visual node-graph of resources and their relationships (owns/belongs-to/references), clickable to jump to endpoints.",
+        "implementation_note": "apps/dashboard 'graphs' section; data already exists in packages/graph/src/builder.ts output."
+      }
+    ],
+    "monetization_and_enterprise": [
+      {
+        "feature": "Stripe-backed billing with seat metering",
+        "description": "Checkout, customer portal, and webhook-driven subscription state, gating Team/Enterprise features server-side.",
+        "implementation_note": "New apps/api/src/routes/billing.ts and a subscriptions table, per hardening prompt Phase 4."
+      },
+      {
+        "feature": "Usage-based add-ons",
+        "description": "Metered emulator-minutes or ingest volume as an upsell beyond flat seat pricing.",
+        "implementation_note": "apps/api/src/services/emulator-registry.ts and ingest.ts already track the raw usage signals needed."
+      },
+      {
+        "feature": "SSO (SAML/OIDC) and SCIM provisioning",
+        "description": "Enterprise-tier login and automated user provisioning/deprovisioning.",
+        "implementation_note": "Better Auth SSO plugin (if auth is consolidated per hardening prompt Phase 2) + new apps/api/src/routes/scim.ts."
+      },
+      {
+        "feature": "Exportable audit log (CSV / SIEM webhook)",
+        "description": "Compliance-friendly export of the events table for security review.",
+        "implementation_note": "GET /v1/events/export in apps/api/src/routes/events.ts, built on the events table from hardening prompt Phase 3."
+      },
+      {
+        "feature": "Configurable data retention",
+        "description": "Org-level setting for how long snapshots/events are kept, with an automated purge job.",
+        "implementation_note": "New column on organizations table + scheduled job in apps/workers/src/index.ts."
+      },
+      {
+        "feature": "One-command self-hosted deploy",
+        "description": "Package docker-compose.yml into a documented, tested self-host path for Enterprise customers who won't use Neon/Upstash.",
+        "implementation_note": "Root docker-compose.yml already exists; add docker-compose.selfhost.yml + DEPLOY.md section."
+      },
+      {
+        "feature": "White-label / custom domain for hosted replicas",
+        "description": "Let Enterprise customers serve emulators under their own subdomain for internal demo environments.",
+        "implementation_note": "apps/api emulator registry + reverse proxy config; likely needs a wildcard DNS + TLS story."
+      }
+    ],
+    "ai_and_automation": [
+      {
+        "feature": "Natural-language 'change the behavior' editing",
+        "description": "'Make POST /orders fail 10% of the time with a 503' typed in plain English, translated into an error-injection rule via packages/ai.",
+        "implementation_note": "New capability in packages/ai/src/capabilities.ts alongside inferResources/inferRelationships."
+      },
+      {
+        "feature": "AI-generated realistic seed data",
+        "description": "Auto-populate a fresh replica with plausible fake data matching the inferred resource schemas, instead of starting empty.",
+        "implementation_note": "packages/ai new capability + packages/state seeding hook."
+      },
+      {
+        "feature": "Spec-to-tests generator",
+        "description": "AI drafts integration test skeletons against the replica based on the ingested spec, so teams get test coverage 'for free' after import.",
+        "implementation_note": "New apps/cli command, e.g. carbon generate-tests, using packages/ai + packages/sdk."
+      },
+      {
+        "feature": "Anomaly summarization in the activity feed",
+        "description": "AI summarizes a burst of events ('12 failed emulator starts in the last hour, likely a port conflict') instead of a raw log.",
+        "implementation_note": "Batch job reading the events table, using packages/ai providers."
+      }
+    ],
+    "growth_and_distribution": [
+      {
+        "feature": "Public gallery of importable specs",
+        "description": "Curated one-click 'try Carbon against the Stripe/GitHub/Shopify API' demos on the marketing site to lower the activation barrier.",
+        "implementation_note": "apps/web new /gallery route; each entry is a pre-ingested benchmarks/fixtures-style spec."
+      },
+      {
+        "feature": "Shareable read-only replica links",
+        "description": "Send a teammate or prospect a link to poke at a running replica without giving them CLI/API access.",
+        "implementation_note": "apps/api emulator registry + a scoped, read-only, time-limited token."
+      },
+      {
+        "feature": "Embeddable 'Run in Carbon' badge",
+        "description": "A markdown/HTML badge API authors can drop in their README, like a 'Deploy to Vercel' button, that spins a live replica of their own spec.",
+        "implementation_note": "apps/web new embed route + packages/sdk emulate() call behind it."
+      },
+      {
+        "feature": "Benchmarks page kept live, not static",
+        "description": "apps/web has a /benchmarks methodology page and benchmarks/results/latest.json — wire the page to render the latest JSON automatically on each release instead of manual copy.",
+        "implementation_note": "apps/web/app (benchmarks route) reading benchmarks/results/latest.json at build time."
+      }
+    ]
+  }
+}

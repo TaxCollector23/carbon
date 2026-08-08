@@ -16,15 +16,24 @@ export interface LatencyProfile {
  * Simulate real-world API latency. The default profile is 0/0 — no delay —
  * so tests can opt in without global side-effects.
  */
-export function latencyPlugin(profile: LatencyProfile = {}): RuntimePlugin {
-  const floor = profile.floorMs ?? 0;
-  const jitter = profile.jitterMs ?? 0;
+export function latencyPlugin(
+  profile: LatencyProfile | (() => LatencyProfile) = {},
+): RuntimePlugin {
+  const getProfile = typeof profile === 'function' ? profile : () => profile;
   return {
     name: 'latency',
     register(app) {
       app.addHook('onRequest', async (req) => {
+        const p = getProfile();
+        const floor = p.floorMs ?? 0;
+        const jitter = p.jitterMs ?? 0;
         if (floor === 0 && jitter === 0) return;
-        const extra = jitter === 0 ? 0 : profile.deterministic ? deterministicJitter(req.method, req.url, jitter) : Math.random() * jitter;
+        const extra =
+          jitter === 0
+            ? 0
+            : p.deterministic
+              ? deterministicJitter(req.method, req.url, jitter)
+              : Math.random() * jitter;
         const total = floor + extra;
         if (total > 0) await new Promise((r) => setTimeout(r, total));
       });

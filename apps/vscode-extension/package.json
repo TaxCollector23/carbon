@@ -1,0 +1,44 @@
+{
+  "name": "@carbon/vscode-extension",
+  "displayName": "Carbon",
+  "description": "Emulate your API and inspect its behavior graph from inside VS Code.",
+  "version": "0.1.0",
+  "private": true,
+  "publisher": "carbon-dev",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onCommand:carbon.emulate",
+    "onCommand:carbon.inspectGraph"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "carbon.emulate",
+        "title": "Carbon: Emulate current spec"
+      },
+      {
+        "command": "carbon.inspectGraph",
+        "title": "Carbon: Inspect behavior graph"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@carbon/core": "workspace:*",
+    "@carbon/graph": "workspace:*",
+    "@carbon/parser": "workspace:*",
+    "@carbon/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.7.2"
+  }
+}

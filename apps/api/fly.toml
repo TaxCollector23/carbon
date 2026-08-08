@@ -1,0 +1,50 @@
+# Fly.io deployment for the Carbon control-plane API.
+#
+# Bootstrap once:  fly launch --no-deploy --copy-config --name carbon-api
+# Deploy:          fly deploy --config apps/api/fly.toml --remote-only
+#
+# Provision Postgres/Redis with either Fly's own managed offerings
+# (`fly postgres create`, `fly redis create`) or point DATABASE_URL/REDIS_URL
+# at Neon/Upstash via `fly secrets set`.
+
+app = "carbon-api"
+primary_region = "iad"
+
+[build]
+  dockerfile = "apps/api/Dockerfile"
+
+# Applies migrations before the new revision takes traffic. Idempotent — safe
+# to re-run on every deploy.
+[deploy]
+  release_command = "pnpm --filter @carbon/database migrate:apply"
+
+[env]
+  NODE_ENV = "production"
+  API_PORT = "4000"
+  CARBON_AUTH_MODE = "enforced"
+
+[http_service]
+  internal_port = 4000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 200
+    soft_limit = 150
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "15s"
+    method = "get"
+    timeout = "5s"
+    path = "/ready"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

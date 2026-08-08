@@ -4,6 +4,7 @@ import type {
   ResourceId,
   TransitionRule,
 } from '@carbon/types';
+import { enforceForeignKeys } from '@carbon/graph';
 import type { RuntimeContext } from './runtime.js';
 
 /**
@@ -44,6 +45,43 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: RuntimeCont
     await ctx.state.reset();
     reply.status(204);
   });
+  // Time-travel introspection & scrub controls. Only wired when the engine
+  // exposes the optional journal hooks — otherwise 404 keeps the surface
+  // honest about what it can actually do.
+  app.get('/__carbon/state/history', async (_req, reply) => {
+    if (typeof ctx.state.history !== 'function') {
+      reply.status(404);
+      return { error: { code: 'CARBON_NOT_SUPPORTED', message: 'engine has no journal' } };
+    }
+    return { entries: ctx.state.history() };
+  });
+  app.post<{ Body: { seq: number } }>('/__carbon/state/rewind', async (req, reply) => {
+    if (typeof ctx.state.rewindTo !== 'function') {
+      reply.status(404);
+      return { error: { code: 'CARBON_NOT_SUPPORTED', message: 'engine has no journal' } };
+    }
+    const seq = Number(req.body?.seq);
+    if (!Number.isInteger(seq)) {
+      reply.status(400);
+      return { error: { code: 'CARBON_INVALID', message: 'body.seq must be an integer' } };
+    }
+    await ctx.state.rewindTo(seq);
+    reply.status(204);
+  });
+  app.post<{ Body: { seq: number } }>('/__carbon/state/forward', async (req, reply) => {
+    if (typeof ctx.state.forwardTo !== 'function') {
+      reply.status(404);
+      return { error: { code: 'CARBON_NOT_SUPPORTED', message: 'engine has no journal' } };
+    }
+    const seq = Number(req.body?.seq);
+    if (!Number.isInteger(seq)) {
+      reply.status(400);
+      return { error: { code: 'CARBON_INVALID', message: 'body.seq must be an integer' } };
+    }
+    await ctx.state.forwardTo(seq);
+    reply.status(204);
+  });
+
   app.get('/__carbon/inspect', async () => ({
     api: ctx.ir.api,
     endpoints: ctx.ir.endpoints.length,
@@ -72,7 +110,8 @@ async function handle(
   switch (endpoint.operation) {
     case 'list': {
       const listed = await ctx.state.list(resource);
-      return { status: 200, body: { data: listed.items.map(unwrap), next_cursor: listed.nextCursor } };
+      const filtered = await applyForeignKeyIntegrity(listed.items.map(unwrap), resource, ctx);
+      return { status: 200, body: { data: filtered, next_cursor: listed.nextCursor } };
     }
     case 'get': {
       if (!idFromPath) return notFound(resource, '(missing id)');
@@ -130,6 +169,25 @@ function paramFromPath(params: unknown, endpoint: EndpointDef): string | null {
   if (!name) return null;
   const value = (params as Record<string, unknown>)[name];
   return typeof value === 'string' ? value : null;
+}
+
+async function applyForeignKeyIntegrity(
+  rows: Array<Record<string, unknown>>,
+  resource: ResourceId,
+  ctx: RuntimeContext,
+): Promise<Array<Record<string, unknown>>> {
+  const fkConstraints = ctx.graph.constraints.filter(
+    (c): c is Extract<typeof c, { kind: 'foreign-key' }> =>
+      c.kind === 'foreign-key' && c.from === resource,
+  );
+  if (fkConstraints.length === 0) return rows;
+  let current = rows;
+  for (const fk of fkConstraints) {
+    const parents = await ctx.state.list(fk.to);
+    const parentIds = new Set(parents.items.map((p) => p.id));
+    current = enforceForeignKeys(current, fk.field, parentIds, ctx.consistency) as typeof current;
+  }
+  return current;
 }
 
 function extractLastBrace(path: string): string | null {

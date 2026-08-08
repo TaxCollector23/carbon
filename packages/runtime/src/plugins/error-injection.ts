@@ -19,14 +19,16 @@ export interface ErrorInjectionRule {
  * Provides a Math.random override so tests can pin the RNG.
  */
 export function errorInjectionPlugin(
-  rules: readonly ErrorInjectionRule[],
+  rules: readonly ErrorInjectionRule[] | (() => readonly ErrorInjectionRule[]),
   rng: () => number = Math.random,
 ): RuntimePlugin {
+  const getRules = typeof rules === 'function' ? rules : () => rules;
   return {
     name: 'error-injection',
     register(app) {
       app.addHook('onRequest', async (req, reply) => {
-        const rule = rules.find((r) => matches(r.match, req.method, req.url));
+        const current = getRules();
+        const rule = current.find((r) => matches(r.match, req.method, req.url));
         if (!rule) return;
         if (rng() >= rule.probability) return;
         if (rule.action.kind === 'status') {

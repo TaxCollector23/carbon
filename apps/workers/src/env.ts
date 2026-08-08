@@ -19,6 +19,22 @@ const EnvSchema = z.object({
   S3_SECRET_KEY: z.string().optional(),
   S3_PREFIX: z.string().optional(),
   CARBON_INGEST_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(4),
+  /**
+   * Postgres connection string for the retention worker. Optional — when
+   * unset the retention worker no-ops (useful for local dev without
+   * Postgres). Ingest workers do not need it.
+   */
+  DATABASE_URL: z.string().url().optional(),
+  DATABASE_PREPARE: z
+    .string()
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v === 'true' || v === '1')),
+  /** Retention scan interval in ms. Default 1h. */
+  CARBON_RETENTION_INTERVAL_MS: z.coerce.number().int().min(60_000).default(60 * 60 * 1000),
+  /** Drift-check cadence in minutes. Default 60. Requires DATABASE_URL. */
+  DRIFT_INTERVAL_MINUTES: z.coerce.number().int().min(1).max(1440).default(60),
+  /** Max recorded requests replayed against upstream per project per run. */
+  DRIFT_SAMPLE_SIZE: z.coerce.number().int().min(1).max(100).default(5),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

@@ -7,6 +7,7 @@ import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import { requireScope } from '../plugins/scopes.js';
 import { mintApiKey, rotateApiKey } from '../services/api-keys.js';
+import { getActor, recordEvent } from '../services/events.js';
 
 const MAX_EXPIRES_IN_SECONDS = 90 * 24 * 60 * 60; // 90 days
 const MAX_GRACE_SECONDS = 7 * 24 * 60 * 60; // 7 days
@@ -119,6 +120,21 @@ export async function registerApiKeyRoutes(app: FastifyInstance, ctx: AppContext
       projectIds: body.projectIds,
       expiresAt,
     });
+    const actor = getActor(req);
+    await recordEvent(ctx, {
+      orgId,
+      actorType: actor.actorType,
+      actorId: actor.actorId,
+      action: 'api_key.created',
+      metadata: {
+        keyId: key.id,
+        prefix: key.prefix,
+        name: body.name,
+        scopes: body.scopes,
+        projectIds: body.projectIds,
+        expiresAt: expiresAt ? expiresAt.toISOString() : null,
+      },
+    });
     reply.status(201);
     return key;
   });
@@ -163,6 +179,19 @@ export async function registerApiKeyRoutes(app: FastifyInstance, ctx: AppContext
         scopes: body.scopes,
         projectIds: body.projectIds,
       });
+      const actor = getActor(req);
+      await recordEvent(ctx, {
+        orgId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        action: 'api_key.rotated',
+        metadata: {
+          sourceKeyId: source.id,
+          newKeyId: minted.id,
+          graceSeconds: body.graceSeconds,
+          sourceExpiresAt: source.expiresAt.toISOString(),
+        },
+      });
       reply.status(201);
       return {
         id: minted.id,
@@ -199,6 +228,16 @@ export async function registerApiKeyRoutes(app: FastifyInstance, ctx: AppContext
       // Previously this returned 204 whether or not anything matched, so a typo'd
       // id or another org's key both read as a successful revocation.
       if (revoked.length === 0) throw new NotFoundError('api key', req.params.id);
+      if (orgId) {
+        const actor = getActor(req);
+        await recordEvent(ctx, {
+          orgId,
+          actorType: actor.actorType,
+          actorId: actor.actorId,
+          action: 'api_key.revoked',
+          metadata: { keyId: req.params.id },
+        });
+      }
       reply.status(204);
     },
   );

@@ -95,29 +95,16 @@ const RawEnvSchema = z
       .min(1000)
       .max(300_000)
       .default(15_000),
-    /** Firebase project id. Setting this enables Firebase Admin token verification. */
-    FIREBASE_PROJECT_ID: optionalNonEmptyString(),
-    /** Firebase service account client email; required when FIREBASE_PROJECT_ID is set. */
-    FIREBASE_CLIENT_EMAIL: optionalNonEmptyString(),
     /**
-     * Firebase service account private key. Supports the literal `\n`-escaped
-     * one-liner that env-var UIs write; those are unescaped before use.
+     * Stripe secret key. Setting this activates the billing routes; when
+     * unset every /v1/billing/* endpoint returns 501 and `requireActivePlan`
+     * is a no-op so dev / self-hosted deployments keep working.
      */
-    FIREBASE_PRIVATE_KEY: z.preprocess(
-      (value) => {
-        if (typeof value !== 'string') return value;
-        const trimmed = value.trim();
-        if (trimmed === '') return undefined;
-        // Some hosts wrap in quotes when they see newlines.
-        const unquoted =
-          (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-          (trimmed.startsWith("'") && trimmed.endsWith("'"))
-            ? trimmed.slice(1, -1)
-            : trimmed;
-        return unquoted.replace(/\\n/g, '\n');
-      },
-      z.string().min(1).optional(),
-    ),
+    STRIPE_SECRET_KEY: optionalNonEmptyString(),
+    /** Signing secret for the /v1/billing/webhook endpoint. */
+    STRIPE_WEBHOOK_SECRET: optionalNonEmptyString(),
+    /** Price id for the Team plan; used when creating a Checkout session. */
+    STRIPE_PRICE_TEAM: optionalNonEmptyString(),
   })
   .superRefine((env, ctx) => {
     if (env.STORAGE_BACKEND === 's3') {
@@ -127,17 +114,6 @@ const RawEnvSchema = z
             code: z.ZodIssueCode.custom,
             path: [field],
             message: `${field} is required when STORAGE_BACKEND=s3`,
-          });
-        }
-      }
-    }
-    if (env.FIREBASE_PROJECT_ID) {
-      for (const field of ['FIREBASE_CLIENT_EMAIL', 'FIREBASE_PRIVATE_KEY'] as const) {
-        if (!env[field]) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: [field],
-            message: `${field} is required when FIREBASE_PROJECT_ID is set`,
           });
         }
       }

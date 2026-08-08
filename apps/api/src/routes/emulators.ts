@@ -1,8 +1,14 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { InvalidInputError } from '@carbon/core';
+import { and, eq } from 'drizzle-orm';
+import { InvalidInputError, NotFoundError } from '@carbon/core';
+import { schema } from '@carbon/database';
+import { runThroughput } from '@carbon/benchmarks/throughput-lib';
 import type { AppContext } from '../context.js';
+import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import { requireScope } from '../plugins/scopes.js';
+import { compileRules, type ChaosRule } from '../services/chaos.js';
+import { getActor, recordEvent } from '../services/events.js';
 import {
   filterStoredProjectRecords,
   ProjectSlug,
@@ -70,6 +76,16 @@ export async function registerEmulatorRoutes(app: FastifyInstance, ctx: AppConte
       host,
       projectSlug: project.storageSlug,
     });
+    if (project.orgId) {
+      const actor = getActor(req);
+      await recordEvent(ctx, {
+        orgId: project.orgId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        action: 'emulator.started',
+        metadata: { emulatorId: record.id, projectSlug: project.slug, irId: body.irId },
+      });
+    }
     reply.status(201);
     return { ...record, projectSlug: project.slug };
   });
@@ -89,8 +105,18 @@ export async function registerEmulatorRoutes(app: FastifyInstance, ctx: AppConte
     { preHandler: requireScope('write') },
     async (req, reply) => {
       const record = ctx.emulators.get(req.params.id);
-      await resolveStoredProjectAccess(ctx, req, record.projectSlug);
+      const project = await resolveStoredProjectAccess(ctx, req, record.projectSlug);
       await ctx.emulators.stop(req.params.id);
+      if (project.orgId) {
+        const actor = getActor(req);
+        await recordEvent(ctx, {
+          orgId: project.orgId,
+          actorType: actor.actorType,
+          actorId: actor.actorId,
+          action: 'emulator.stopped',
+          metadata: { emulatorId: req.params.id, projectSlug: project.slug },
+        });
+      }
       reply.status(204);
     },
   );
@@ -125,9 +151,104 @@ export async function registerEmulatorRoutes(app: FastifyInstance, ctx: AppConte
     async (req, reply) => {
       const body = RestoreBody.parse(req.body);
       const record = ctx.emulators.get(req.params.id);
-      await resolveStoredProjectAccess(ctx, req, record.projectSlug);
+      const project = await resolveStoredProjectAccess(ctx, req, record.projectSlug);
       await ctx.emulators.restore(req.params.id, body.name);
+      if (project.orgId) {
+        const actor = getActor(req);
+        await recordEvent(ctx, {
+          orgId: project.orgId,
+          actorType: actor.actorType,
+          actorId: actor.actorId,
+          action: 'snapshot.restored',
+          metadata: { emulatorId: req.params.id, projectSlug: project.slug, name: body.name },
+        });
+      }
       reply.status(204);
+    },
+  );
+
+  const ApplyPresetBody = z.object({ presetId: z.string().min(1).max(80) });
+
+  app.post<{ Params: { id: string } }>(
+    '/v1/emulators/:id/apply-preset',
+    { preHandler: requireScope('write') },
+    async (req) => {
+      const body = ApplyPresetBody.parse(req.body);
+      const record = ctx.emulators.get(req.params.id);
+      const project = await resolveStoredProjectAccess(ctx, req, record.projectSlug);
+      const orgId = (req as AuthenticatedRequest).apiKey?.orgId ?? project.orgId;
+      if (!orgId) {
+        throw new InvalidInputError('presets are org-scoped — no org on this request');
+      }
+      const [preset] = await ctx.db
+        .select()
+        .from(schema.chaosPresets)
+        .where(and(eq(schema.chaosPresets.id, body.presetId), eq(schema.chaosPresets.orgId, orgId)))
+        .limit(1);
+      if (!preset) throw new NotFoundError('chaos preset', body.presetId);
+      const compiled = compileRules(preset.rules as ChaosRule[]);
+      ctx.emulators.applyChaos(req.params.id, compiled);
+      if (project.orgId) {
+        const actor = getActor(req);
+        await recordEvent(ctx, {
+          orgId: project.orgId,
+          actorType: actor.actorType,
+          actorId: actor.actorId,
+          action: 'chaos_preset.applied',
+          metadata: {
+            emulatorId: req.params.id,
+            presetId: preset.id,
+            presetName: preset.name,
+          },
+        });
+      }
+      return {
+        applied: true,
+        presetId: preset.id,
+        name: preset.name,
+        errorRuleCount: compiled.errorRules.length,
+        latency: compiled.latency,
+      };
+    },
+  );
+
+  const LoadTestBody = z.object({
+    concurrency: z.number().int().min(1).max(500).default(50),
+    // Capped hard — the load runner blocks the API's event loop while it
+    // fires and forgets, so a caller that asked for 10 minutes would starve
+    // every other route on the same process.
+    durationMs: z.number().int().min(100).max(60_000).default(5_000),
+    path: z.string().min(1).max(200).default('/'),
+    method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD']).default('GET'),
+  });
+
+  app.post<{ Params: { id: string } }>(
+    '/v1/emulators/:id/load-test',
+    { preHandler: requireScope('write') },
+    async (req) => {
+      const body = LoadTestBody.parse(req.body);
+      const record = ctx.emulators.get(req.params.id);
+      await resolveStoredProjectAccess(ctx, req, record.projectSlug);
+      const base = record.url.replace(/\/+$/, '');
+      const path = body.path.startsWith('/') ? body.path : `/${body.path}`;
+      const result = await runThroughput({
+        url: `${base}${path}`,
+        method: body.method,
+        concurrency: body.concurrency,
+        durationMs: body.durationMs,
+      });
+      return {
+        emulatorId: req.params.id,
+        target: `${base}${path}`,
+        concurrency: body.concurrency,
+        durationMs: result.durationMs,
+        rps: result.rps,
+        p50: result.p50,
+        p95: result.p95,
+        p99: result.p99,
+        errorRate: result.errorRate,
+        totalRequests: result.totalRequests,
+      };
     },
   );
 }

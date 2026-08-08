@@ -1,44 +1,23 @@
-import { getAnalytics, isSupported, type Analytics } from 'firebase/analytics';
-import { initializeApp, getApp, getApps } from 'firebase/app';
-import {
-  GoogleAuthProvider,
-  browserLocalPersistence,
-  indexedDBLocalPersistence,
-  initializeAuth,
-  inMemoryPersistence,
-  type Auth,
-} from 'firebase/auth';
+/**
+ * Firebase has been removed from Carbon. Human auth is now Better Auth,
+ * hosted by the dashboard app (apps/dashboard) — see NEXT_PUBLIC_DASHBOARD_URL
+ * for the sign-in surface (defaults to http://localhost:3001/sign-in).
+ *
+ * This file is retained as a stub so any stale import fails loudly at call
+ * time rather than silently reintroducing a second auth system.
+ */
 
-const firebaseConfig = {
-  apiKey: 'AIzaSyBDVkvQc1IF23evFTplvjVc072qNGn_J-Q',
-  authDomain: 'carbon-e24f8.firebaseapp.com',
-  projectId: 'carbon-e24f8',
-  storageBucket: 'carbon-e24f8.firebasestorage.app',
-  messagingSenderId: '9387095986',
-  appId: '1:9387095986:web:2ac6e7c8800c44f2d4d6ab',
-  measurementId: 'G-X5GPW6YJ4M',
-};
+function removed(): never {
+  throw new Error(
+    'apps/web/lib/firebase.ts has been removed — human auth is Better Auth on the dashboard. ' +
+      'Redirect users to NEXT_PUBLIC_DASHBOARD_URL/sign-in instead.',
+  );
+}
 
-export const firebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
+export const firebaseApp: never = new Proxy({}, { get: removed }) as never;
+export const auth: never = new Proxy({}, { get: removed }) as never;
+export const googleProvider: never = new Proxy({}, { get: removed }) as never;
 
-// initializeAuth (over getAuth) lets us pick the persistence order explicitly.
-// IndexedDB is the default, but on some browsers (private mode, Safari with
-// aggressive storage partitioning, Chrome cross-origin popup contexts) it
-// throws `Database is closing/hidden` mid-sign-in. The fallback chain keeps
-// auth working: IndexedDB → localStorage → in-memory (session only).
-export const auth: Auth =
-  typeof window === 'undefined'
-    ? (undefined as unknown as Auth)
-    : initializeAuth(firebaseApp, {
-        persistence: [indexedDBLocalPersistence, browserLocalPersistence, inMemoryPersistence],
-      });
-
-export const googleProvider = new GoogleAuthProvider();
-// Force Google's own account chooser so the user can pick / add an account
-// instead of getting silently signed in with whatever's cached.
-googleProvider.setCustomParameters({ prompt: 'select_account' });
-
-export async function loadAnalytics(): Promise<Analytics | null> {
-  if (typeof window === 'undefined') return null;
-  return (await isSupported()) ? getAnalytics(firebaseApp) : null;
+export async function loadAnalytics(): Promise<null> {
+  return null;
 }

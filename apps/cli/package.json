@@ -44,6 +44,7 @@
     "@carbon/parser": "workspace:*",
     "@carbon/proxy": "workspace:*",
     "@carbon/sdk": "workspace:*",
+    "@carbon/types": "workspace:*",
     "@types/node": "^22.10.0",
     "tsup": "^8.3.5",
     "tsx": "^4.19.2",

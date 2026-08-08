@@ -1,7 +1,17 @@
 import type { Logger } from '@carbon/core';
 import { makeId, NotFoundError, ConflictError } from '@carbon/core';
 import { BehaviorGraphBuilder } from '@carbon/graph';
-import { createRuntime, type Runtime } from '@carbon/runtime';
+import {
+  createRuntime,
+  errorInjectionPlugin,
+  latencyPlugin,
+  assertionsPlugin,
+  type AssertionRule,
+  type ErrorInjectionRule,
+  type LatencyProfile,
+  type OnViolation,
+  type Runtime,
+} from '@carbon/runtime';
 import { InMemoryStateEngine, parseSnapshot } from '@carbon/state';
 import { StorageKeys, type Storage } from '@carbon/storage';
 import type { BehaviorGraph, IntermediateRepresentation } from '@carbon/types';
@@ -21,6 +31,11 @@ import type { BehaviorGraph, IntermediateRepresentation } from '@carbon/types';
  * moves each emulator into its own worker or child process; the registry
  * interface stays identical.
  */
+export interface ChaosConfig {
+  readonly errorRules?: readonly ErrorInjectionRule[];
+  readonly latency?: LatencyProfile;
+}
+
 export interface EmulatorRegistry {
   create(input: CreateEmulatorInput): Promise<EmulatorRecord>;
   list(): EmulatorRecord[];
@@ -30,6 +45,19 @@ export interface EmulatorRegistry {
   restore(id: string, snapshotName: string): Promise<void>;
   snapshot(id: string, name: string): Promise<{ storageKey: string }>;
   shutdown(): Promise<void>;
+  /**
+   * Replace the emulator's active chaos rules. The runtime keeps a mutable
+   * reference the injection/latency plugins read on every request, so this
+   * takes effect without restarting the runtime.
+   */
+  applyChaos(id: string, config: ChaosConfig): void;
+  /** Current chaos config (for GET/introspection). */
+  getChaos(id: string): ChaosConfig;
+  /**
+   * Install assertion rules on an emulator with a violation sink. Replaces
+   * any prior rule set for that emulator.
+   */
+  installAssertions(id: string, rules: readonly AssertionRule[], onViolation: OnViolation): void;
 }
 
 export interface CreateEmulatorInput {
@@ -52,6 +80,8 @@ export interface EmulatorRecord {
 interface Entry {
   record: EmulatorRecord;
   runtime: Runtime;
+  chaos: { errorRules: ErrorInjectionRule[]; latency: LatencyProfile };
+  assertions: { rules: AssertionRule[]; onViolation: OnViolation | null };
 }
 
 export interface EmulatorRegistryOptions {
@@ -98,7 +128,24 @@ export function createEmulatorRegistry(deps: EmulatorRegistryOptions): EmulatorR
       if (input.snapshot)
         await state.restore(await loadSnapshot(input.projectSlug, input.snapshot));
 
-      const runtime = await createRuntime({ ir, graph, state, logger: deps.logger });
+      // Mutable holders so the plugins we register at boot can be reconfigured
+      // via `applyChaos` / `installAssertions` without restarting the runtime.
+      const chaos: Entry['chaos'] = { errorRules: [], latency: {} };
+      const assertions: Entry['assertions'] = { rules: [], onViolation: null };
+      const runtime = await createRuntime({
+        ir,
+        graph,
+        state,
+        logger: deps.logger,
+        plugins: [
+          errorInjectionPlugin(() => chaos.errorRules),
+          latencyPlugin(() => chaos.latency),
+          assertionsPlugin(
+            () => assertions.rules,
+            () => assertions.onViolation ?? (() => {}),
+          ),
+        ],
+      });
       const port = input.port ?? 0;
       let url: string;
       try {
@@ -122,7 +169,7 @@ export function createEmulatorRegistry(deps: EmulatorRegistryOptions): EmulatorR
         startedAt: Date.now(),
         status: 'running',
       };
-      entries.set(id, { record, runtime });
+      entries.set(id, { record, runtime, chaos, assertions });
       deps.logger.info('emulator.created', { id, url, project: input.projectSlug });
       return record;
     },
@@ -174,6 +221,30 @@ export function createEmulatorRegistry(deps: EmulatorRegistryOptions): EmulatorR
     async shutdown() {
       await Promise.all(Array.from(entries.values()).map((e) => e.runtime.close()));
       entries.clear();
+    },
+
+    applyChaos(id, config) {
+      const entry = entries.get(id);
+      if (!entry) throw new NotFoundError('emulator', id);
+      if (config.errorRules) {
+        entry.chaos.errorRules = [...config.errorRules];
+      }
+      if (config.latency) {
+        entry.chaos.latency = { ...config.latency };
+      }
+    },
+
+    getChaos(id) {
+      const entry = entries.get(id);
+      if (!entry) throw new NotFoundError('emulator', id);
+      return { errorRules: entry.chaos.errorRules, latency: entry.chaos.latency };
+    },
+
+    installAssertions(id, rules, onViolation) {
+      const entry = entries.get(id);
+      if (!entry) throw new NotFoundError('emulator', id);
+      entry.assertions.rules = [...rules];
+      entry.assertions.onViolation = onViolation;
     },
   };
 }

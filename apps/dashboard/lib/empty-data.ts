@@ -1,4 +1,22 @@
-export const sections = {
+/**
+ * Copy shown when a real fetch legitimately returns zero rows. These strings
+ * are UX guidance — nothing in this file should be rendered without a fetch
+ * behind it. The previous version of this module doubled as a static data
+ * source for the dashboard shell (which is why every section rendered "no
+ * projects yet" regardless of what the API held); that pattern is gone.
+ *
+ * Each entry has:
+ *   - title:         section heading
+ *   - emptyTitle:    heading shown when the fetch succeeds with zero rows
+ *   - description:   supporting copy for the empty state
+ */
+export interface SectionCopy {
+  title: string;
+  emptyTitle: string;
+  description: string;
+}
+
+export const sections: Record<string, SectionCopy> = {
   projects: {
     title: 'Projects',
     emptyTitle: 'No projects yet',
@@ -47,3 +65,16 @@ export const sections = {
 } as const;
 
 export type SectionSlug = keyof typeof sections;
+
+export function isSectionSlug(value: string): value is SectionSlug {
+  return value in sections;
+}
+
+/**
+ * Returns the section copy for `slug`, or `undefined` if the slug is not a
+ * known section. Consumers must only render this after their fetch actually
+ * returned zero rows.
+ */
+export function getSectionCopy(slug: string): SectionCopy | undefined {
+  return sections[slug];
+}

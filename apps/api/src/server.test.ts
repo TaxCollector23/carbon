@@ -10,7 +10,17 @@ function makeCtx(): AppContext {
     logger: NoopLogger,
     db: {
       execute: async () => [],
-      select: () => ({ from: () => ({ where: () => ({ limit: async () => [] }) }) }),
+      select: () => {
+        const chain: Record<string, unknown> = {};
+        chain.from = () => chain;
+        chain.innerJoin = () => chain;
+        chain.where = () => chain;
+        chain.limit = async () => [];
+        // Some queries `await` the chain directly without `.limit()`.
+        chain.then = (resolve: (rows: unknown[]) => unknown) =>
+          Promise.resolve([]).then(resolve);
+        return chain;
+      },
     } as unknown as AppContext['db'],
     storage: new MemoryStorage(),
     ingestion: { ingest: async () => ({}) } as unknown as AppContext['ingestion'],

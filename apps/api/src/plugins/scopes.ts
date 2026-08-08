@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest, preHandlerHookHandler } from 'fastify';
 import { CarbonError } from '@carbon/core';
 import type { AuthenticatedRequest } from './api-key.js';
+import type { SessionAuthenticatedRequest } from './session-auth.js';
 
 /**
  * Additive permission model. A key's scope array is a set. The requested scope
@@ -32,21 +33,51 @@ export function keyHasScope(scopes: readonly string[], required: Scope): boolean
   return false;
 }
 
+/**
+ * Membership role → equivalent scope grants for a human session. Kept in one
+ * place so route guards and any future dashboard code agree on the mapping:
+ *
+ *   owner/admin → admin (implies read + write)
+ *   member      → write (implies read)
+ */
+export function sessionRoleToScopes(role: 'owner' | 'admin' | 'member'): readonly Scope[] {
+  if (role === 'owner' || role === 'admin') return ['admin'];
+  return ['write'];
+}
+
 export function requireScope(required: Scope): preHandlerHookHandler {
   return async (req: FastifyRequest, _reply: FastifyReply) => {
     const apiKey = (req as ScopedRequest).apiKey;
-    // Auth disabled (`CARBON_AUTH_MODE=disabled`) means there is no
-    // authenticated key on the request; treat the guard as a no-op so local
-    // dev without keys keeps working, mirroring the api-key plugin's own
-    // early-return.
-    if (!apiKey) return;
-    if (!keyHasScope(apiKey.scopes, required)) {
-      throw new CarbonError({
-        code: 'CARBON_FORBIDDEN',
-        message: `API key missing required scope: ${required}`,
-        details: { required, held: apiKey.scopes },
-        expose: true,
-      });
+    if (apiKey) {
+      if (!keyHasScope(apiKey.scopes, required)) {
+        throw new CarbonError({
+          code: 'CARBON_FORBIDDEN',
+          message: `API key missing required scope: ${required}`,
+          details: { required, held: apiKey.scopes },
+          expose: true,
+        });
+      }
+      return;
     }
+
+    // No API key on the request — try the Better Auth session path.
+    // A signed-in user's effective scopes are derived from their org role.
+    const sessionUser = (req as SessionAuthenticatedRequest).sessionUser;
+    if (sessionUser?.role) {
+      const held = sessionRoleToScopes(sessionUser.role);
+      if (!keyHasScope(held, required)) {
+        throw new CarbonError({
+          code: 'CARBON_FORBIDDEN',
+          message: `Session role missing required scope: ${required}`,
+          details: { required, held, role: sessionUser.role },
+          expose: true,
+        });
+      }
+      return;
+    }
+
+    // Neither auth path has run (e.g. `CARBON_AUTH_MODE=disabled` in dev, or
+    // an unauthenticated public route). Treat the guard as a no-op so local
+    // dev keeps working, mirroring the api-key plugin's own early-return.
   };
 }
