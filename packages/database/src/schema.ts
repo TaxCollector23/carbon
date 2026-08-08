@@ -368,6 +368,37 @@ export const driftChecks = pgTable(
   (t) => ({ projectCreatedIdx: index('drift_checks_project_created_idx').on(t.projectId, t.createdAt) }),
 );
 
+/**
+ * Device-authorization CLI login sessions. Short-lived (10 min TTL) rows
+ * that let the CLI kick off a browser-based approval flow (like `gh auth
+ * login`). The verifier token is what the CLI polls with; the human-readable
+ * sessionId goes in the browser URL. On approval, `approvedApiKeyId` links
+ * to the minted key that the CLI receives exactly once via the poll route.
+ */
+export const cliAuthSessions = pgTable(
+  'cli_auth_sessions',
+  {
+    id: text('id').primaryKey(),
+    verifier: text('verifier').notNull(),
+    orgId: text('org_id').references(() => organizations.id, { onDelete: 'cascade' }),
+    userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
+    status: text('status', { enum: ['pending', 'approved', 'denied', 'expired'] })
+      .notNull()
+      .default('pending'),
+    approvedApiKeyId: text('approved_api_key_id').references((): AnyPgColumn => apiKeys.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    approvedAt: timestamp('approved_at', { withTimezone: true }),
+    revealedAt: timestamp('revealed_at', { withTimezone: true }),
+  },
+  (t) => ({
+    verifierUnique: uniqueIndex('cli_auth_sessions_verifier_unique').on(t.verifier),
+    expiryIdx: index('cli_auth_sessions_expiry_idx').on(t.expiresAt),
+  }),
+);
+
 /** Short-lived, read-only shareable replica links. */
 export const shareLinks = pgTable(
   'share_links',

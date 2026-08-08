@@ -13,7 +13,45 @@ export interface IdempotencyOptions {
   readonly keyPrefix?: string;
   /** How long the inflight lock lives before it self-expires. Default 30s. */
   readonly lockTtlSec?: number;
+  /**
+   * When true, every mutating request (POST/PATCH/DELETE) MUST carry an
+   * `Idempotency-Key` header — anything else gets a 400
+   * IDEMPOTENCY_KEY_REQUIRED. Paths in {@link allowUnkeyed} bypass the check
+   * (webhooks, health probes, cli-auth polling — anything designed to accept
+   * safe retries or that the caller cannot key). Off by default so existing
+   * clients keep working during the rollout.
+   *
+   * Wire via env `CARBON_REQUIRE_IDEMPOTENCY=1`.
+   */
+  readonly requireKey?: boolean;
+  /**
+   * Route patterns (as matched by Fastify — e.g. `/v1/billing/webhook`) that
+   * are allowed through even when {@link requireKey} is on. Defaults to
+   * {@link DEFAULT_ALLOW_UNKEYED}.
+   */
+  readonly allowUnkeyed?: Iterable<string>;
 }
+
+/**
+ * Paths that accept unkeyed mutating requests even when `requireKey` is on.
+ *
+ * - `/v1/billing/webhook` — Stripe retries with its own dedupe, and the caller
+ *   isn't a Carbon client so we can't push a header on them.
+ * - `/v1/cli-auth/*` — the CLI polls these before it holds an API key; the
+ *   sessionId already carries per-request identity.
+ * - `/scim/v2/*` — the SCIM spec doesn't define an idempotency header and IdPs
+ *   won't set one.
+ * - `/v1/invitations/accept` — one-shot user action from an email link.
+ */
+export const DEFAULT_ALLOW_UNKEYED: readonly string[] = [
+  '/v1/billing/webhook',
+  '/v1/cli-auth/start',
+  '/v1/cli-auth/sessions/:sessionId/approve',
+  '/v1/cli-auth/sessions/:sessionId/deny',
+  '/v1/invitations/accept',
+  '/scim/v2/Users',
+  '/scim/v2/Users/:id',
+];
 
 /**
  * Stripe-style idempotency, implemented with Fastify's `preHandler` +
@@ -67,6 +105,9 @@ export async function registerIdempotency(
   const ttl = opts.ttlSec ?? 60 * 60 * 24;
   const lockTtl = opts.lockTtlSec ?? 30;
   const prefix = opts.keyPrefix ?? 'carbon:idem';
+  const requireKey =
+    opts.requireKey ?? /^(1|true|yes|on)$/i.test(process.env.CARBON_REQUIRE_IDEMPOTENCY ?? '');
+  const allowUnkeyed = new Set(opts.allowUnkeyed ?? DEFAULT_ALLOW_UNKEYED);
 
   app.addHook('preHandler', async (req, reply) => {
     const method = req.method.toUpperCase();
@@ -74,7 +115,19 @@ export async function registerIdempotency(
 
     const raw = req.headers['idempotency-key'];
     const key = Array.isArray(raw) ? raw[0] : raw;
-    if (!key) return;
+    if (!key) {
+      if (!requireKey) return;
+      const route = req.routeOptions?.url ?? '';
+      if (allowUnkeyed.has(route)) return;
+      reply.status(400).send({
+        error: {
+          code: 'IDEMPOTENCY_KEY_REQUIRED',
+          message:
+            'Mutating requests must include an Idempotency-Key header (16-128 URL-safe chars).',
+        },
+      });
+      return reply;
+    }
     if (!KEY_PATTERN.test(key)) {
       reply.status(400).send({
         error: {

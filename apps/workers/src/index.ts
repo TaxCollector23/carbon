@@ -1,8 +1,10 @@
 import { createLogger } from '@carbon/core';
 import { createIngestionPipeline } from '@carbon/ingestion';
+import { AiCapabilities, AiJudge, OpenRouterProvider } from '@carbon/ai';
 import { createDefaultParserRegistry } from '@carbon/parser';
 import { FsStorage, S3Storage, type Storage } from '@carbon/storage';
 import {
+  createIngestionQueue,
   createRedisConnection,
   createRedisIngestJobStatusWriter,
   QueueRegistry,
@@ -16,6 +18,7 @@ import { loadEnv } from './env.js';
 import { startRetentionWorker, type RetentionWorker } from './retention-worker.js';
 import { startAnomalyWorker, type AnomalyWorker } from './anomaly-worker.js';
 import { startDriftWorker, type DriftWorkerHandle } from './drift-worker.js';
+import { startJobRetryWorker, type JobRetryWorkerHandle } from './job-retry-worker.js';
 
 async function main(): Promise<void> {
   const env = loadEnv();
@@ -33,7 +36,18 @@ async function main(): Promise<void> {
   registry.handle(Queues.webhookDelivery, async (job) => deliverWebhook(job.data, { logger }));
 
   const parsers = createDefaultParserRegistry();
-  const ingestion = createIngestionPipeline({ parsers, storage, logger });
+  const aiProvider = env.CARBON_AI_API_KEY
+    ? new OpenRouterProvider({
+        apiKey: env.CARBON_AI_API_KEY,
+        defaultModel: env.CARBON_AI_MODEL,
+        logger,
+      })
+    : undefined;
+  const ai = aiProvider ? new AiCapabilities(aiProvider) : undefined;
+  const judge = aiProvider
+    ? new AiJudge({ provider: aiProvider, threshold: env.CARBON_AI_JUDGE_THRESHOLD })
+    : undefined;
+  const ingestion = createIngestionPipeline({ parsers, storage, logger, ai, judge });
   const jobs = createRedisIngestJobStatusWriter({ redis });
   const ingestWorker = registerIngestWorker({
     connection: redis,
@@ -42,7 +56,18 @@ async function main(): Promise<void> {
     logger,
     concurrency: env.CARBON_INGEST_CONCURRENCY,
     redisUrl: env.REDIS_URL,
+    judgeThreshold: env.CARBON_AI_JUDGE_THRESHOLD,
   });
+
+  // Producer-side handle onto the ingest queue for the retry poller. Sharing
+  // the Redis connection is fine — BullMQ multiplexes commands over it.
+  const ingestQueueProducer = createIngestionQueue({ connection: redis });
+  const jobRetry: JobRetryWorkerHandle = startJobRetryWorker({
+    redis,
+    ingestionQueue: ingestQueueProducer,
+    logger,
+  });
+  logger.info('job_retry.enabled', {});
 
   let retention: RetentionWorker | undefined;
   let anomaly: AnomalyWorker | undefined;
@@ -81,6 +106,8 @@ async function main(): Promise<void> {
     anomaly?.stop();
     notifier?.stop();
     if (drift) await drift.stop();
+    jobRetry.stop();
+    await ingestQueueProducer.close();
     await ingestWorker.close();
     await registry.close();
     process.exit(0);

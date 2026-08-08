@@ -7,7 +7,7 @@ import type {
   CompletionResponse,
   StructuredRequest,
 } from '../provider.js';
-import { extractJson } from '../util.js';
+import { extractJson, withCircuitBreaker, withRetryJitter, withTimeout } from '../util.js';
 
 /** Google Gemini generative-language provider. */
 export class GeminiProvider implements AiProvider {
@@ -17,14 +17,40 @@ export class GeminiProvider implements AiProvider {
   private readonly baseUrl: string;
   private readonly logger: Logger;
 
+  private readonly guarded: (req: CompletionRequest) => Promise<CompletionResponse>;
+  private readonly onUsage?: AiProviderOptions['onUsage'];
+
   constructor(opts: AiProviderOptions) {
     this.apiKey = opts.apiKey;
     this.baseUrl = opts.baseUrl ?? 'https://generativelanguage.googleapis.com/v1beta';
     this.defaultModel = opts.defaultModel ?? 'gemini-2.0-pro';
     this.logger = opts.logger.child({ provider: this.name });
+    this.onUsage = opts.onUsage;
+    this.guarded = withCircuitBreaker(
+      withRetryJitter(withTimeout((req: CompletionRequest) => this.rawComplete(req), 15_000)),
+      { label: 'gemini' },
+    );
   }
 
   async complete(req: CompletionRequest): Promise<CompletionResponse> {
+    const start = Date.now();
+    const result = await this.guarded(req);
+    if (this.onUsage) {
+      try {
+        this.onUsage({
+          provider: this.name,
+          model: result.model,
+          usage: result.usage,
+          latencyMs: Date.now() - start,
+        });
+      } catch (err) {
+        this.logger.warn('ai.usage_callback_failed', { message: (err as Error).message });
+      }
+    }
+    return result;
+  }
+
+  private async rawComplete(req: CompletionRequest): Promise<CompletionResponse> {
     const model = req.model ?? this.defaultModel;
     const url = `${this.baseUrl}/models/${model}:generateContent?key=${this.apiKey}`;
     const contents = req.messages.map((m) => ({

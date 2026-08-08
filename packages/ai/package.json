@@ -6,7 +6,10 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": { ".": "./src/index.ts" },
-  "scripts": { "typecheck": "tsc --noEmit" },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
   "dependencies": {
     "@carbon/core": "workspace:*",
     "@carbon/types": "workspace:*",
@@ -14,6 +17,7 @@
   },
   "devDependencies": {
     "@carbon/config": "workspace:*",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   }
 }

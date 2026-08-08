@@ -133,7 +133,7 @@ describe('health routes', () => {
 
     const res = await app.inject('/ready');
     expect(res.statusCode).toBe(200);
-    expect(res.json().checks.queue).toEqual({ ok: true });
+    expect(res.json().checks.queue.ok).toBe(true);
     expect(calls).toBe(1);
   });
 

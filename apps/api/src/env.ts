@@ -18,6 +18,11 @@ const RawEnvSchema = z
       .default('openrouter'),
     CARBON_AI_API_KEY: z.string().optional(),
     CARBON_AI_MODEL: z.string().optional(),
+    /**
+     * Below this judge score, async ingest jobs land in `needs_review`
+     * instead of `succeeded`. Sync ingest surfaces the verdict verbatim.
+     */
+    CARBON_AI_JUDGE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.75),
     CARBON_AUTH_MODE: z.enum(['enforced', 'disabled']).default('disabled'),
     CARBON_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(120),
     CARBON_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(60_000),
@@ -57,6 +62,18 @@ const RawEnvSchema = z
     CARBON_DRAIN_MS: z.coerce.number().int().min(0).max(120_000).default(5000),
     /** Max concurrently running emulators in this process. */
     CARBON_MAX_EMULATORS: z.coerce.number().int().min(1).max(500).default(25),
+    /**
+     * Uniform per-org emulator cap that overrides the per-plan defaults
+     * (developer=1, team=10, enterprise=unlimited). Leave unset on hosted
+     * so the plan tier decides; set explicitly on self-hosted.
+     */
+    CARBON_MAX_EMULATORS_PER_ORG: z.coerce.number().int().min(1).max(500).optional(),
+    /**
+     * When 1/true, every mutating request (POST/PATCH/DELETE) must carry an
+     * `Idempotency-Key` header. Off by default so existing clients keep
+     * working while the rollout is in flight.
+     */
+    CARBON_REQUIRE_IDEMPOTENCY: optionalBoolean(),
     /**
      * Comma-separated list of origins to allow CORS from. Use `*` for open
      * public API mode. Defaults to the dashboard origin in dev.

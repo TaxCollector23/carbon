@@ -13,5 +13,8 @@ describe('CLI command catalog', () => {
     expect(listed).toContain('carbon snapshot load');
     expect(listed).toContain('carbon snapshot list');
     expect(listed).toContain('carbon snapshot delete');
+    expect(listed).toContain('carbon snapshot push');
+    expect(listed).toContain('carbon snapshot pull');
+    expect(listed).toContain('carbon completion');
   });
 });

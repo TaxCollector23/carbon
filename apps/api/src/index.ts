@@ -4,12 +4,13 @@ import { FsStorage, S3Storage, type Storage } from '@carbon/storage';
 import { createIngestionPipeline } from '@carbon/ingestion';
 import { createDefaultParserRegistry } from '@carbon/parser';
 import { createIngestionQueue, createRedisConnection } from '@carbon/workers';
-import { AiCapabilities, OpenRouterProvider } from '@carbon/ai';
+import { AiCapabilities, AiJudge, OpenRouterProvider } from '@carbon/ai';
 import { loadEnv } from './env.js';
 import { buildServer } from './server.js';
 import type { AppContext } from './context.js';
 import { createEmulatorRegistry } from './services/emulator-registry.js';
 import { createJobService } from './services/jobs.js';
+import { resolvePlan } from './services/billing.js';
 import { startEmbeddedWorkers } from './workers.js';
 import { createLifecycle } from './lifecycle.js';
 import { createIngestMetrics } from './plugins/metrics.js';
@@ -37,21 +38,38 @@ async function main(): Promise<void> {
   });
   const parsers = createDefaultParserRegistry();
 
-  const ai = env.CARBON_AI_API_KEY
-    ? new AiCapabilities(
-        new OpenRouterProvider({
-          apiKey: env.CARBON_AI_API_KEY,
-          defaultModel: env.CARBON_AI_MODEL,
-          logger,
-        }),
-      )
+  const aiProvider = env.CARBON_AI_API_KEY
+    ? new OpenRouterProvider({
+        apiKey: env.CARBON_AI_API_KEY,
+        defaultModel: env.CARBON_AI_MODEL,
+        logger,
+        // Structured usage record for billing / cost-attribution. Emitted as
+        // a `usage.ai.call` log line for now; a log-shipping pipeline picks
+        // it up and rolls it into the org's usage bucket.
+        onUsage: (evt) => {
+          logger.info('usage.ai.call', {
+            provider: evt.provider,
+            model: evt.model,
+            promptTokens: evt.usage.promptTokens,
+            completionTokens: evt.usage.completionTokens,
+            totalTokens: evt.usage.totalTokens,
+            latencyMs: evt.latencyMs,
+          });
+        },
+      })
+    : undefined;
+  const ai = aiProvider ? new AiCapabilities(aiProvider) : undefined;
+  const judge = aiProvider
+    ? new AiJudge({ provider: aiProvider, threshold: env.CARBON_AI_JUDGE_THRESHOLD })
     : undefined;
 
-  const ingestion = createIngestionPipeline({ parsers, storage, logger, ai });
+  const ingestion = createIngestionPipeline({ parsers, storage, logger, ai, judge });
   const emulators = createEmulatorRegistry({
     storage,
     logger,
     maxEmulators: env.CARBON_MAX_EMULATORS,
+    maxEmulatorsPerOrg: env.CARBON_MAX_EMULATORS_PER_ORG,
+    resolvePlan: async (orgId) => (await resolvePlan(orgId, db)).plan,
   });
   const jobs = redis ? createJobService({ redis, logger }) : undefined;
   const ingestionQueue = redis ? createIngestionQueue({ connection: redis }) : undefined;
@@ -70,6 +88,7 @@ async function main(): Promise<void> {
           ingestConcurrency: env.CARBON_INGEST_CONCURRENCY,
           ingestMetrics: ingestMetrics?.sink,
           redisUrl: env.REDIS_URL,
+          judgeThreshold: env.CARBON_AI_JUDGE_THRESHOLD,
         })
       : null;
   if (env.EMBED_WORKERS && !redis) {

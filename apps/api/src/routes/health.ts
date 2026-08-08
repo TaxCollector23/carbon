@@ -30,8 +30,30 @@ export interface HealthOptions {
   readonly lifecycle?: Lifecycle;
 }
 
-type CheckResult = { ok: boolean; error?: string };
+type CheckResult = {
+  ok: boolean;
+  error?: string;
+  /** Wall-clock ms spent inside the check. */
+  latencyMs?: number;
+  /** Present when a dependency answered but was slower than the SLA. */
+  slow?: boolean;
+  /** Present when the dependency did not answer at all. */
+  unreachable?: boolean;
+};
 type Checks = Record<string, CheckResult>;
+
+/**
+ * The SLA a dependency has to hit for /ready to report `ok`. Anything above
+ * this but still under {@link UNREACHABLE_MS} shows up as `degraded` (200) so
+ * the LB keeps routing but an operator sees the smell.
+ */
+export const SLOW_SLA_MS = 250;
+/**
+ * How long we're willing to wait before treating a dependency as unreachable.
+ * A slow-but-answering DB is very different from one behind a broken NAT —
+ * this line separates them.
+ */
+export const UNREACHABLE_MS = 2000;
 
 export async function registerHealthRoutes(
   app: FastifyInstance,
@@ -44,10 +66,14 @@ export async function registerHealthRoutes(
   const writeProbeIntervalMs = options.writeProbeIntervalMs ?? 5 * 60 * 1000;
   const lifecycle = options.lifecycle ?? AlwaysReady;
 
-  let cached: { at: number; ok: boolean; checks: Checks } | null = null;
+  type EvalOutcome = {
+    checks: Checks;
+    status: 'ok' | 'degraded' | 'down';
+  };
+  let cached: { at: number } & EvalOutcome | null = null;
   // Concurrent probes share one evaluation instead of stampeding the database
   // the instant the cache expires.
-  let inFlight: Promise<{ ok: boolean; checks: Checks }> | null = null;
+  let inFlight: Promise<EvalOutcome> | null = null;
   let lastWriteProbeAt = 0;
 
   app.get('/health', async () => ({ ok: true, service: 'carbon-api', version: '0.1.0' }));
@@ -67,14 +93,27 @@ export async function registerHealthRoutes(
     if (lifecycle.draining) {
       reply.status(503);
       reply.header('cache-control', 'no-store');
-      return { ok: false, draining: true, checks: {} };
+      return { ok: false, status: 'down', draining: true, checks: {} };
     }
 
     const now = Date.now();
     if (cached && now - cached.at < cacheMs) {
-      reply.status(cached.ok ? 200 : 503);
+      reply.status(cached.status === 'down' ? 503 : 200);
       reply.header('cache-control', 'no-store');
-      return { ok: cached.ok, checks: cached.checks, cached: true };
+      const slow = Object.entries(cached.checks)
+        .filter(([, v]) => v.slow)
+        .map(([k]) => k);
+      const errors = Object.entries(cached.checks)
+        .filter(([, v]) => v.unreachable)
+        .map(([k, v]) => ({ name: k, error: v.error }));
+      return {
+        ok: cached.status === 'ok',
+        status: cached.status,
+        checks: cached.checks,
+        slow,
+        errors,
+        cached: true,
+      };
     }
 
     inFlight ??= evaluate().finally(() => {
@@ -83,35 +122,55 @@ export async function registerHealthRoutes(
     const result = await inFlight;
     cached = { at: Date.now(), ...result };
 
-    reply.status(result.ok ? 200 : 503);
+    reply.status(result.status === 'down' ? 503 : 200);
     reply.header('cache-control', 'no-store');
-    return { ok: result.ok, checks: result.checks, cached: false };
+    const slow = Object.entries(result.checks)
+      .filter(([, v]) => v.slow)
+      .map(([k]) => k);
+    const errors = Object.entries(result.checks)
+      .filter(([, v]) => v.unreachable)
+      .map(([k, v]) => ({ name: k, error: v.error }));
+    return {
+      ok: result.status === 'ok',
+      status: result.status,
+      checks: result.checks,
+      slow,
+      errors,
+      cached: false,
+    };
   });
 
-  async function evaluate(): Promise<{ ok: boolean; checks: Checks }> {
+  async function evaluate(): Promise<EvalOutcome> {
     const checks: Checks = {};
     const writeProbe = Date.now() - lastWriteProbeAt >= writeProbeIntervalMs;
     if (writeProbe) lastWriteProbeAt = Date.now();
 
-    // Run the probes concurrently: three 1s timeouts in series means a
-    // readiness check can take 3s, longer than most LB probe timeouts.
+    // Every check runs on the caller's timeout (default 1s) capped at the
+    // unreachable ceiling — a stuck dependency cannot hold the probe past a
+    // load-balancer's own timeout.
+    const deadline = Math.min(timeoutMs, UNREACHABLE_MS);
     await Promise.all([
-      runCheck(checks, 'database', timeoutMs, () => ctx.db.execute(sql`select 1`)),
+      runCheck(checks, 'database', deadline, () => ctx.db.execute(sql`select 1`)),
       ctx.redis
-        ? runCheck(checks, 'redis', timeoutMs, () => ctx.redis?.ping() ?? Promise.resolve())
+        ? runCheck(checks, 'redis', deadline, () => ctx.redis?.ping() ?? Promise.resolve())
         : Promise.resolve(),
-      runCheck(checks, 'storage', timeoutMs, () => probeStorage(writeProbe)),
+      runCheck(checks, 'storage', deadline, () => probeStorage(writeProbe)),
       // The ingest queue's health is not just Redis reachability: BullMQ's
       // internal client can be disconnected even when a plain PING would
       // succeed. `getJobCounts` exercises the same commands the worker uses.
       ctx.ingestionQueue
-        ? runCheck(checks, 'queue', timeoutMs, async () => {
+        ? runCheck(checks, 'queue', deadline, async () => {
             await ctx.ingestionQueue!.getJobCounts('waiting', 'active');
           })
         : Promise.resolve(),
     ]);
 
-    return { ok: Object.values(checks).every((c) => c.ok), checks };
+    let status: EvalOutcome['status'] = 'ok';
+    for (const c of Object.values(checks)) {
+      if (c.unreachable) status = 'down';
+      else if (c.slow && status === 'ok') status = 'degraded';
+    }
+    return { status, checks };
   }
 
   async function probeStorage(includeWrite: boolean): Promise<void> {
@@ -141,12 +200,37 @@ async function runCheck(
   timeoutMs: number,
   check: () => Promise<unknown>,
 ): Promise<void> {
+  const start = process.hrtime.bigint();
   try {
     await withTimeout(check(), timeoutMs, name);
-    checks[name] = { ok: true };
+    const latencyMs = Number(process.hrtime.bigint() - start) / 1e6;
+    if (latencyMs > SLOW_SLA_MS) {
+      // Answered, but too slowly. Not a page — a smell. 200 degraded so the
+      // LB keeps routing and the operator sees `slow: [<name>]` in the body.
+      checks[name] = { ok: true, slow: true, latencyMs: round(latencyMs) };
+    } else {
+      checks[name] = { ok: true, latencyMs: round(latencyMs) };
+    }
   } catch (err) {
-    checks[name] = { ok: false, error: err instanceof Error ? err.message : String(err) };
+    // Distinguish "didn't answer inside the deadline" (unreachable) from
+    // "answered with an error" (down but reachable — a query error, for
+    // instance). Both are 503s, but the operator wants to know which.
+    const message = err instanceof Error ? err.message : String(err);
+    const timedOut = /timed out/.test(message);
+    const connRefused = /ECONNREFUSED|ENOTFOUND|EAI_AGAIN|EPIPE|ETIMEDOUT/.test(message);
+    const unreachable = timedOut || connRefused;
+    const latencyMs = Number(process.hrtime.bigint() - start) / 1e6;
+    checks[name] = {
+      ok: false,
+      error: message,
+      unreachable,
+      latencyMs: round(latencyMs),
+    };
   }
+}
+
+function round(v: number): number {
+  return Math.round(v * 100) / 100;
 }
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, name: string): Promise<T> {

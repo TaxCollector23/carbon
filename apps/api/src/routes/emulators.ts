@@ -75,6 +75,7 @@ export async function registerEmulatorRoutes(app: FastifyInstance, ctx: AppConte
       ...body,
       host,
       projectSlug: project.storageSlug,
+      orgId: project.orgId ?? undefined,
     });
     if (project.orgId) {
       const actor = getActor(req);

@@ -33,6 +33,8 @@ export function startEmbeddedWorkers(deps: {
   ingestMetrics?: IngestMetricsSink;
   /** Raw REDIS_URL, redacted before logging. */
   redisUrl?: string;
+  /** Minimum judge score before ingest jobs go to `needs_review`. */
+  judgeThreshold?: number;
 }): { close: () => Promise<void> } {
   const registry = new QueueRegistry({ redis: deps.redis, logger: deps.logger });
 
@@ -48,6 +50,7 @@ export function startEmbeddedWorkers(deps: {
     concurrency: deps.ingestConcurrency,
     metrics: deps.ingestMetrics,
     redisUrl: deps.redisUrl,
+    judgeThreshold: deps.judgeThreshold,
   });
 
   deps.logger.info('workers.embedded_ready', {

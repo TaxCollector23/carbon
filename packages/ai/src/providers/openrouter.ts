@@ -7,7 +7,7 @@ import type {
   CompletionResponse,
   StructuredRequest,
 } from '../provider.js';
-import { extractJson } from '../util.js';
+import { extractJson, withCircuitBreaker, withRetryJitter, withTimeout } from '../util.js';
 
 /**
  * OpenRouter provider — a single API for many upstream models. Default choice
@@ -21,14 +21,40 @@ export class OpenRouterProvider implements AiProvider {
   private readonly baseUrl: string;
   private readonly logger: Logger;
 
+  private readonly guarded: (req: CompletionRequest) => Promise<CompletionResponse>;
+  private readonly onUsage?: AiProviderOptions['onUsage'];
+
   constructor(opts: AiProviderOptions) {
     this.apiKey = opts.apiKey;
     this.baseUrl = opts.baseUrl ?? 'https://openrouter.ai/api/v1';
     this.defaultModel = opts.defaultModel ?? 'anthropic/claude-opus-5';
     this.logger = opts.logger.child({ provider: this.name });
+    this.onUsage = opts.onUsage;
+    this.guarded = withCircuitBreaker(
+      withRetryJitter(withTimeout((req: CompletionRequest) => this.rawComplete(req), 15_000)),
+      { label: 'openrouter' },
+    );
   }
 
   async complete(req: CompletionRequest): Promise<CompletionResponse> {
+    const start = Date.now();
+    const result = await this.guarded(req);
+    if (this.onUsage) {
+      try {
+        this.onUsage({
+          provider: this.name,
+          model: result.model,
+          usage: result.usage,
+          latencyMs: Date.now() - start,
+        });
+      } catch (err) {
+        this.logger.warn('ai.usage_callback_failed', { message: (err as Error).message });
+      }
+    }
+    return result;
+  }
+
+  private async rawComplete(req: CompletionRequest): Promise<CompletionResponse> {
     const messages = req.system
       ? [{ role: 'system', content: req.system }, ...req.messages]
       : [...req.messages];

@@ -32,8 +32,10 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "chokidar": "^4.0.3",
     "citty": "^0.1.6",
     "consola": "^3.3.3",
+    "open": "^10.1.0",
     "picocolors": "^1.1.1",
     "pino": "^9.5.0",
     "pino-pretty": "^13.0.0"

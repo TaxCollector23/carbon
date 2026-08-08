@@ -23,6 +23,8 @@ import { registerChaosPresetRoutes } from './routes/chaos-presets.js';
 import { registerContractRoutes } from './routes/contract.js';
 import { registerAssertionRoutes } from './routes/assertions.js';
 import { registerGraphRoutes } from './routes/graphs.js';
+import { registerCliAuthRoutes, CLI_AUTH_PUBLIC_PATHS } from './routes/cli-auth.js';
+import { registerMeRoutes } from './routes/me.js';
 import { registerApiKeyAuth, type ApiKeyPluginOptions } from './plugins/api-key.js';
 import { registerSessionAuth } from './plugins/session-auth.js';
 import { registerIdempotency } from './plugins/idempotency.js';
@@ -71,7 +73,8 @@ const DOCS_PUBLIC_PATHS: readonly string[] = ['/openapi.json', '/docs', '/docs/*
  * so they require the same API key as every other route.
  */
 export function buildPublicPaths(publicDocs: boolean): readonly string[] {
-  return publicDocs ? [...OPERATIONAL_PUBLIC_PATHS, ...DOCS_PUBLIC_PATHS] : OPERATIONAL_PUBLIC_PATHS;
+  const base = [...OPERATIONAL_PUBLIC_PATHS, ...CLI_AUTH_PUBLIC_PATHS];
+  return publicDocs ? [...base, ...DOCS_PUBLIC_PATHS] : base;
 }
 
 /** Backwards-compatible default: docs are public (matches dev behaviour). */
@@ -322,6 +325,8 @@ export async function buildServer(
   await registerContractRoutes(app, ctx);
   await registerAssertionRoutes(app, ctx);
   await registerGraphRoutes(app, ctx);
+  await registerCliAuthRoutes(app, ctx);
+  await registerMeRoutes(app, ctx);
 
   return app;
 }

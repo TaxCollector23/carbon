@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, readdir, readFile, writeFile, stat, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ui } from '../ui.js';
+import { resolveApiKey } from '../lib/credentials.js';
 
 const SNAP_DIR = '.carbon/snapshots';
 
@@ -95,6 +96,114 @@ export const snapshotCommand = defineCommand({
           const st = await stat(join(SNAP_DIR, row));
           ui.step(row.replace(/\.json$/, ''), `${st.size}B · ${st.mtime.toISOString()}`);
         }
+      },
+    }),
+    push: defineCommand({
+      meta: {
+        name: 'push',
+        description: 'Upload a local snapshot to Carbon Cloud (requires `carbon login`).',
+      },
+      args: {
+        name: { type: 'positional', description: 'Snapshot name (local file)' },
+        project: {
+          type: 'string',
+          description: 'Project slug on the control plane.',
+          required: true,
+        },
+        'api-url': { type: 'string', description: 'Override the control-plane URL.' },
+        'api-key': { type: 'string', description: 'Override the saved API key.' },
+      },
+      async run({ args }) {
+        const name = stringArg(args.name);
+        const projectSlug = stringArg(args.project);
+        if (!name || !projectSlug) {
+          ui.error('Usage: carbon snapshot push <name> --project <slug>');
+          process.exitCode = 1;
+          return;
+        }
+        const path = join(SNAP_DIR, `${name}.json`);
+        if (!existsSync(path)) {
+          ui.error(`Local snapshot not found: ${name}`);
+          process.exitCode = 1;
+          return;
+        }
+        const resolved = await resolveApiKey(
+          { flag: args['api-key'] as string | undefined },
+          args['api-url'] as string | undefined,
+        );
+        if (!resolved) {
+          ui.error('No API credentials found. Run `carbon login` first, or pass --api-key.');
+          process.exitCode = 1;
+          return;
+        }
+        const snapshot = JSON.parse(await readFile(path, 'utf8'));
+        const url = `${resolved.apiUrl.replace(/\/+$/, '')}/v1/snapshots`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-carbon-key': resolved.key,
+          },
+          body: JSON.stringify({ projectSlug, name, snapshot }),
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          ui.error(`Push failed: HTTP ${res.status} ${body}`);
+          process.exitCode = 1;
+          return;
+        }
+        const result = (await res.json()) as { storageKey?: string };
+        ui.success(`Snapshot ${ui.code(name)} pushed to project ${ui.code(projectSlug)}`);
+        if (result.storageKey) ui.step('Key', result.storageKey);
+      },
+    }),
+    pull: defineCommand({
+      meta: {
+        name: 'pull',
+        description: 'Download a snapshot from Carbon Cloud into the local store.',
+      },
+      args: {
+        name: { type: 'positional', description: 'Remote snapshot name' },
+        project: {
+          type: 'string',
+          description: 'Project slug on the control plane.',
+          required: true,
+        },
+        'api-url': { type: 'string', description: 'Override the control-plane URL.' },
+        'api-key': { type: 'string', description: 'Override the saved API key.' },
+      },
+      async run({ args }) {
+        const name = stringArg(args.name);
+        const projectSlug = stringArg(args.project);
+        if (!name || !projectSlug) {
+          ui.error('Usage: carbon snapshot pull <name> --project <slug>');
+          process.exitCode = 1;
+          return;
+        }
+        const resolved = await resolveApiKey(
+          { flag: args['api-key'] as string | undefined },
+          args['api-url'] as string | undefined,
+        );
+        if (!resolved) {
+          ui.error('No API credentials found. Run `carbon login` first, or pass --api-key.');
+          process.exitCode = 1;
+          return;
+        }
+        const url = `${resolved.apiUrl.replace(/\/+$/, '')}/v1/projects/${encodeURIComponent(projectSlug)}/snapshots/${encodeURIComponent(name)}`;
+        const res = await fetch(url, {
+          headers: { 'x-carbon-key': resolved.key },
+        });
+        if (!res.ok) {
+          ui.error(`Pull failed: HTTP ${res.status}`);
+          process.exitCode = 1;
+          return;
+        }
+        const snapshot = await res.json();
+        await ensureDir();
+        const path = join(SNAP_DIR, `${name}.json`);
+        await writeFile(path, JSON.stringify(snapshot, null, 2), 'utf8');
+        ui.success(`Snapshot ${ui.code(name)} pulled from project ${ui.code(projectSlug)}`);
+        ui.step('Path', path);
       },
     }),
     delete: defineCommand({

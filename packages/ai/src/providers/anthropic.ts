@@ -7,7 +7,7 @@ import type {
   CompletionResponse,
   StructuredRequest,
 } from '../provider.js';
-import { extractJson } from '../util.js';
+import { extractJson, withCircuitBreaker, withRetryJitter, withTimeout } from '../util.js';
 
 /**
  * Native Anthropic Messages API provider. Kept fetch-based; the SDK is heavy
@@ -20,14 +20,40 @@ export class AnthropicProvider implements AiProvider {
   private readonly baseUrl: string;
   private readonly logger: Logger;
 
+  private readonly guarded: (req: CompletionRequest) => Promise<CompletionResponse>;
+  private readonly onUsage?: AiProviderOptions['onUsage'];
+
   constructor(opts: AiProviderOptions) {
     this.apiKey = opts.apiKey;
     this.baseUrl = opts.baseUrl ?? 'https://api.anthropic.com/v1';
     this.defaultModel = opts.defaultModel ?? 'claude-opus-5';
     this.logger = opts.logger.child({ provider: this.name });
+    this.onUsage = opts.onUsage;
+    this.guarded = withCircuitBreaker(
+      withRetryJitter(withTimeout((req: CompletionRequest) => this.rawComplete(req), 15_000)),
+      { label: 'anthropic' },
+    );
   }
 
   async complete(req: CompletionRequest): Promise<CompletionResponse> {
+    const start = Date.now();
+    const result = await this.guarded(req);
+    if (this.onUsage) {
+      try {
+        this.onUsage({
+          provider: this.name,
+          model: result.model,
+          usage: result.usage,
+          latencyMs: Date.now() - start,
+        });
+      } catch (err) {
+        this.logger.warn('ai.usage_callback_failed', { message: (err as Error).message });
+      }
+    }
+    return result;
+  }
+
+  private async rawComplete(req: CompletionRequest): Promise<CompletionResponse> {
     const res = await fetch(`${this.baseUrl}/messages`, {
       method: 'POST',
       headers: {

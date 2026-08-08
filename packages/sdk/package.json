@@ -8,6 +8,7 @@
   "exports": { ".": "./src/index.ts" },
   "scripts": { "typecheck": "tsc --noEmit" },
   "dependencies": {
+    "@carbon/ai": "workspace:*",
     "@carbon/core": "workspace:*",
     "@carbon/graph": "workspace:*",
     "@carbon/parser": "workspace:*",

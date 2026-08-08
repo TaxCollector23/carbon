@@ -59,4 +59,18 @@ export interface AiProviderOptions {
   readonly baseUrl?: string;
   readonly defaultModel?: string;
   readonly logger: Logger;
+  /**
+   * Fired once per successful upstream call. Used by the API to emit
+   * `usage.ai.call` events for billing / observability. Failures must not
+   * throw — the callback runs after the response is materialized and its
+   * result is not part of the caller's success path.
+   */
+  readonly onUsage?: (event: UsageEvent) => void;
+}
+
+export interface UsageEvent {
+  readonly provider: string;
+  readonly model: string;
+  readonly usage: TokenUsage;
+  readonly latencyMs: number;
 }

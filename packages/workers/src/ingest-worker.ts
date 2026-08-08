@@ -34,6 +34,17 @@ export interface IngestJobPayload {
   readonly enrich?: boolean;
 }
 
+export interface IngestJobJudgeVerdict {
+  readonly score: number;
+  readonly issues: ReadonlyArray<{
+    readonly targetType: 'resource' | 'field' | 'primaryKey' | 'relationship';
+    readonly targetId: string;
+    readonly reason: string;
+    readonly severity: 'info' | 'warn' | 'error';
+  }>;
+  readonly model?: string;
+}
+
 export interface IngestJobResult {
   readonly irId: string;
   readonly graphId: string;
@@ -41,6 +52,10 @@ export interface IngestJobResult {
   readonly endpoints: number;
   readonly resources: number;
   readonly warnings: readonly string[];
+  readonly judge?: {
+    readonly resources: IngestJobJudgeVerdict;
+    readonly relationships: IngestJobJudgeVerdict;
+  };
 }
 
 /**
@@ -51,8 +66,15 @@ export interface IngestJobResult {
 export interface IngestJobStatusWriter {
   update(
     id: string,
-    patch: { status: 'running' | 'succeeded' | 'failed'; result?: unknown; error?: string },
-  ): Promise<void>;
+    patch: {
+      status: 'running' | 'succeeded' | 'failed' | 'needs_review';
+      result?: unknown;
+      error?: string;
+    },
+    // Return typed as `unknown` so the richer `JobService` (which returns the
+    // updated `JobRecord`) is structurally assignable alongside the leaner
+    // Redis-only writer that returns nothing.
+  ): Promise<unknown>;
 }
 
 export interface IngestionRunner {
@@ -69,6 +91,10 @@ export interface IngestionRunner {
     graphId: string;
     ir: { api: unknown; endpoints: readonly unknown[]; resources: readonly unknown[] };
     warnings: readonly string[];
+    judge?: {
+      resources: IngestJobJudgeVerdict;
+      relationships: IngestJobJudgeVerdict;
+    };
   }>;
 }
 
@@ -120,6 +146,12 @@ export interface RegisterIngestWorkerOptions {
    * Redis a given worker attached to. Never log the raw URL.
    */
   readonly redisUrl?: string;
+  /**
+   * Minimum acceptable judge score. When either the resource or relationship
+   * verdict falls below this, the job lands in `needs_review` instead of
+   * `succeeded`. Defaults to 0.75.
+   */
+  readonly judgeThreshold?: number;
 }
 
 /**
@@ -156,6 +188,7 @@ export function registerIngestWorker(opts: RegisterIngestWorkerOptions): Worker<
   const concurrency = opts.concurrency ?? 4;
   const logger = opts.logger.child({ component: 'ingest-worker' });
   const metrics = opts.metrics;
+  const judgeThreshold = opts.judgeThreshold ?? 0.75;
   // Per-job start times so `completed`/`failed` events can compute duration
   // without smuggling wall-clocks through the job payload.
   const startedAt = new Map<string, number>();
@@ -180,9 +213,22 @@ export function registerIngestWorker(opts: RegisterIngestWorkerOptions): Worker<
           endpoints: result.ir.endpoints.length,
           resources: result.ir.resources.length,
           warnings: result.warnings,
+          judge: result.judge,
         };
-        await opts.jobs.update(statusJobId, { status: 'succeeded', result: summary });
-        logger.info('ingest.worker.done', { statusJobId, jobId: job.id });
+        const minScore = result.judge
+          ? Math.min(result.judge.resources.score, result.judge.relationships.score)
+          : undefined;
+        const needsReview = minScore !== undefined && minScore < judgeThreshold;
+        await opts.jobs.update(statusJobId, {
+          status: needsReview ? 'needs_review' : 'succeeded',
+          result: summary,
+        });
+        logger.info('ingest.worker.done', {
+          statusJobId,
+          jobId: job.id,
+          judgeScore: minScore,
+          needsReview,
+        });
         return summary;
       } catch (err) {
         const message = (err as Error).message;

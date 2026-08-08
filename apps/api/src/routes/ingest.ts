@@ -106,6 +106,7 @@ export async function registerIngestRoutes(app: FastifyInstance, ctx: AppContext
         endpoints: result.ir.endpoints.length,
         resources: result.ir.resources.length,
         warnings: result.warnings,
+        judge: result.judge,
       };
     },
   );

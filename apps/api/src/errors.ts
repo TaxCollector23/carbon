@@ -1,4 +1,32 @@
-import { CarbonError } from '@carbon/core';
+import { CarbonError, isCarbonError } from '@carbon/core';
+
+/**
+ * Coerce an unknown thrown value into a CarbonError.
+ *
+ * Rules:
+ *   1. If it's already a CarbonError, pass through.
+ *   2. If it's a driver-recognised failure (Postgres SQLSTATE, S3 name,
+ *      Node system code, etc.), fall through {@link mapDriverError}.
+ *   3. Otherwise wrap as `CARBON_INTERNAL` with the original as `cause`.
+ *      The message is not exposed — we don't want a stack fragment leaking
+ *      into a client response.
+ *
+ * Use this at any await/try-catch boundary where a route might otherwise
+ * `throw new Error(...)`. Keeps the taxonomy tight without forcing every
+ * route to hand-code the same three-line rescue.
+ */
+export function carbonify(err: unknown): CarbonError {
+  if (isCarbonError(err)) return err;
+  const driverMapped = mapDriverError(err);
+  if (driverMapped) return driverMapped;
+  const message = err instanceof Error ? err.message : String(err);
+  return new CarbonError({
+    code: 'CARBON_INTERNAL',
+    message,
+    cause: err,
+    expose: false,
+  });
+}
 
 /**
  * Translates driver-level failures into Carbon's typed error hierarchy.

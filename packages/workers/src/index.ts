@@ -137,6 +137,7 @@ export {
   registerIngestWorker,
   type IngestJobPayload,
   type IngestJobResult,
+  type IngestJobJudgeVerdict,
   type IngestJobSource,
   type IngestJobStatusWriter,
   type IngestMetricsSink,

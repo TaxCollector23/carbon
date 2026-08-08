@@ -24,6 +24,92 @@ export interface AccessLogOptions {
 
 const DEFAULT_IGNORED = ['/health', '/ready', '/metrics'];
 
+/**
+ * Value-shape patterns that must never appear in a log line, regardless of
+ * which field surfaced them. Names are chosen to match the raw form of a
+ * secret so a mistakenly-serialized env or header still gets scrubbed.
+ *
+ * Pino's `redact.paths` covers well-known field names (`authorization`,
+ * `password`, …) but not the case where a secret is embedded in an opaque
+ * blob — a request body, a URL, an error message. This is the belt to Pino's
+ * suspenders.
+ */
+export const SECRET_VALUE_PATTERNS: readonly RegExp[] = [
+  // Carbon API keys (prefix + secret).
+  /ck_live_[a-f0-9]{6,}(?:\.[A-Za-z0-9_-]{6,})?/gi,
+  // Stripe live/test secret keys.
+  /sk_(?:live|test)_[A-Za-z0-9]{16,}/gi,
+  // OpenAI/Anthropic-style bearer tokens.
+  /sk-[A-Za-z0-9_-]{16,}/g,
+  // Slack tokens.
+  /xox[abpsr]-[A-Za-z0-9-]{10,}/g,
+  // GitHub personal access + fine-grained tokens.
+  /gh[pousr]_[A-Za-z0-9]{20,}/g,
+  // AWS access key ids. We deliberately do NOT try to shape-match secret
+  // access keys — the 40-char base64 pattern collides with too many
+  // legitimate opaque ids in request bodies (S3 keys, IR hashes).
+  /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g,
+  // Private key PEM headers — enough context that a false positive is
+  // effectively impossible.
+  /-----BEGIN (?:RSA |EC |DSA |PGP |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END/gi,
+  // Postgres/Redis URIs with inline credentials (`user:pw@host`).
+  /\b(?:postgres|postgresql|redis|rediss|mysql|mongodb):\/\/[^\s"'`]+:[^\s"'`@]+@[^\s"'`]+/gi,
+];
+
+/**
+ * Field names whose *entire* value we redact regardless of shape. Extends
+ * Pino's default so an env-carrying record slipped into the log context also
+ * gets scrubbed.
+ */
+export const SECRET_FIELD_NAMES: ReadonlySet<string> = new Set(
+  [
+    'firebase_private_key',
+    'firebaseprivatekey',
+    'carbon_ai_api_key',
+    'carbonaiapikey',
+    's3_secret_key',
+    's3secretkey',
+    'database_url',
+    'databaseurl',
+    'stripe_secret_key',
+    'stripesecretkey',
+  ].map((s) => s.toLowerCase()),
+);
+
+const REDACTED = '[redacted]';
+
+/**
+ * Deep-scrub a log field payload: any string value gets each secret pattern
+ * replaced with `[redacted]`; any keyed value whose key matches a known
+ * secret env name is replaced whole. Non-mutating — returns a fresh object.
+ * Called on every access-log line so accidental leakage stays out of stdout.
+ */
+export function scrubSecrets(value: unknown, depth = 0): unknown {
+  if (depth > 6) return value;
+  if (typeof value === 'string') {
+    let out = value;
+    for (const pat of SECRET_VALUE_PATTERNS) {
+      // Fresh copy per iteration — some patterns are /g and stateful.
+      const p = new RegExp(pat.source, pat.flags);
+      out = out.replace(p, REDACTED);
+    }
+    return out;
+  }
+  if (Array.isArray(value)) return value.map((v) => scrubSecrets(v, depth + 1));
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      if (SECRET_FIELD_NAMES.has(k.toLowerCase())) {
+        out[k] = REDACTED;
+      } else {
+        out[k] = scrubSecrets(v, depth + 1);
+      }
+    }
+    return out;
+  }
+  return value;
+}
+
 const START_KEY = Symbol('carbon.accessLogStart');
 const JOB_ID_KEY = Symbol('carbon.accessLogJobId');
 
@@ -94,9 +180,10 @@ export async function registerAccessLog(
       jobId: (req as TimedRequest)[JOB_ID_KEY],
     };
 
-    if (status >= 500) ctx.logger.error('api.access', fields);
-    else if (status >= 400 || durationMs >= slowMs) ctx.logger.warn('api.access', fields);
-    else ctx.logger.info('api.access', fields);
+    const safe = scrubSecrets(fields) as Record<string, unknown>;
+    if (status >= 500) ctx.logger.error('api.access', safe);
+    else if (status >= 400 || durationMs >= slowMs) ctx.logger.warn('api.access', safe);
+    else ctx.logger.info('api.access', safe);
   });
 
   // A client that hangs up mid-request never reaches `onResponse`, so without
@@ -104,13 +191,14 @@ export async function registerAccessLog(
   // logged — exactly the ones worth seeing.
   app.addHook('onRequestAbort', async (req) => {
     if (ignored.has(pathname(req.url))) return;
-    ctx.logger.warn('api.access_aborted', {
+    const fields = {
       method: req.method,
       route: req.routeOptions?.url ?? 'unmatched',
       url: pathname(req.url),
       durationMs: Number(elapsedMs(req).toFixed(2)),
       reqId: String(req.id),
-    });
+    };
+    ctx.logger.warn('api.access_aborted', scrubSecrets(fields) as Record<string, unknown>);
   });
 }
 

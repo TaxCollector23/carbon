@@ -1,5 +1,6 @@
 export * from './provider.js';
 export * from './capabilities.js';
+export * from './judge.js';
 export * from './util.js';
 export { OpenRouterProvider } from './providers/openrouter.js';
 export { AnthropicProvider } from './providers/anthropic.js';

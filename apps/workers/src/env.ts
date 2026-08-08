@@ -19,6 +19,12 @@ const EnvSchema = z.object({
   S3_SECRET_KEY: z.string().optional(),
   S3_PREFIX: z.string().optional(),
   CARBON_INGEST_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(4),
+  CARBON_AI_PROVIDER: z
+    .enum(['openrouter', 'openai', 'anthropic', 'gemini', 'local'])
+    .default('openrouter'),
+  CARBON_AI_API_KEY: z.string().optional(),
+  CARBON_AI_MODEL: z.string().optional(),
+  CARBON_AI_JUDGE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.75),
   /**
    * Postgres connection string for the retention worker. Optional — when
    * unset the retention worker no-ops (useful for local dev without

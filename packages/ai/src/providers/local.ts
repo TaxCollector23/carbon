@@ -7,7 +7,7 @@ import type {
   CompletionResponse,
   StructuredRequest,
 } from '../provider.js';
-import { extractJson } from '../util.js';
+import { extractJson, withCircuitBreaker, withRetryJitter, withTimeout } from '../util.js';
 
 /**
  * Local OpenAI-compatible provider — Ollama, llama.cpp server, LM Studio, or
@@ -20,13 +20,39 @@ export class LocalProvider implements AiProvider {
   private readonly baseUrl: string;
   private readonly logger: Logger;
 
+  private readonly guarded: (req: CompletionRequest) => Promise<CompletionResponse>;
+  private readonly onUsage?: AiProviderOptions['onUsage'];
+
   constructor(opts: AiProviderOptions) {
     this.baseUrl = opts.baseUrl ?? 'http://127.0.0.1:11434/v1';
     this.defaultModel = opts.defaultModel ?? 'llama3.1';
     this.logger = opts.logger.child({ provider: this.name });
+    this.onUsage = opts.onUsage;
+    this.guarded = withCircuitBreaker(
+      withRetryJitter(withTimeout((req: CompletionRequest) => this.rawComplete(req), 15_000)),
+      { label: 'local' },
+    );
   }
 
   async complete(req: CompletionRequest): Promise<CompletionResponse> {
+    const start = Date.now();
+    const result = await this.guarded(req);
+    if (this.onUsage) {
+      try {
+        this.onUsage({
+          provider: this.name,
+          model: result.model,
+          usage: result.usage,
+          latencyMs: Date.now() - start,
+        });
+      } catch (err) {
+        this.logger.warn('ai.usage_callback_failed', { message: (err as Error).message });
+      }
+    }
+    return result;
+  }
+
+  private async rawComplete(req: CompletionRequest): Promise<CompletionResponse> {
     const messages = req.system
       ? [{ role: 'system' as const, content: req.system }, ...req.messages]
       : [...req.messages];

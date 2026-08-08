@@ -36,6 +36,13 @@
       "when": 1786300000000,
       "tag": "0004_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786400000000,
+      "tag": "0005_cli_auth",
+      "breakpoints": true
     }
   ]
 }

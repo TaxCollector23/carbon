@@ -1,5 +1,6 @@
 import type { Logger } from '@carbon/core';
-import { makeId, NotFoundError, ConflictError } from '@carbon/core';
+import { makeId, NotFoundError, ConflictError, CarbonError } from '@carbon/core';
+import type { PlanTier } from './billing.js';
 import { BehaviorGraphBuilder } from '@carbon/graph';
 import {
   createRuntime,
@@ -39,6 +40,8 @@ export interface ChaosConfig {
 export interface EmulatorRegistry {
   create(input: CreateEmulatorInput): Promise<EmulatorRecord>;
   list(): EmulatorRecord[];
+  /** Count of running emulators owned by the given org (undefined = system). */
+  getCountForOrg(orgId: string): number;
   get(id: string): EmulatorRecord;
   stop(id: string): Promise<void>;
   reset(id: string): Promise<void>;
@@ -66,6 +69,12 @@ export interface CreateEmulatorInput {
   readonly port?: number;
   readonly host?: string;
   readonly snapshot?: string;
+  /**
+   * Owner org — used to enforce per-plan ceilings. Optional so callers on
+   * dev/no-auth boxes still work; the ceiling only applies when set AND a
+   * `resolvePlan` callback is wired.
+   */
+  readonly orgId?: string;
 }
 
 export interface EmulatorRecord {
@@ -75,6 +84,7 @@ export interface EmulatorRecord {
   readonly url: string;
   readonly startedAt: number;
   readonly status: 'running' | 'stopped';
+  readonly orgId?: string;
 }
 
 interface Entry {
@@ -94,12 +104,41 @@ export interface EmulatorRegistryOptions {
    * exhaust the API's memory and file descriptors. Default 25.
    */
   readonly maxEmulators?: number;
+  /**
+   * Resolve the plan tier for an org id. Wired to `resolvePlan` from
+   * services/billing.ts in production; left undefined in tests so the
+   * per-plan ceiling stays opt-in.
+   */
+  readonly resolvePlan?: (orgId: string) => Promise<PlanTier>;
+  /**
+   * Env override: uniform per-org cap that trumps the per-plan defaults.
+   * Sourced from `CARBON_MAX_EMULATORS_PER_ORG` at wire-up time.
+   */
+  readonly maxEmulatorsPerOrg?: number;
 }
+
+/**
+ * Per-plan default ceilings. Enterprise is uncapped (`Infinity`) — sized
+ * only by the process-wide `maxEmulators` and by whatever contract the
+ * customer has.
+ */
+export const PLAN_EMULATOR_CEILING: Record<PlanTier, number> = {
+  developer: 1,
+  team: 10,
+  enterprise: Number.POSITIVE_INFINITY,
+};
 
 export function createEmulatorRegistry(deps: EmulatorRegistryOptions): EmulatorRegistry {
   const entries = new Map<string, Entry>();
   const builder = new BehaviorGraphBuilder();
   const maxEmulators = deps.maxEmulators ?? 25;
+  const maxEmulatorsPerOrg = deps.maxEmulatorsPerOrg;
+
+  function countForOrg(orgId: string): number {
+    let n = 0;
+    for (const e of entries.values()) if (e.record.orgId === orgId) n += 1;
+    return n;
+  }
 
   async function loadIr(projectSlug: string, irId: string): Promise<IntermediateRepresentation> {
     const bytes = await deps.storage.get(StorageKeys.ir(projectSlug, irId));
@@ -120,6 +159,33 @@ export function createEmulatorRegistry(deps: EmulatorRegistryOptions): EmulatorR
           `Emulator limit reached (${maxEmulators} running) — stop one before starting another`,
           { running: entries.size, limit: maxEmulators },
         );
+      }
+
+      // Per-org plan ceilings. Env override wins over plan defaults so a
+      // self-hosted operator can pin the limit uniformly; on hosted, we use
+      // the caller's plan tier. Ceiling is only enforced when we can identify
+      // both the org and the plan — otherwise this is a no-op (dev/no-auth).
+      if (input.orgId) {
+        const running = countForOrg(input.orgId);
+        let ceiling: number | undefined;
+        if (maxEmulatorsPerOrg !== undefined) {
+          ceiling = maxEmulatorsPerOrg;
+        } else if (deps.resolvePlan) {
+          const plan = await deps.resolvePlan(input.orgId);
+          ceiling = PLAN_EMULATOR_CEILING[plan];
+        }
+        if (ceiling !== undefined && running >= ceiling) {
+          throw new CarbonError({
+            code: 'CARBON_FORBIDDEN',
+            message: `Your plan allows ${ceiling} concurrent emulator${ceiling === 1 ? '' : 's'} — stop one or upgrade to run another.`,
+            details: {
+              carbonCode: 'PLAN_LIMIT_EMULATORS',
+              running,
+              limit: ceiling,
+            },
+            expose: true,
+          });
+        }
       }
 
       const ir = await loadIr(input.projectSlug, input.irId);
@@ -168,6 +234,7 @@ export function createEmulatorRegistry(deps: EmulatorRegistryOptions): EmulatorR
         url,
         startedAt: Date.now(),
         status: 'running',
+        orgId: input.orgId,
       };
       entries.set(id, { record, runtime, chaos, assertions });
       deps.logger.info('emulator.created', { id, url, project: input.projectSlug });
@@ -176,6 +243,10 @@ export function createEmulatorRegistry(deps: EmulatorRegistryOptions): EmulatorR
 
     list() {
       return Array.from(entries.values()).map((e) => e.record);
+    },
+
+    getCountForOrg(orgId) {
+      return countForOrg(orgId);
     },
 
     get(id) {

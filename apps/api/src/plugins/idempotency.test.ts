@@ -323,6 +323,46 @@ describe('idempotency', () => {
     expect(calls).toBe(2);
   });
 
+  it('rejects unkeyed POST with 400 IDEMPOTENCY_KEY_REQUIRED when requireKey is on', async () => {
+    const redis = new MemoryRedis() as unknown as Redis;
+    const app = Fastify();
+    await registerIdempotency(app, makeCtx(redis), { redis, requireKey: true });
+    app.post('/v1/projects', async (_req, reply) => {
+      reply.status(201);
+      return { ok: true };
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/projects',
+      payload: { slug: 'x' },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({
+      error: { code: 'IDEMPOTENCY_KEY_REQUIRED' },
+    });
+  });
+
+  it('lets unkeyed POST through when the route is on the allow-unkeyed list', async () => {
+    const redis = new MemoryRedis() as unknown as Redis;
+    const app = Fastify();
+    await registerIdempotency(app, makeCtx(redis), {
+      redis,
+      requireKey: true,
+      allowUnkeyed: ['/v1/billing/webhook'],
+    });
+    app.post('/v1/billing/webhook', async () => ({ ok: true }));
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/billing/webhook',
+      payload: { type: 'x' },
+    });
+
+    expect(res.statusCode).toBe(200);
+  });
+
   it('leaves GET requests untouched', async () => {
     const redis = new MemoryRedis() as unknown as Redis;
     const app = Fastify();

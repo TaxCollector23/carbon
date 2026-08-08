@@ -7,7 +7,7 @@ import type {
   CompletionResponse,
   StructuredRequest,
 } from '../provider.js';
-import { extractJson } from '../util.js';
+import { extractJson, withCircuitBreaker, withRetryJitter, withTimeout } from '../util.js';
 
 /** OpenAI Chat Completions provider. */
 export class OpenAIProvider implements AiProvider {
@@ -17,14 +17,41 @@ export class OpenAIProvider implements AiProvider {
   private readonly baseUrl: string;
   private readonly logger: Logger;
 
+  private readonly guarded: (req: CompletionRequest) => Promise<CompletionResponse>;
+  private readonly onUsage?: AiProviderOptions['onUsage'];
+
   constructor(opts: AiProviderOptions) {
     this.apiKey = opts.apiKey;
     this.baseUrl = opts.baseUrl ?? 'https://api.openai.com/v1';
     this.defaultModel = opts.defaultModel ?? 'gpt-4o';
     this.logger = opts.logger.child({ provider: this.name });
+    this.onUsage = opts.onUsage;
+    // 15s timeout, 3 attempts, breaker at 5 consecutive failures / 30s.
+    this.guarded = withCircuitBreaker(
+      withRetryJitter(withTimeout((req: CompletionRequest) => this.rawComplete(req), 15_000)),
+      { label: 'openai' },
+    );
   }
 
   async complete(req: CompletionRequest): Promise<CompletionResponse> {
+    const start = Date.now();
+    const result = await this.guarded(req);
+    if (this.onUsage) {
+      try {
+        this.onUsage({
+          provider: this.name,
+          model: result.model,
+          usage: result.usage,
+          latencyMs: Date.now() - start,
+        });
+      } catch (err) {
+        this.logger.warn('ai.usage_callback_failed', { message: (err as Error).message });
+      }
+    }
+    return result;
+  }
+
+  private async rawComplete(req: CompletionRequest): Promise<CompletionResponse> {
     const messages = req.system
       ? [{ role: 'system' as const, content: req.system }, ...req.messages]
       : [...req.messages];
