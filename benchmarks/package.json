@@ -1,0 +1,28 @@
+{
+  "name": "@carbon/benchmarks",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Reproducible, honest benchmarks for Carbon: cold start, throughput, memory, snapshot/restore, and end-to-end state consistency.",
+  "scripts": {
+    "bench:cold-start": "tsx scripts/cold-start.ts",
+    "bench:stateful": "tsx scripts/stateful-consistency.ts",
+    "bench:snapshot": "tsx scripts/snapshot-restore.ts",
+    "bench:throughput": "tsx scripts/throughput.ts",
+    "bench:memory": "node --max-old-space-size=512 --import tsx scripts/memory.ts",
+    "bench:all": "tsx scripts/all.ts"
+  },
+  "dependencies": {
+    "@carbon/core": "workspace:*",
+    "@carbon/graph": "workspace:*",
+    "@carbon/runtime": "workspace:*",
+    "@carbon/state": "workspace:*",
+    "@carbon/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "autocannon": "^7.15.0",
+    "tsx": "^4.23.8",
+    "typescript": "^5.7.2"
+  }
+}

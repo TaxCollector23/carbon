@@ -54,12 +54,22 @@ interface Entry {
   runtime: Runtime;
 }
 
-export function createEmulatorRegistry(deps: {
-  storage: Storage;
-  logger: Logger;
-}): EmulatorRegistry {
+export interface EmulatorRegistryOptions {
+  readonly storage: Storage;
+  readonly logger: Logger;
+  /**
+   * Ceiling on concurrently running emulators. Each one holds a compiled
+   * graph, an in-memory state engine, and a listening socket in *this*
+   * process, so an unbounded count is a straightforward way for one caller to
+   * exhaust the API's memory and file descriptors. Default 25.
+   */
+  readonly maxEmulators?: number;
+}
+
+export function createEmulatorRegistry(deps: EmulatorRegistryOptions): EmulatorRegistry {
   const entries = new Map<string, Entry>();
   const builder = new BehaviorGraphBuilder();
+  const maxEmulators = deps.maxEmulators ?? 25;
 
   async function loadIr(projectSlug: string, irId: string): Promise<IntermediateRepresentation> {
     const bytes = await deps.storage.get(StorageKeys.ir(projectSlug, irId));
@@ -75,14 +85,33 @@ export function createEmulatorRegistry(deps: {
 
   return {
     async create(input) {
+      if (entries.size >= maxEmulators) {
+        throw new ConflictError(
+          `Emulator limit reached (${maxEmulators} running) — stop one before starting another`,
+          { running: entries.size, limit: maxEmulators },
+        );
+      }
+
       const ir = await loadIr(input.projectSlug, input.irId);
       const graph: BehaviorGraph = builder.build(ir);
       const state = new InMemoryStateEngine();
-      if (input.snapshot) await state.restore(await loadSnapshot(input.projectSlug, input.snapshot));
+      if (input.snapshot)
+        await state.restore(await loadSnapshot(input.projectSlug, input.snapshot));
 
       const runtime = await createRuntime({ ir, graph, state, logger: deps.logger });
       const port = input.port ?? 0;
-      const url = await runtime.listen(port, input.host ?? '127.0.0.1');
+      let url: string;
+      try {
+        url = await runtime.listen(port, input.host ?? '127.0.0.1');
+      } catch (err) {
+        // A failed bind (port already in use) otherwise leaks the runtime and
+        // whatever the graph build allocated — the entry is never recorded, so
+        // `shutdown()` would never reach it.
+        await runtime.close().catch(() => {
+          /* the listen error is the one worth reporting */
+        });
+        throw err;
+      }
 
       const id = makeId('emu');
       const record: EmulatorRecord = {

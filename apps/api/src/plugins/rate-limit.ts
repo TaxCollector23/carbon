@@ -8,7 +8,15 @@ export interface RateLimitOptions {
   readonly max: number;
   readonly windowMs: number;
   readonly keyPrefix?: string;
+  /**
+   * Paths that never consume budget. Defaults to the probe endpoints; the
+   * server passes its full public-path list so a Prometheus scrape cannot be
+   * throttled off exactly when an incident makes it most useful.
+   */
+  readonly exemptPaths?: Iterable<string>;
 }
+
+const DEFAULT_EXEMPT = ['/health', '/ready'];
 
 const RATE_LIMIT_SCRIPT = `
 local count = redis.call("INCR", KEYS[1])
@@ -27,8 +35,12 @@ return { count, ttl }
  * clients on the same corporate NAT don't cannibalize each other's budget
  * once they've authenticated — each API key gets its own bucket.
  *
- * Redis-backed sliding window (INCR + EXPIRE-on-first-hit). Fails open on
- * Redis errors so a Redis outage doesn't take down the API.
+ * Redis-backed fixed window (INCR + PEXPIRE-on-first-hit): the counter resets
+ * `windowMs` after the first request in a window, so a caller can burst up to
+ * `2 * max` across a window boundary. That is an accepted trade — the
+ * alternative costs a sorted set per identity — but it is a fixed window, not
+ * a sliding one. Fails open on Redis errors so a Redis outage doesn't take
+ * down the API.
  */
 export async function registerControlPlaneRateLimit(
   app: FastifyInstance,
@@ -38,12 +50,13 @@ export async function registerControlPlaneRateLimit(
   const prefix = opts.keyPrefix ?? 'carbon:cp:rl';
   const windowMs = Math.max(1000, Math.floor(opts.windowMs));
   const max = Math.max(1, Math.floor(opts.max));
+  const exempt = new Set(opts.exemptPaths ?? DEFAULT_EXEMPT);
 
   app.addHook('onRequest', async (req, reply) => {
-    // /health and /ready are always allowed — they need to work under load
+    // Probes and scrapes are always allowed — they need to work under load
     // for the LB and for humans debugging incidents.
     const path = req.url.split('?')[0] ?? req.url;
-    if (path === '/health' || path === '/ready') return;
+    if (exempt.has(path)) return;
 
     const id = identify(req);
     const key = `${prefix}:${id}`;

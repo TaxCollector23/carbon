@@ -1,0 +1,38 @@
+{
+  "openapi": "3.0.3",
+  "info": { "title": "Petstore Bench", "version": "0.1.0" },
+  "paths": {
+    "/pets": {
+      "get": {
+        "tags": ["pet"],
+        "summary": "list pets",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["pet"],
+        "summary": "create pet",
+        "responses": { "201": { "description": "created" } }
+      }
+    },
+    "/pets/{id}": {
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "tags": ["pet"],
+        "summary": "get pet",
+        "responses": { "200": { "description": "ok" }, "404": { "description": "not found" } }
+      },
+      "patch": {
+        "tags": ["pet"],
+        "summary": "update pet",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "delete": {
+        "tags": ["pet"],
+        "summary": "delete pet",
+        "responses": { "204": { "description": "deleted" } }
+      }
+    }
+  }
+}

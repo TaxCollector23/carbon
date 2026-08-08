@@ -1,6 +1,5 @@
-import Link from 'next/link';
 import { Check } from 'lucide-react';
-import { buttonVariants, cn } from '@carbon/ui';
+import { cn } from '@carbon/ui/cn';
 import { Section, SectionHeading } from './section';
 
 const tiers = [
@@ -15,7 +14,6 @@ const tiers = [
       'JSON snapshots for tests and review',
       'GitHub-based install and updates',
     ],
-    cta: { label: 'Install the CLI', href: '#cli' },
     highlighted: false,
   },
   {
@@ -30,10 +28,6 @@ const tiers = [
       'Team retention settings',
       'Email support',
     ],
-    cta: {
-      label: 'Enter Dashboard',
-      href: '/dashboard',
-    },
     highlighted: true,
   },
   {
@@ -48,7 +42,6 @@ const tiers = [
       'Private storage configuration',
       'Support and onboarding plan',
     ],
-    cta: { label: 'Enter Dashboard', href: '/dashboard' },
     highlighted: false,
   },
 ];
@@ -91,17 +84,6 @@ export function Pricing() {
                 </li>
               ))}
             </ul>
-            <div className="mt-7">
-              <Link
-                href={tier.cta.href}
-                className={cn(
-                  buttonVariants({ variant: tier.highlighted ? 'primary' : 'secondary' }),
-                  'w-full sm:w-auto',
-                )}
-              >
-                {tier.cta.label}
-              </Link>
-            </div>
           </section>
         ))}
       </div>

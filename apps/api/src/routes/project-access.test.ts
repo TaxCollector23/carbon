@@ -6,11 +6,18 @@ import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import { filterStoredProjectRecords, resolveProjectAccess } from './project-access.js';
 
+/**
+ * `resolveProjectAccess` terminates with `.limit()`, while
+ * `filterStoredProjectRecords` awaits `.where()` directly (a batched `IN`
+ * query, no limit). The chain is therefore thenable as well as chainable so
+ * both shapes resolve to the same fixture rows.
+ */
 function makeCtx(projects: Array<{ orgId: string; slug: string }>): AppContext {
   const chain = {
     from: () => chain,
     where: () => chain,
     limit: async () => projects,
+    then: (resolve: (rows: typeof projects) => unknown) => Promise.resolve(projects).then(resolve),
   };
   return {
     logger: NoopLogger,
@@ -48,5 +55,34 @@ describe('project access helpers', () => {
     ]);
 
     expect(records).toEqual([{ id: 'emu_1', projectSlug: 'acme' }]);
+  });
+
+  it('drops records whose project no longer exists in the org', async () => {
+    // The org prefix matches but the project row is gone — a stale emulator
+    // pointing at a deleted project must not leak back into the listing.
+    const ctx = makeCtx([]);
+    const records = await filterStoredProjectRecords(ctx, req('org_1'), [
+      { id: 'emu_1', projectSlug: 'org_1/deleted' },
+    ]);
+
+    expect(records).toEqual([]);
+  });
+
+  it('does not query the database when nothing is in the org', async () => {
+    let queried = false;
+    const ctx = makeCtx([]);
+    const db = ctx.db as unknown as { select: () => unknown };
+    const original = db.select;
+    db.select = () => {
+      queried = true;
+      return original();
+    };
+
+    const records = await filterStoredProjectRecords(ctx, req('org_1'), [
+      { id: 'emu_2', projectSlug: 'org_2/acme' },
+    ]);
+
+    expect(records).toEqual([]);
+    expect(queried).toBe(false);
   });
 });

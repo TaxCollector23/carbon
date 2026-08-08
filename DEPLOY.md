@@ -9,12 +9,12 @@ benchmarks:
 
 A low-cost hosted setup can use:
 
-| Piece           | Provider                | Notes                                           |
-| --------------- | ----------------------- | ----------------------------------------------- |
-| Web + dashboard | Vercel                  | One project, root directory `apps/web`          |
-| API             | Node runtime            | Fastify service in `apps/api`; see notes below  |
-| Postgres        | Neon                    | Durable control-plane data                      |
-| Redis           | Upstash                 | Async jobs, rate limits, idempotency            |
+| Piece           | Provider                | Notes                                            |
+| --------------- | ----------------------- | ------------------------------------------------ |
+| Web + dashboard | Vercel                  | One project, root directory `apps/web`           |
+| API             | Node runtime            | Fastify service in `apps/api`; see notes below   |
+| Postgres        | Neon                    | Durable control-plane data                       |
+| Redis           | Upstash                 | Async jobs, rate limits, idempotency             |
 | Object storage  | Cloudflare R2, optional | Durable artifacts when managed storage is needed |
 
 Postgres and Redis need managed services. Free web deployments restart and
@@ -76,6 +76,11 @@ Run migrations from your machine:
 DATABASE_URL="postgres://..." NODE_ENV=production pnpm --filter @carbon/database migrate:apply
 ```
 
+Migration `0001` replaces the non-unique `api_keys_prefix_idx` with a unique
+index. It fails if two live keys somehow share a prefix — check with
+`SELECT prefix FROM api_keys GROUP BY prefix HAVING count(*) > 1;` and revoke
+the duplicate before applying.
+
 ## Upstash
 
 Use the Upstash Redis URL as:
@@ -101,6 +106,51 @@ DATABASE_URL="postgres://..." NODE_ENV=production pnpm --filter @carbon/api boot
 The secret is displayed once. Store it in your password manager or CI secret
 store.
 
+## Operating the API
+
+### Probes
+
+`/health` is liveness — point the orchestrator's restart probe here. `/ready` is
+readiness — point the load balancer here. Readiness results are cached for two
+seconds, so probing at 1Hz is cheap; it checks Postgres, Redis, and object
+storage concurrently and returns 503 with a per-dependency breakdown.
+
+### Rolling deploys
+
+On `SIGTERM` the API fails `/ready` immediately and keeps serving for
+`CARBON_DRAIN_MS` (default 5s) before closing the listener, so the load balancer
+stops routing before connections are cut. If your platform removes the instance
+from the pool before signalling, set `CARBON_DRAIN_MS=0` to shut down at once.
+
+### Metrics
+
+`/metrics` exposes Prometheus text format: request counts and a latency
+histogram, both labelled by route pattern, plus in-flight requests, event-loop
+lag, uptime, and RSS. It is unauthenticated so a scraper can reach it without a
+Carbon key — set `CARBON_METRICS_TOKEN` and scrape with
+`Authorization: Bearer <token>` if the endpoint is internet-reachable.
+
+Useful queries:
+
+```promql
+# 5xx rate
+sum(rate(carbon_http_requests_total{status_class="5xx"}[5m]))
+
+# p95 latency by route
+histogram_quantile(0.95, sum by (route, le) (rate(carbon_http_request_duration_ms_bucket[5m])))
+
+# event loop saturation
+carbon_nodejs_eventloop_lag_ms > 100
+```
+
+### Logs
+
+Every response carries `x-request-id`, and an inbound `x-request-id` is honoured
+so a trace survives across the proxy, the dashboard, and the API. One structured
+`api.access` line is emitted per request — `error` for 5xx, `warn` for 4xx and
+slow requests, `info` otherwise — so `level>=50` is a usable alert condition
+without a parsing rule. Probe endpoints are excluded to keep the volume honest.
+
 ## CLI Install
 
 The public install command is:
@@ -109,4 +159,4 @@ The public install command is:
 curl -fsSL https://raw.githubusercontent.com/TaxCollector23/carbon/master/install.sh | sh
 ```
 
-The npm package name is `carbon-api`, and the installed command is `carbon`.
+The npm package name is `carbon-dev`, and the installed command is `carbon` (`carbon-dev` and `carbon-api` are also linked as aliases).

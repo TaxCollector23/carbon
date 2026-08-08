@@ -1,8 +1,10 @@
-import { createServer, type Server } from 'node:http';
+import { createServer, type RequestListener, type Server } from 'node:http';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { HttpRecordingProxy } from './http.js';
 
-async function upstreamThat(handler: Parameters<typeof createServer>[0]): Promise<{
+// `Parameters<typeof createServer>[0]` resolves to `ServerOptions` against the
+// first overload, not the handler — name the handler type explicitly.
+async function upstreamThat(handler: RequestListener): Promise<{
   url: string;
   close: () => Promise<void>;
 }> {

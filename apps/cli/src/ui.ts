@@ -35,6 +35,15 @@ export const ui = {
   banner() {
     process.stdout.write(`${pc.white(CARBON_ASCII)}\n`);
   },
+  welcome(version: string) {
+    process.stdout.write(`\n${pc.dim(`carbon v${version}`)}\n`);
+    process.stdout.write(
+      `\n${pc.bold('Get started:')} ${pc.cyan('carbon init')} ${pc.dim('— scaffold a new project')}\n`,
+    );
+  },
+  footer(label: string, detail: string) {
+    process.stdout.write(`\n${pc.dim(`${label}: ${detail}`)}\n`);
+  },
   commandList(commands: readonly CliCommandInfo[]) {
     const width = commands.reduce((max, command) => Math.max(max, command.command.length), 0);
     for (const command of commands) {

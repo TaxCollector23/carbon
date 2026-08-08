@@ -1,5 +1,5 @@
 import type { FastifyRequest } from 'fastify';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { NotFoundError } from '@carbon/core';
 import { schema } from '@carbon/database';
@@ -58,20 +58,51 @@ export async function resolveStoredProjectAccess(
   return resolveProjectAccess(ctx, req, storageSlug.slice(prefix.length));
 }
 
+/**
+ * Narrows a list of storage-scoped records to the ones the caller's org owns,
+ * rewriting each `projectSlug` back to its public form.
+ *
+ * Resolved with a single `IN (...)` query rather than one lookup per record —
+ * listing 50 emulators previously issued 50 sequential round-trips to
+ * Postgres, and the list endpoint's latency grew linearly with its own result
+ * set.
+ */
 export async function filterStoredProjectRecords<T extends { readonly projectSlug: string }>(
   ctx: AppContext,
   req: FastifyRequest,
   records: readonly T[],
 ): Promise<T[]> {
+  const orgId = (req as AuthenticatedRequest).apiKey?.orgId;
+  if (!orgId) {
+    return records.map((record) => ({
+      ...record,
+      projectSlug: publicProjectSlug(record.projectSlug),
+    }));
+  }
+  if (records.length === 0) return [];
+
+  const prefix = `${orgId}/`;
+  // Slugs outside the caller's org can be rejected without touching the DB.
+  const candidates = new Set<string>();
+  for (const record of records) {
+    if (record.projectSlug.startsWith(prefix)) {
+      candidates.add(record.projectSlug.slice(prefix.length));
+    }
+  }
+  if (candidates.size === 0) return [];
+
+  const rows = await ctx.db
+    .select({ slug: schema.projects.slug })
+    .from(schema.projects)
+    .where(and(eq(schema.projects.orgId, orgId), inArray(schema.projects.slug, [...candidates])));
+  const owned = new Set(rows.map((row) => row.slug));
+
   const filtered: T[] = [];
   for (const record of records) {
-    try {
-      const project = await resolveStoredProjectAccess(ctx, req, record.projectSlug);
-      filtered.push({ ...record, projectSlug: project.slug });
-    } catch (err) {
-      if (err instanceof NotFoundError) continue;
-      throw err;
-    }
+    if (!record.projectSlug.startsWith(prefix)) continue;
+    const slug = record.projectSlug.slice(prefix.length);
+    if (!owned.has(slug)) continue;
+    filtered.push({ ...record, projectSlug: slug });
   }
   return filtered;
 }

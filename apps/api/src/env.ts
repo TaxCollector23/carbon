@@ -22,6 +22,42 @@ const RawEnvSchema = z
     CARBON_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(120),
     CARBON_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(60_000),
     /**
+     * When set, `/metrics` requires `Authorization: Bearer <token>`. Leave
+     * unset only when the endpoint is unreachable from the internet — the
+     * exposition includes route names and latency, which is reconnaissance.
+     */
+    CARBON_METRICS_TOKEN: optionalNonEmptyString(),
+    /**
+     * Number of trusted reverse-proxy hops in front of the API. Fastify uses
+     * this to interpret `X-Forwarded-For` when computing `req.ip`. Default 0:
+     * XFF is ignored entirely, so an anonymous caller cannot rotate the header
+     * to reset their rate-limit bucket. In production, operators must set this
+     * to the actual number of proxies (usually 1 or 2).
+     */
+    CARBON_TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
+    /**
+     * Serve `/docs` and `/openapi.json` without an API key. Defaults to true
+     * in dev/test so the reference is one URL away; defaults to false in
+     * production so the spec is not a reconnaissance handout.
+     */
+    CARBON_PUBLIC_DOCS: optionalBoolean(),
+    /**
+     * Comma-separated allow-list of interfaces an emulator may bind to.
+     * Restricted to loopback by default; add `0.0.0.0` explicitly if the
+     * operator wants emulators reachable off-host.
+     */
+    CARBON_EMULATOR_ALLOWED_HOSTS: z.string().default('127.0.0.1,localhost'),
+    /** Hard ceiling on a single request. Keep below the platform's own timeout. */
+    CARBON_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1000).max(300_000).default(30_000),
+    /**
+     * How long to keep serving after SIGTERM before closing the listener, so
+     * the load balancer sees `/ready` fail and stops routing first. Set to 0
+     * on platforms that remove the instance from the pool before signalling.
+     */
+    CARBON_DRAIN_MS: z.coerce.number().int().min(0).max(120_000).default(5000),
+    /** Max concurrently running emulators in this process. */
+    CARBON_MAX_EMULATORS: z.coerce.number().int().min(1).max(500).default(25),
+    /**
      * Comma-separated list of origins to allow CORS from. Use `*` for open
      * public API mode. Defaults to the dashboard origin in dev.
      */
@@ -60,6 +96,8 @@ const RawEnvSchema = z
 const EnvSchema = RawEnvSchema.transform((env) => ({
   ...env,
   REDIS_URL: env.REDIS_URL ?? (env.NODE_ENV === 'production' ? undefined : DEV_REDIS_URL),
+  CARBON_PUBLIC_DOCS: env.CARBON_PUBLIC_DOCS ?? env.NODE_ENV !== 'production',
+  CARBON_EMULATOR_ALLOWED_HOSTS: parseAllowedHosts(env.CARBON_EMULATOR_ALLOWED_HOSTS),
 }));
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -73,6 +111,19 @@ export function parseEnv(input: NodeJS.ProcessEnv = process.env): Env {
   if (env.NODE_ENV === 'production' && env.ALLOWED_ORIGINS === '*') {
     // Allowed, but noisy — the operator should have opted in explicitly.
     console.warn('carbon: ALLOWED_ORIGINS=* in production — every browser origin can call the API');
+  }
+  if (env.NODE_ENV === 'production' && env.CARBON_TRUSTED_PROXY_HOPS === 0) {
+    // Not fatal: some deployments run the API on a raw socket. But most run
+    // behind a proxy, and forgetting to set the hop count means `req.ip` will
+    // silently be the proxy IP for every caller and rate limiting collapses.
+    console.warn(
+      'carbon: CARBON_TRUSTED_PROXY_HOPS=0 in production — set it to the number of reverse proxies in front of the API, or leave 0 if there are none',
+    );
+  }
+  if (env.NODE_ENV === 'production' && env.CARBON_PUBLIC_DOCS) {
+    console.warn(
+      'carbon: CARBON_PUBLIC_DOCS=true in production — /docs and /openapi.json are reachable without an API key',
+    );
   }
   return env;
 }
@@ -114,6 +165,11 @@ function productionSafetyProblems(env: Env): string[] {
   if (env.ALLOWED_ORIGINS === DEV_ALLOWED_ORIGINS) {
     problems.push(
       'ALLOWED_ORIGINS must be set to deployed frontend origin(s), or "*" for intentional public CORS',
+    );
+  }
+  if (env.API_HOST === 'localhost') {
+    problems.push(
+      'API_HOST cannot be localhost in production — it resolves to loopback, so no external traffic is accepted',
     );
   }
   return problems;
@@ -203,6 +259,13 @@ function normalizeAllowedOrigins(value: string): string {
     .split(',')
     .map((origin) => new URL(origin.trim()).origin)
     .join(',');
+}
+
+function parseAllowedHosts(value: string): readonly string[] {
+  return value
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 function optionalNonEmptyString() {

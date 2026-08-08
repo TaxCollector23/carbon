@@ -13,6 +13,7 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "benchmark:runtime": "tsx benchmarks/runtime-baseline.ts",
+    "bench": "pnpm --filter @carbon/benchmarks bench:all",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,md,json}\"",
     "test": "vitest run",

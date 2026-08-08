@@ -5,7 +5,7 @@ import { TerminalDemo } from './terminal';
 
 export function Hero() {
   return (
-    <section className="border-border bg-background relative overflow-hidden border-b">
+    <section id="top" className="border-border bg-background relative overflow-hidden border-b">
       <div className="container relative">
         <div className="grid min-h-[calc(100svh-4rem)] gap-12 py-14 sm:py-20 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
           <div className="animate-rise max-w-3xl">

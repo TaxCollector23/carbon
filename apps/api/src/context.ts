@@ -20,4 +20,10 @@ export interface AppContext {
   readonly jobs?: JobService;
   /** Optional — absent only in local/dev no-Redis mode. */
   readonly redis?: Redis;
+  /**
+   * Allow-list of interfaces an emulator may bind to. Defaults to
+   * loopback-only; operators opt into wildcard binding by setting
+   * `CARBON_EMULATOR_ALLOWED_HOSTS`.
+   */
+  readonly emulatorAllowedHosts?: readonly string[];
 }

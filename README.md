@@ -1,46 +1,81 @@
 # Carbon
 
-**Build and test API integrations without shared staging or live third-party dependencies.**
+**Stateful API replicas for development, tests, and CI.**
 
-Carbon turns specs, recordings, and service definitions into stateful API
-replicas. Use those replicas in development, tests, and CI so integration work
-is repeatable without calling the upstream provider.
+[![npm](https://img.shields.io/npm/v/carbon-dev.svg)](https://www.npmjs.com/package/carbon-dev)
+[![node](https://img.shields.io/node/v/carbon-dev.svg)](https://www.npmjs.com/package/carbon-dev)
+[![license](https://img.shields.io/badge/license-Proprietary-blue.svg)](./LICENSE)
 
-After import, Carbon serves requests from a compiled behavior graph backed by a
-state engine.
+Carbon turns OpenAPI specs, HAR captures, Postman collections, protobuf, gRPC, GraphQL, and AsyncAPI definitions into a stateful emulator: import a description of an API, compile it into a behavior graph, and serve it as a local replica that mutates state the way the real service would. It is built for backend and full-stack teams that want deterministic integration tests without hitting third-party providers or maintaining a shared staging environment.
 
-## Repository
+## Install
 
-This is a TurboRepo monorepo managed with pnpm.
-
-```
-apps/
-  web         Website plus Firebase-gated dashboard (Next.js)
-  dashboard   Legacy dashboard app, not the primary deploy target
-  docs        Mintlify documentation site
-  cli         Carbon CLI (`carbon`, published as `carbon-api`)
-  desktop     Desktop app (planned for Phase Two)
-
-packages/
-  core            Runtime primitives
-  parser          OpenAPI / AsyncAPI / Protobuf / gRPC / HAR / Postman / GraphQL parsing
-  state-engine    In-memory resource graph
-  behavior-engine Behavioral inference
-  sdk             TypeScript SDK
-  ui              Shared React primitives (shadcn-based)
-  config          Shared tsconfig / tailwind / eslint presets
-  database        Drizzle schema + client
-  shared          Cross-cutting types and utilities
-  workers         Background jobs
+```bash
+npm install -g carbon-dev
 ```
 
-## Getting started
+Or run without installing:
+
+```bash
+npx carbon-dev <command>
+```
+
+## Quick start
+
+```bash
+carbon init                          # scaffold carbon.config.ts
+carbon ingest ./openapi.yaml         # parse a spec into Carbon's IR
+carbon emulate --from ./openapi.yaml # boot the replica on :8787
+carbon inspect                       # view endpoints, resources, and relationships
+```
+
+Capture a real API instead of importing a spec:
+
+```bash
+carbon record https://api.example.com
+```
+
+Snapshot and restore replica state for reproducible test runs:
+
+```bash
+carbon snapshot save baseline
+carbon snapshot load baseline
+```
+
+## Why Carbon
+
+- **Stateful.** `POST /users` creates a resource that later `GET /users/:id` calls return. Carbon infers relationships between endpoints so the replica behaves like the real service, not a static fixture.
+- **Snapshottable.** Serialize the replica's entire state, check it into your repo, and restore it in one call — every CI run starts from the same baseline.
+- **Multi-format.** OpenAPI, AsyncAPI, GraphQL, protobuf, gRPC, HAR, and Postman collections all normalize to a single intermediate representation, so one runtime serves them all.
+
+## How it works
+
+Carbon runs a three-stage pipeline. The **parser** normalizes each supported format into a shared IR of endpoints, resources, and relationships. The **compiler** turns that IR into a behavior graph — a state machine describing how requests read and mutate resources. The **runtime** serves the graph over HTTP, backed by an in-memory resource store with snapshot, restore, and inspection endpoints under `/__carbon/*`.
+
+## Documentation
+
+- Website and guides: <https://carbondev.com/docs>
+- API reference: `/docs` on the deployed API service
+- CLI reference: `carbon --help`
+
+## Deployment
+
+Carbon runs locally as a CLI, and the hosted control plane (API + web dashboard) can be self-deployed on Vercel + Neon + Upstash. See [`DEPLOY.md`](./DEPLOY.md).
+
+## Contributing
+
+Carbon is a pnpm + Turborepo monorepo.
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
+- `apps/` — `cli` (the `carbon-dev` package), `api` (Fastify control plane), `web` (Next.js site + dashboard), `docs` (Mintlify).
+- `packages/` — `parser`, `ingestion`, `graph`, `runtime`, `state`, `storage`, `proxy`, `sdk`, `ai`, `workers`, `database`, `types`, `core`, `shared`, `ui`, `config`.
+
+Issues and pull requests: <https://github.com/carbon-dev/carbon>.
+
 ## License
 
-Proprietary — © Carbon.
+Proprietary — © Carbon, Inc. See [`LICENSE`](./LICENSE).

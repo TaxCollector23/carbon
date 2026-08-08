@@ -1,11 +1,21 @@
 {
-  "name": "carbon-api",
-  "version": "0.1.0",
+  "name": "carbon-dev",
+  "version": "0.2.0",
   "private": false,
+  "description": "Carbon CLI — build stateful API replicas from your specs, recordings, and schemas.",
+  "keywords": [
+    "carbon",
+    "api",
+    "mock",
+    "openapi",
+    "postman",
+    "recording",
+    "cli"
+  ],
   "type": "module",
   "bin": {
     "carbon": "./dist/index.cjs",
-    "carbon-api": "./dist/index.cjs"
+    "carbon-dev": "./dist/index.cjs"
   },
   "main": "./dist/index.cjs",
   "files": [

@@ -1,6 +1,7 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+  - 'benchmarks'
 allowBuilds:
   '@firebase/util': true
   protobufjs: true

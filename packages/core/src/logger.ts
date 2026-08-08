@@ -67,15 +67,36 @@ export function createLogger(opts: CreateLoggerOptions = {}): Logger {
     level: opts.level ?? 'info',
     name: opts.name,
     redact: { paths: REDACT_KEYS, censor: '[redacted]' },
-    ...(opts.pretty
-      ? {
+  };
+
+  if (opts.pretty) {
+    try {
+      return new PinoAdapter(
+        pino({
+          ...options,
           transport: {
-            target: 'pino/pretty',
+            // The module is `pino-pretty`. `pino/pretty` is not a resolvable
+            // target and made pino throw at construction — which meant every
+            // process using the default dev logger died before it could log
+            // why.
+            target: 'pino-pretty',
             options: { colorize: true, singleLine: true, translateTime: 'HH:MM:ss.l' },
           },
-        }
-      : {}),
-  };
+        }),
+      );
+    } catch (err) {
+      // Pretty printing is a developer convenience. If the transport cannot
+      // load — not installed, bundled build, worker thread restrictions — fall
+      // back to JSON on stdout rather than taking the service down with it.
+      const fallback = pino(options);
+      fallback.warn(
+        { message: err instanceof Error ? err.message : String(err) },
+        'logger.pretty_unavailable — falling back to JSON output',
+      );
+      return new PinoAdapter(fallback);
+    }
+  }
+
   return new PinoAdapter(pino(options));
 }
 

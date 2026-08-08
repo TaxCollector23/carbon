@@ -1,4 +1,5 @@
 import { Architecture } from '@/components/architecture';
+import { Benchmarks } from '@/components/benchmarks';
 import { CliSection } from '@/components/cli-section';
 import { Comparison } from '@/components/comparison';
 import { Faq } from '@/components/faq';
@@ -24,6 +25,7 @@ export default function LandingPage() {
         <Comparison />
         <Workflow />
         <Architecture />
+        <Benchmarks />
         <Integrations />
         <CliSection />
         <SdkSection />

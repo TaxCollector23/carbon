@@ -6,7 +6,7 @@ const columns = [
     heading: 'Product',
     links: [
       ['Dashboard', '/dashboard'],
-      ['Benchmarks', '/benchmarks'],
+      ['Benchmarks', '/#benchmarks'],
       ['Workflow', '/#workflow'],
       ['CLI', '/#cli'],
       ['SDK', '/#sdk'],

@@ -5,22 +5,27 @@ import { CarbonError, makeId, NotFoundError } from '@carbon/core';
 import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
+import { ProjectSlug } from './project-access.js';
 
 const CreateProjectBody = z.object({
   orgId: z.string().min(1).optional(),
-  slug: z.string().regex(/^[a-z0-9-]+$/),
-  name: z.string().min(1),
+  // Shares the rule used by every path-param route so a project can never be
+  // created under a slug those routes would then reject.
+  slug: ProjectSlug,
+  name: z.string().min(1).max(120),
 });
 
 const ListQuery = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(25),
   cursor: z.string().optional(),
   orgId: z.string().optional(),
+  /** Costs an extra COUNT(*); off by default. */
+  includeTotal: z.coerce.boolean().default(false),
 });
 
 export async function registerProjectRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
   app.get('/v1/projects', async (req) => {
-    const { limit, cursor, orgId: queryOrgId } = ListQuery.parse(req.query);
+    const { limit, cursor, orgId: queryOrgId, includeTotal } = ListQuery.parse(req.query);
     const orgId = requestOrgId(req, queryOrgId);
     const conditions = [];
     if (cursor) conditions.push(gt(schema.projects.id, cursor));
@@ -41,11 +46,12 @@ export async function registerProjectRoutes(app: FastifyInstance, ctx: AppContex
     const items = hasMore ? rows.slice(0, limit) : rows;
     const nextCursor = hasMore ? (items[items.length - 1]?.id ?? null) : null;
 
-    let totalQuery = ctx.db.select({ total: count() }).from(schema.projects).$dynamic();
-    if (orgId) totalQuery = totalQuery.where(eq(schema.projects.orgId, orgId));
-    const [{ total } = { total: 0 }] = await totalQuery;
+    // COUNT(*) scans the whole table and cannot use the cursor, so it costs
+    // the same on page 50 as on page 1 while the caller almost never reads it
+    // twice. Compute it only when asked for, and only on the first page.
+    const total = includeTotal && !cursor ? await countProjects(ctx, orgId) : null;
 
-    return { data: items, nextCursor, total };
+    return { data: items, nextCursor, hasMore, total };
   });
 
   app.post('/v1/projects', async (req, reply) => {
@@ -78,6 +84,13 @@ export async function registerProjectRoutes(app: FastifyInstance, ctx: AppContex
     if (!row) throw new NotFoundError('project', req.params.id);
     return row;
   });
+}
+
+async function countProjects(ctx: AppContext, orgId: string | undefined): Promise<number> {
+  let totalQuery = ctx.db.select({ total: count() }).from(schema.projects).$dynamic();
+  if (orgId) totalQuery = totalQuery.where(eq(schema.projects.orgId, orgId));
+  const [{ total } = { total: 0 }] = await totalQuery;
+  return total;
 }
 
 function requestOrgId(req: unknown, fallback?: string): string | undefined {

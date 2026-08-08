@@ -150,5 +150,8 @@ export const apiKeys = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
   },
-  (t) => ({ prefixIdx: index('api_keys_prefix_idx').on(t.prefix) }),
+  (t) => ({
+    prefixIdx: uniqueIndex('api_keys_prefix_unique').on(t.prefix),
+    orgIdx: index('api_keys_org_idx').on(t.orgId),
+  }),
 );

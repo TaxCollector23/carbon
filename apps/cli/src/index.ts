@@ -3,17 +3,20 @@ import { defineCommand, renderUsage, runMain, type ArgsDef, type CommandDef } fr
 import { cliCommandCatalog, cliSubCommands } from './commands.js';
 import { ui } from './ui.js';
 
+export const CARBON_VERSION = '0.2.0';
+
 export const main = defineCommand({
   meta: {
     name: 'carbon',
-    version: '0.1.0',
+    version: CARBON_VERSION,
     description: 'Build and run stateful API replicas for development, tests, and CI.',
   },
   subCommands: cliSubCommands,
   run() {
-    ui.header('Available commands');
+    ui.welcome(CARBON_VERSION);
+    ui.header('Commands');
     ui.commandList(cliCommandCatalog);
-    ui.step('Help', `run ${ui.code('carbon --help')} or ${ui.code('carbon <command> --help')}`);
+    ui.footer('Docs', 'https://carbondev.com/docs');
   },
 });
 

@@ -11,6 +11,7 @@ import type { AppContext } from './context.js';
 import { createEmulatorRegistry } from './services/emulator-registry.js';
 import { createJobService } from './services/jobs.js';
 import { startEmbeddedWorkers } from './workers.js';
+import { createLifecycle } from './lifecycle.js';
 
 async function main(): Promise<void> {
   const env = loadEnv();
@@ -45,7 +46,11 @@ async function main(): Promise<void> {
     : undefined;
 
   const ingestion = createIngestionPipeline({ parsers, storage, logger, ai });
-  const emulators = createEmulatorRegistry({ storage, logger });
+  const emulators = createEmulatorRegistry({
+    storage,
+    logger,
+    maxEmulators: env.CARBON_MAX_EMULATORS,
+  });
   const jobs = redis ? createJobService({ redis, logger }) : undefined;
 
   const workers = env.EMBED_WORKERS && redis ? startEmbeddedWorkers({ redis, logger }) : null;
@@ -55,34 +60,81 @@ async function main(): Promise<void> {
     });
   }
 
-  const ctx: AppContext = { logger, db, storage, ingestion, emulators, jobs, redis };
+  const lifecycle = createLifecycle();
+  const ctx: AppContext = {
+    logger,
+    db,
+    storage,
+    ingestion,
+    emulators,
+    jobs,
+    redis,
+    emulatorAllowedHosts: env.CARBON_EMULATOR_ALLOWED_HOSTS,
+  };
   const server = await buildServer(ctx, logger, {
     auth: { mode: env.CARBON_AUTH_MODE },
     allowedOrigins: env.ALLOWED_ORIGINS,
     release: env.CARBON_RELEASE,
     redis,
     rateLimit: { max: env.CARBON_RATE_LIMIT_MAX, windowMs: env.CARBON_RATE_LIMIT_WINDOW_MS },
+    metricsToken: env.CARBON_METRICS_TOKEN,
+    requestTimeoutMs: env.CARBON_REQUEST_TIMEOUT_MS,
+    trustedProxyHops: env.CARBON_TRUSTED_PROXY_HOPS,
+    publicDocs: env.CARBON_PUBLIC_DOCS,
+    lifecycle,
+  });
+
+  // An unhandled rejection anywhere in a fire-and-forget path (ingest jobs,
+  // webhook delivery) would otherwise terminate the process silently under
+  // Node's default `--unhandled-rejections=throw`.
+  process.on('unhandledRejection', (reason) => {
+    logger.error('api.unhandled_rejection', {
+      message: reason instanceof Error ? reason.message : String(reason),
+      stack: reason instanceof Error ? reason.stack : undefined,
+    });
+  });
+  process.on('uncaughtException', (err) => {
+    // An uncaught exception leaves the process in an undefined state; log it
+    // and let the orchestrator restart us rather than limping on.
+    logger.error('api.uncaught_exception', { message: err.message, stack: err.stack });
+    process.exit(1);
   });
 
   const address = await server.listen({ host: env.API_HOST, port: env.API_PORT });
-  logger.info('api.listening', { address });
+  logger.info('api.listening', { address, authMode: env.CARBON_AUTH_MODE });
 
+  let shuttingDown = false;
   const shutdown = (signal: string) => {
-    logger.info('api.shutdown', { signal });
+    // A second SIGTERM (or an impatient operator) must not restart the
+    // sequence and reset the force-kill timer.
+    if (shuttingDown) return;
+    shuttingDown = true;
+
+    logger.info('api.shutdown', { signal, drainMs: env.CARBON_DRAIN_MS });
     const forceKill = setTimeout(() => {
       logger.error('api.shutdown_timeout', {
-        message: 'Force exit after 15s — inflight work was dropped',
+        message: 'Force exit after 30s — inflight work was dropped',
       });
       process.exit(1);
-    }, 15_000);
+    }, 30_000);
     forceKill.unref();
+
     (async () => {
       try {
+        // Fail /ready first and keep serving. The load balancer needs to see
+        // at least one failed probe before we stop accepting connections, or
+        // requests already in flight toward this instance are reset.
+        lifecycle.beginDrain();
+        if (env.CARBON_DRAIN_MS > 0) {
+          await new Promise((resolve) => setTimeout(resolve, env.CARBON_DRAIN_MS));
+        }
+
         await server.close();
         await emulators.shutdown();
         if (workers) await workers.close();
         if (redis) await redis.quit();
         clearTimeout(forceKill);
+        logger.info('api.shutdown_complete', { signal });
         process.exit(0);
       } catch (err) {
         logger.error('api.shutdown_error', { message: (err as Error).message });
