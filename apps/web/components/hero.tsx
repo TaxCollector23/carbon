@@ -42,8 +42,8 @@ export function Hero() {
             <div className="border-border mt-8 grid max-w-xl grid-cols-3 border-y text-sm">
               {[
                 ['100%', 'upstream calls avoided after import'],
-                ['38', 'endpoints in the reference API'],
-                ['<1s', 'startup target for the reference project'],
+                ['5', 'endpoints in the reference API'],
+                ['<1s', 'cold start on the reference project'],
               ].map(([value, label], index) => (
                 <div key={label} className={cn('py-4', index > 0 && 'border-border border-l pl-5')}>
                   <div className="text-foreground font-mono text-base">{value}</div>

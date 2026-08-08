@@ -85,16 +85,61 @@ const RawEnvSchema = z
     S3_ACCESS_KEY: optionalNonEmptyString(),
     S3_SECRET_KEY: optionalNonEmptyString(),
     S3_PREFIX: optionalNonEmptyString(),
+    /**
+     * Hard per-query timeout on Postgres. A runaway query without this pins a
+     * Node worker forever. Default 15s; range 1s–5min.
+     */
+    CARBON_DB_STATEMENT_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(1000)
+      .max(300_000)
+      .default(15_000),
+    /** Firebase project id. Setting this enables Firebase Admin token verification. */
+    FIREBASE_PROJECT_ID: optionalNonEmptyString(),
+    /** Firebase service account client email; required when FIREBASE_PROJECT_ID is set. */
+    FIREBASE_CLIENT_EMAIL: optionalNonEmptyString(),
+    /**
+     * Firebase service account private key. Supports the literal `\n`-escaped
+     * one-liner that env-var UIs write; those are unescaped before use.
+     */
+    FIREBASE_PRIVATE_KEY: z.preprocess(
+      (value) => {
+        if (typeof value !== 'string') return value;
+        const trimmed = value.trim();
+        if (trimmed === '') return undefined;
+        // Some hosts wrap in quotes when they see newlines.
+        const unquoted =
+          (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+          (trimmed.startsWith("'") && trimmed.endsWith("'"))
+            ? trimmed.slice(1, -1)
+            : trimmed;
+        return unquoted.replace(/\\n/g, '\n');
+      },
+      z.string().min(1).optional(),
+    ),
   })
   .superRefine((env, ctx) => {
-    if (env.STORAGE_BACKEND !== 's3') return;
-    for (const field of ['S3_BUCKET', 'S3_ACCESS_KEY', 'S3_SECRET_KEY'] as const) {
-      if (!env[field]) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: [field],
-          message: `${field} is required when STORAGE_BACKEND=s3`,
-        });
+    if (env.STORAGE_BACKEND === 's3') {
+      for (const field of ['S3_BUCKET', 'S3_ACCESS_KEY', 'S3_SECRET_KEY'] as const) {
+        if (!env[field]) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [field],
+            message: `${field} is required when STORAGE_BACKEND=s3`,
+          });
+        }
+      }
+    }
+    if (env.FIREBASE_PROJECT_ID) {
+      for (const field of ['FIREBASE_CLIENT_EMAIL', 'FIREBASE_PRIVATE_KEY'] as const) {
+        if (!env[field]) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [field],
+            message: `${field} is required when FIREBASE_PROJECT_ID is set`,
+          });
+        }
       }
     }
   });
@@ -124,6 +169,11 @@ export function parseEnv(input: NodeJS.ProcessEnv = process.env): Env {
     // silently be the proxy IP for every caller and rate limiting collapses.
     console.warn(
       'carbon: CARBON_TRUSTED_PROXY_HOPS=0 in production — set it to the number of reverse proxies in front of the API, or leave 0 if there are none',
+    );
+  }
+  if (env.NODE_ENV === 'production' && env.CARBON_DB_STATEMENT_TIMEOUT_MS > 60_000) {
+    console.warn(
+      `carbon: CARBON_DB_STATEMENT_TIMEOUT_MS=${env.CARBON_DB_STATEMENT_TIMEOUT_MS} in production — a query holding a Node worker >60s is almost certainly a bug`,
     );
   }
   if (env.NODE_ENV === 'production' && env.CARBON_PUBLIC_DOCS) {

@@ -124,6 +124,29 @@ export function resetIdempotencyCountersForTest(): void {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Error result counter
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Every carbon error surfaced by the top-level error handler is bucketed by
+ * its `code` label, so alerts can distinguish `CARBON_DEPENDENCY_UNAVAILABLE`
+ * from a boring `CARBON_INVALID_INPUT`.
+ */
+const errorResultCounters = new Map<string, number>();
+
+export function recordErrorResult(code: string): void {
+  errorResultCounters.set(code, (errorResultCounters.get(code) ?? 0) + 1);
+}
+
+export function resetErrorResultCountersForTest(): void {
+  errorResultCounters.clear();
+}
+
+export function errorResultCountForTest(code: string): number {
+  return errorResultCounters.get(code) ?? 0;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // Request timing
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -290,6 +313,13 @@ function createMetricsState(): MetricsState {
       lines.push(
         `carbon_idempotency_result_total{outcome="${outcome}"} ${idempotencyCounters[outcome]}`,
       );
+    }
+
+    lines.push('');
+    lines.push('# HELP carbon_error_result_total Errors surfaced by the top-level handler.');
+    lines.push('# TYPE carbon_error_result_total counter');
+    for (const [code, value] of errorResultCounters) {
+      lines.push(`carbon_error_result_total{code="${escapeLabel(code)}"} ${value}`);
     }
 
     lines.push('');

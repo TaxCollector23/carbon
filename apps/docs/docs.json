@@ -14,7 +14,7 @@
   "favicon": "/favicon.svg",
   "topbarLinks": [
     { "name": "Dashboard", "url": "https://carbon-web-psi.vercel.app/dashboard" },
-    { "name": "GitHub", "url": "https://github.com/TaxCollector23/carbon" }
+    { "name": "GitHub", "url": "https://github.com/carbon-dev/carbon" }
   ],
   "topbarCtaButton": { "name": "Get started", "url": "https://carbon-web-psi.vercel.app/#cli" },
   "navigation": [
@@ -54,6 +54,6 @@
     }
   ],
   "footerSocials": {
-    "github": "https://github.com/TaxCollector23/carbon"
+    "github": "https://github.com/carbon-dev/carbon"
   }
 }

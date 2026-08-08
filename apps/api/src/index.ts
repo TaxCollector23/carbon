@@ -28,6 +28,7 @@ async function main(): Promise<void> {
     url: env.DATABASE_URL,
     prepare: env.DATABASE_PREPARE,
     ssl: env.NODE_ENV === 'production' ? true : undefined,
+    statementTimeoutMs: env.CARBON_DB_STATEMENT_TIMEOUT_MS,
   });
   const storage = buildStorage(env);
   const redis = env.REDIS_URL ? createRedisConnection(env.REDIS_URL) : undefined;
@@ -100,6 +101,14 @@ async function main(): Promise<void> {
     requestTimeoutMs: env.CARBON_REQUEST_TIMEOUT_MS,
     trustedProxyHops: env.CARBON_TRUSTED_PROXY_HOPS,
     publicDocs: env.CARBON_PUBLIC_DOCS,
+    firebase:
+      env.FIREBASE_PROJECT_ID && env.FIREBASE_CLIENT_EMAIL && env.FIREBASE_PRIVATE_KEY
+        ? {
+            projectId: env.FIREBASE_PROJECT_ID,
+            clientEmail: env.FIREBASE_CLIENT_EMAIL,
+            privateKey: env.FIREBASE_PRIVATE_KEY,
+          }
+        : undefined,
     lifecycle,
   });
 

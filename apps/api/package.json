@@ -32,6 +32,7 @@
     "@scalar/fastify-api-reference": "^1.25.100",
     "bullmq": "^5.34.4",
     "drizzle-orm": "^0.38.2",
+    "firebase-admin": "^12.0.0",
     "fastify": "^5.2.1",
     "ioredis": "^5.4.2",
     "zod": "^3.24.1"

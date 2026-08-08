@@ -52,10 +52,9 @@ Project settings live in `carbon.config.ts` at the repo root.
 
 ## Links
 
-- Homepage: https://carbondev.com
-- Docs: https://carbondev.com/docs
 - GitHub: https://github.com/carbon-dev/carbon
+- Issues: https://github.com/carbon-dev/carbon/issues
 
 ## License
 
-MIT
+Proprietary — © Carbon.

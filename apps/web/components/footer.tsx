@@ -16,7 +16,7 @@ const columns = [
   },
   {
     heading: 'Community',
-    links: [['GitHub', 'https://github.com/TaxCollector23/carbon']],
+    links: [['GitHub', 'https://github.com/carbon-dev/carbon']],
   },
 ] satisfies Array<{ heading: string; links: [string, string][] }>;
 

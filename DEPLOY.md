@@ -156,7 +156,7 @@ without a parsing rule. Probe endpoints are excluded to keep the volume honest.
 The public install command is:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/TaxCollector23/carbon/master/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/carbon-dev/carbon/master/install.sh | sh
 ```
 
 The npm package name is `carbon-dev`, and the installed command is `carbon` (`carbon-dev` and `carbon-api` are also linked as aliases).

@@ -54,7 +54,7 @@ Carbon runs a three-stage pipeline. The **parser** normalizes each supported for
 
 ## Documentation
 
-- Website and guides: <https://carbondev.com/docs>
+- Guides and reference: <https://github.com/carbon-dev/carbon#readme>
 - API reference: `/docs` on the deployed API service
 - CLI reference: `carbon --help`
 

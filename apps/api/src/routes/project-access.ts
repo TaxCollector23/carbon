@@ -5,6 +5,19 @@ import { CarbonError, NotFoundError } from '@carbon/core';
 import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
+import type { FirebaseAuthenticatedRequest } from '../plugins/firebase-auth.js';
+
+/**
+ * Which org is the caller acting as? Prefers the API-key org (machine calls
+ * pin an org) and falls back to the Firebase-authenticated user's org
+ * (browser calls). Returns undefined when neither auth path has run, e.g.
+ * `CARBON_AUTH_MODE=disabled` in dev.
+ */
+function callerOrgId(req: FastifyRequest): string | undefined {
+  const apiKey = (req as AuthenticatedRequest).apiKey;
+  if (apiKey?.orgId) return apiKey.orgId;
+  return (req as FirebaseAuthenticatedRequest).firebaseUser?.orgId;
+}
 
 export const ProjectSlug = z
   .string()
@@ -24,7 +37,7 @@ export async function resolveProjectAccess(
   slug: string,
 ): Promise<ProjectAccess> {
   const apiKey = (req as AuthenticatedRequest).apiKey;
-  const orgId = apiKey?.orgId;
+  const orgId = callerOrgId(req);
   if (!orgId) return { slug, storageSlug: slug };
 
   const [project] = await ctx.db
@@ -62,7 +75,7 @@ export async function resolveStoredProjectAccess(
   req: FastifyRequest,
   storageSlug: string,
 ): Promise<ProjectAccess> {
-  const orgId = (req as AuthenticatedRequest).apiKey?.orgId;
+  const orgId = callerOrgId(req);
   if (!orgId) return { slug: publicProjectSlug(storageSlug), storageSlug };
 
   const prefix = `${orgId}/`;
@@ -86,7 +99,7 @@ export async function filterStoredProjectRecords<T extends { readonly projectSlu
   req: FastifyRequest,
   records: readonly T[],
 ): Promise<T[]> {
-  const orgId = (req as AuthenticatedRequest).apiKey?.orgId;
+  const orgId = callerOrgId(req);
   if (!orgId) {
     return records.map((record) => ({
       ...record,

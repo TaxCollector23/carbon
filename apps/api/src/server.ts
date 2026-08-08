@@ -16,11 +16,15 @@ import { registerApiKeyRoutes } from './routes/api-keys.js';
 import { registerArtifactRoutes } from './routes/artifacts.js';
 import { registerJobRoutes } from './routes/jobs.js';
 import { registerApiKeyAuth, type ApiKeyPluginOptions } from './plugins/api-key.js';
+import {
+  registerFirebaseAuth,
+  type FirebaseAuthPluginOptions,
+} from './plugins/firebase-auth.js';
 import { registerIdempotency } from './plugins/idempotency.js';
 import { registerControlPlaneRateLimit } from './plugins/rate-limit.js';
 import { registerAccessLog } from './plugins/access-log.js';
 import { registerDocs } from './plugins/docs.js';
-import { registerMetrics, type IngestMetrics } from './plugins/metrics.js';
+import { recordErrorResult, registerMetrics, type IngestMetrics } from './plugins/metrics.js';
 import { isTransient, mapDriverError } from './errors.js';
 import { AlwaysReady, type Lifecycle } from './lifecycle.js';
 import type { Redis } from 'ioredis';
@@ -99,6 +103,12 @@ export interface BuildServerOptions {
    * route. Defaults to true to preserve dev behaviour.
    */
   readonly publicDocs?: boolean;
+  /**
+   * When present, Firebase Admin token verification is registered alongside
+   * the API-key hook. Undefined skips registration entirely — the default in
+   * dev when no `FIREBASE_PROJECT_ID` is configured.
+   */
+  readonly firebase?: FirebaseAuthPluginOptions;
 }
 
 /**
@@ -211,6 +221,11 @@ export async function buildServer(
     });
   }
 
+  // Registered *after* the api-key hook so that when both would accept a
+  // request the api-key path runs first — deterministic ordering matters when
+  // an ambiguous Bearer token is presented.
+  await registerFirebaseAuth(app, ctx, options.firebase);
+
   if (options.redis) {
     if (options.rateLimit) {
       await registerControlPlaneRateLimit(app, ctx, {
@@ -234,6 +249,7 @@ export async function buildServer(
 
   app.setErrorHandler((err, req, reply) => {
     if (err instanceof ZodError) {
+      recordErrorResult('CARBON_INVALID_INPUT');
       reply.status(400).send({
         error: {
           code: 'CARBON_INVALID_INPUT',
@@ -253,14 +269,17 @@ export async function buildServer(
     // the 5xx rate useless as an alerting signal.
     const fastifyStatus = clientErrorStatus(err);
     if (fastifyStatus) {
+      const code = fastifyErrorCode(fastifyStatus);
+      recordErrorResult(code);
       reply.status(fastifyStatus).send({
-        error: { code: fastifyErrorCode(fastifyStatus), message: errorMessage(err) },
+        error: { code, message: errorMessage(err) },
       });
       return;
     }
 
     const carbon = isCarbonError(err) ? err : mapDriverError(err);
     if (carbon) {
+      recordErrorResult(carbon.code);
       sendCarbonError(reply, carbon);
       if (statusFor(carbon.code) >= 500) {
         log.error('api.internal_error', {
@@ -274,6 +293,7 @@ export async function buildServer(
       return;
     }
 
+    recordErrorResult('CARBON_INTERNAL');
     log.error('api.internal_error', {
       message: errorMessage(err),
       name: errorName(err),
@@ -375,7 +395,14 @@ export function statusFor(code: string): number {
     case 'CARBON_STATE_VIOLATION':
       return 422;
     case 'CARBON_RUNTIME_UNAVAILABLE':
+    case 'CARBON_DEPENDENCY_UNAVAILABLE':
       return 503;
+    case 'CARBON_TIMEOUT':
+      return 504;
+    case 'CARBON_RATE_LIMITED':
+      return 429;
+    case 'CARBON_JOB_FAILED':
+      return 500;
     default:
       return 500;
   }

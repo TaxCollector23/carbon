@@ -19,15 +19,27 @@ export interface CreateDatabaseOptions {
    */
   readonly prepare?: boolean;
   readonly ssl?: boolean;
+  /**
+   * Hard per-query timeout in ms, enforced by Postgres via `statement_timeout`.
+   * A runaway query without this pins a Node worker forever.
+   */
+  readonly statementTimeoutMs?: number;
 }
 
 export function createDatabase(opts: CreateDatabaseOptions): { db: Database; sql: Sql } {
   const prepare = opts.prepare ?? shouldPrepareStatements(opts.url);
   const ssl = opts.ssl ?? shouldUseSsl(opts.url);
+  const statementTimeoutMs = opts.statementTimeoutMs;
   const sql = postgres(opts.url, {
     max: opts.maxConnections ?? 10,
     ssl: ssl ? 'require' : false,
     prepare,
+    // `postgres.js` runs the `connection` parameters as `SET` statements on
+    // every new session, so each query inherits the ceiling. Skipped when 0
+    // or undefined so callers can opt out.
+    ...(statementTimeoutMs && statementTimeoutMs > 0
+      ? { connection: { statement_timeout: statementTimeoutMs } }
+      : {}),
   });
   const db = drizzle(sql, { schema });
   return { db, sql };
