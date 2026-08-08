@@ -1,6 +1,13 @@
 import { getAnalytics, isSupported, type Analytics } from 'firebase/analytics';
 import { initializeApp, getApp, getApps } from 'firebase/app';
-import { GithubAuthProvider, GoogleAuthProvider, getAuth, type Auth } from 'firebase/auth';
+import {
+  GoogleAuthProvider,
+  browserLocalPersistence,
+  indexedDBLocalPersistence,
+  initializeAuth,
+  inMemoryPersistence,
+  type Auth,
+} from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyBDVkvQc1IF23evFTplvjVc072qNGn_J-Q',
@@ -13,9 +20,23 @@ const firebaseConfig = {
 };
 
 export const firebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
-export const auth: Auth = getAuth(firebaseApp);
+
+// initializeAuth (over getAuth) lets us pick the persistence order explicitly.
+// IndexedDB is the default, but on some browsers (private mode, Safari with
+// aggressive storage partitioning, Chrome cross-origin popup contexts) it
+// throws `Database is closing/hidden` mid-sign-in. The fallback chain keeps
+// auth working: IndexedDB → localStorage → in-memory (session only).
+export const auth: Auth =
+  typeof window === 'undefined'
+    ? (undefined as unknown as Auth)
+    : initializeAuth(firebaseApp, {
+        persistence: [indexedDBLocalPersistence, browserLocalPersistence, inMemoryPersistence],
+      });
+
 export const googleProvider = new GoogleAuthProvider();
-export const githubProvider = new GithubAuthProvider();
+// Force Google's own account chooser so the user can pick / add an account
+// instead of getting silently signed in with whatever's cached.
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 export async function loadAnalytics(): Promise<Analytics | null> {
   if (typeof window === 'undefined') return null;
