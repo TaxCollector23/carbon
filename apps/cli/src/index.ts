@@ -3,7 +3,7 @@ import { defineCommand, renderUsage, runMain, type ArgsDef, type CommandDef } fr
 import { cliCommandCatalog, cliSubCommands } from './commands.js';
 import { ui } from './ui.js';
 
-export const CARBON_VERSION = '0.2.0';
+export const CARBON_VERSION = '0.2.1';
 
 // Note: no `run()` on the parent — citty invokes the parent's run() AFTER a
 // matched subcommand, so a top-level welcome here prints on every `carbon X`

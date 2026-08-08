@@ -2,13 +2,18 @@ import pc from 'picocolors';
 import { consola } from 'consola';
 import type { CliCommandInfo } from './commands.js';
 
-const CARBON_ASCII = `
-   CCCCC   AAAAA   RRRRR   BBBBB    OOOOO   N   N
-  C       A     A  R    R  B    B  O     O  NN  N
-  C       AAAAAAA  RRRRR   BBBBB   O     O  N N N
-  C       A     A  R   R   B    B  O     O  N  NN
-   CCCCC  A     A  R    R  BBBBB    OOOOO   N   N
-`.trimEnd();
+// ANSI Shadow-family glyphs (Unicode block-drawing + shading). Rendered in
+// bright white with a cyan gradient hairline on the right so terminals that
+// support truecolor get an accent without breaking mono terminals — plain
+// braille dots look correct even without color support.
+const CARBON_GLYPHS = [
+  ' ██████╗  █████╗ ██████╗ ██████╗  ██████╗ ███╗   ██╗',
+  '██╔════╝ ██╔══██╗██╔══██╗██╔══██╗██╔═══██╗████╗  ██║',
+  '██║      ███████║██████╔╝██████╔╝██║   ██║██╔██╗ ██║',
+  '██║      ██╔══██║██╔══██╗██╔══██╗██║   ██║██║╚██╗██║',
+  '╚██████╗ ██║  ██║██║  ██║██████╔╝╚██████╔╝██║ ╚████║',
+  ' ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝  ╚═════╝ ╚═╝  ╚═══╝',
+];
 
 export const ui = {
   info(msg: string) {
@@ -33,7 +38,17 @@ export const ui = {
     process.stdout.write(`\n${pc.bold(name)}\n`);
   },
   banner() {
-    process.stdout.write(`${pc.white(CARBON_ASCII)}\n`);
+    const lines = CARBON_GLYPHS.map((line, i) => {
+      // Fade the last three columns to cyan to signal "runtime". Everything
+      // else is bold white so the wordmark reads instantly in dark and light
+      // terminals.
+      const cut = Math.max(0, line.length - 20);
+      const head = line.slice(0, cut);
+      const tail = line.slice(cut);
+      const accent = i % 2 === 0 ? pc.cyan(tail) : pc.blue(tail);
+      return `${pc.white(pc.bold(head))}${accent}`;
+    });
+    process.stdout.write(`\n${lines.join('\n')}\n`);
   },
   welcome(version: string) {
     process.stdout.write(`\n${pc.dim(`carbon v${version}`)}\n`);
