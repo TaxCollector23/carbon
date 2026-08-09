@@ -12,6 +12,7 @@ import ActivitySection from './_sections/activity';
 import SettingsSection from './_sections/settings';
 import AiQualitySection from './_sections/ai-quality';
 import UsageSection from './_sections/usage';
+import ChaosPresetsSection from './_sections/chaos-presets';
 
 export function generateStaticParams() {
   return Object.keys(sections).map((section) => ({ section }));
@@ -64,6 +65,8 @@ function renderSection(slug: string) {
       return <AiQualitySection />;
     case 'usage':
       return <UsageSection />;
+    case 'chaos-presets':
+      return <ChaosPresetsSection />;
     default:
       return null;
   }

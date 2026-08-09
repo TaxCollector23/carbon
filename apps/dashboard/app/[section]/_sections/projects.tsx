@@ -21,7 +21,7 @@ export default function ProjectsSection() {
               ? `${projects.data.data.length} shown`
               : ''}
         </p>
-        <Button size="sm" onClick={() => setOpen(true)}>
+        <Button size="sm" onClick={() => setOpen(true)} data-testid="new-project-button">
           New project
         </Button>
       </header>
@@ -134,7 +134,13 @@ function NewProjectModal({
       <form id="new-project-form" className="space-y-3" onSubmit={onSubmit}>
         <label className="block text-sm">
           <span className="text-muted-foreground text-xs">Name</span>
-          <Input value={name} onChange={(e) => setName(e.target.value)} required maxLength={120} />
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            maxLength={120}
+            data-testid="new-project-name-input"
+          />
         </label>
         <label className="block text-sm">
           <span className="text-muted-foreground text-xs">Slug (lowercase, dashes)</span>
@@ -144,6 +150,7 @@ function NewProjectModal({
             required
             pattern="^[a-z][a-z0-9-]*$"
             placeholder="my-project"
+            data-testid="new-project-slug-input"
           />
         </label>
         <label className="block text-sm">

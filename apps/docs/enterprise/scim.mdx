@@ -1,0 +1,82 @@
+---
+title: 'SCIM 2.0'
+description: 'Provision and de-provision Carbon org members from your IdP.'
+---
+
+Carbon exposes a minimal, spec-compliant SCIM 2.0 provisioning surface
+under `/scim/v2/*`. It's Enterprise-only: a non-Enterprise org gets
+`403 SCIM: not enabled` rather than a silent 200. Unknown SCIM
+operations are rejected — pretending to succeed would corrupt your
+IdP's mirror.
+
+## Auth
+
+Two headers work, both admin-scoped:
+
+- `X-SCIM-Token: ck_live_…` — the SCIM-standard header, for IdPs that
+  only speak SCIM.
+- `x-carbon-key: ck_live_…` — the same key you use everywhere else.
+
+Both resolve against the same `api_keys` table; either an `admin` or a
+`scim` scope satisfies the gate.
+
+## Supported subset
+
+| Method | Path                     | Purpose                                       |
+| ------ | ------------------------ | --------------------------------------------- |
+| GET    | `/scim/v2/Users`         | List; supports `filter=userName eq "…"`       |
+| POST   | `/scim/v2/Users`         | Invite — creates a user + org membership      |
+| GET    | `/scim/v2/Users/:id`     | Fetch one                                     |
+| PATCH  | `/scim/v2/Users/:id`     | `active:false` removes the membership         |
+| DELETE | `/scim/v2/Users/:id`     | Remove membership                             |
+| GET    | `/scim/v2/Groups`        | Memberships grouped by role                   |
+
+Pagination follows SCIM conventions: `startIndex` (1-based),
+`count` (max 200).
+
+## Example: invite a user
+
+```bash
+curl -X POST https://api.carbon.dev/scim/v2/Users \
+  -H "X-SCIM-Token: ck_live_admin_…" \
+  -H "content-type: application/scim+json" \
+  -d '{
+    "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+    "userName": "priya@acme.example",
+    "active": true,
+    "name": { "givenName": "Priya", "familyName": "Ranganathan" },
+    "emails": [{ "value": "priya@acme.example", "primary": true }]
+  }'
+```
+
+Response (201):
+
+```json
+{
+  "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+  "id": "usr_…",
+  "userName": "priya@acme.example",
+  "active": true,
+  "emails": [{ "value": "priya@acme.example", "primary": true }],
+  "meta": {
+    "resourceType": "User",
+    "created":      "2026-04-01T00:00:00.000Z",
+    "lastModified": "2026-04-01T00:00:00.000Z"
+  }
+}
+```
+
+## Example: de-provision
+
+```bash
+curl -X PATCH https://api.carbon.dev/scim/v2/Users/usr_… \
+  -H "X-SCIM-Token: ck_live_admin_…" \
+  -H "content-type: application/scim+json" \
+  -d '{
+    "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+    "Operations": [{ "op": "replace", "path": "active", "value": false }]
+  }'
+```
+
+Both PATCH-to-inactive and DELETE remove the user's membership on your
+org, so revoking access from the IdP takes effect immediately.

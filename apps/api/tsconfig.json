@@ -1,5 +1,5 @@
 {
   "extends": "@carbon/config/tsconfig/node.json",
   "compilerOptions": { "noEmit": true },
-  "include": ["src"]
+  "include": ["src", "vitest.setup-integration.ts", "vitest.integration.config.ts", "vitest.config.ts"]
 }

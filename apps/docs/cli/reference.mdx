@@ -1,0 +1,319 @@
+---
+title: 'CLI reference'
+description: 'Every carbon subcommand, with flags and one example each.'
+---
+
+Package: **`carbon-dev`** on npm. Binary: **`carbon`** (aliases:
+`carbon-dev`, `carbon-api`). All commands accept `--help`.
+
+Credentials come from `~/.carbon/credentials` (created by `carbon login`)
+or a `--api-key` flag / `CARBON_API_KEY` env var.
+
+---
+
+## `carbon init`
+
+Scaffold a Carbon project in the current directory.
+
+**Flags**
+
+- `--name <string>` — project name (default `carbon-project`)
+- `--slug <string>` — URL-safe slug
+- `--from-project <slug>` — fetch an existing project from the control
+  plane and write its config locally
+- `--force` — overwrite an existing `carbon.config.ts` without prompting
+- `--api-url`, `--api-key` — override control-plane URL and key
+
+**Example**
+
+```bash
+carbon init --name petstore --slug petstore
+```
+
+---
+
+## `carbon login`
+
+Sign in via the browser device-authorization flow (default), or supply a
+key for scripted use.
+
+**Flags**
+
+- `--key ck_live_…` — scripted path; skips the browser entirely
+- `--no-browser` — print the approval URL instead of opening it (SSH,
+  headless)
+- `--api-url <url>` — override the control-plane URL
+
+**Example**
+
+```bash
+carbon login
+# or, in CI
+carbon login --key "$CARBON_API_KEY"
+```
+
+---
+
+## `carbon logout`
+
+Delete the local credentials file and, best-effort, revoke the key
+server-side.
+
+**Flags**
+
+- `--keep-remote` — skip the server-side revocation step
+
+---
+
+## `carbon whoami`
+
+Print the identity your saved credentials resolve to on the server
+(user, key prefix + scopes, org, plan).
+
+**Flags**
+
+- `--api-url <url>` — override the control-plane URL
+
+---
+
+## `carbon ingest`
+
+Parse an OpenAPI, AsyncAPI, GraphQL, protobuf/gRPC, HAR, or Postman
+source into Carbon's IR and print a summary.
+
+**Arguments / flags**
+
+- `<source>` (positional) — path or URL
+- `--api-url`, `--api-key` — needed only if `<source>` is a Carbon
+  control-plane URL
+
+**Example**
+
+```bash
+carbon ingest ./petstore.openapi.json
+```
+
+---
+
+## `carbon emulate`
+
+Boot the local deterministic runtime.
+
+**Flags**
+
+- `--from <spec|recording>` — required
+- `--port <number>` — bind port (default `8787`)
+- `--watch` — watch the source and reload on change
+
+**Example**
+
+```bash
+carbon emulate --from ./petstore.openapi.json --port 4000 --watch
+```
+
+---
+
+## `carbon inspect`
+
+Explore a running runtime's graph and stats.
+
+**Flags**
+
+- `--runtime <url>` — default `http://localhost:8787`
+- `--api-url`, `--api-key` — required when `--runtime` isn't localhost
+
+**Example**
+
+```bash
+carbon inspect
+```
+
+---
+
+## `carbon record`
+
+Sit between your client and an upstream API and capture every exchange
+to a portable recording. Sensitive headers are stripped by default.
+
+**Arguments / flags**
+
+- `<target>` (positional) — upstream base URL
+- `--port <number>` — local proxy port (default `8788`)
+- `--out <dir>` — output directory (default `.carbon/recordings`)
+- `--redact <headers>` — comma-separated extra headers to strip
+- `--redact-body <regex>` — regex replaced with `[redacted]` in bodies
+
+**Example**
+
+```bash
+carbon record https://api.stripe.com \
+  --redact stripe-signature \
+  --redact-body 'sk_live_[A-Za-z0-9]+'
+```
+
+---
+
+## `carbon replay`
+
+Replay a recording against a running runtime and diff each response.
+
+**Arguments / flags**
+
+- `<recording>` (positional, required) — id or path to a `.json`
+- (other flags cover runtime URL, host header, tolerances)
+
+**Example**
+
+```bash
+carbon replay .carbon/recordings/stripe-2026-01-05.json
+```
+
+---
+
+## `carbon snapshot <sub>`
+
+Manage state snapshots against a running runtime. Subcommands:
+`save`, `load`, `list`, `delete`, `push`, `pull`.
+
+Every subcommand accepts `--runtime <url>` (default
+`http://localhost:8787`).
+
+**Example**
+
+```bash
+carbon snapshot save baseline
+carbon snapshot load baseline
+carbon snapshot list
+carbon snapshot push baseline   # shared control plane (Team+)
+```
+
+Local files land under `.carbon/snapshots/`.
+
+---
+
+## `carbon doctor`
+
+Diagnose the local development environment: Node ≥ 20, pnpm,
+availability of common ports (3000, 3001, 4000), `DATABASE_URL` /
+`REDIS_URL` shape, docker presence, and node_modules staleness. Exits
+`1` when a check fails.
+
+---
+
+## `carbon generate-tests`
+
+Parse a spec into IR and emit one vitest skeleton per endpoint under a
+target directory.
+
+**Flags**
+
+- `--spec <file|url>` — required
+- `--out <dir>` — output directory (default `tests`)
+
+**Example**
+
+```bash
+carbon generate-tests --spec ./openapi.yaml --out tests/
+```
+
+---
+
+## `carbon completion <shell>`
+
+Print a shell completion script (`bash`, `zsh`, or `fish`).
+
+**Example**
+
+```bash
+carbon completion zsh > ~/.zsh/completions/_carbon
+```
+
+---
+
+## `carbon usage`
+
+Show metered usage totals for the current org. Requires an `admin`-scoped
+key.
+
+**Flags**
+
+- `--kind <string>` — restrict to a single usage kind (e.g. `ai_call`)
+- `--since`, `--until` — ISO-8601 window
+- `--api-url`, `--api-key`
+
+**Example**
+
+```bash
+carbon usage --kind ai_call --since 2026-01-01T00:00:00Z
+```
+
+---
+
+## `carbon activity`
+
+Recent org activity, in dashboard order.
+
+**Flags**
+
+- `--project <id>` — filter by project
+- `--action <name>` — filter by action (e.g. `project.created`)
+- `--limit <n>` — max events (default 50)
+- `--api-url`, `--api-key`
+
+**Example**
+
+```bash
+carbon activity --project petstore --limit 20
+```
+
+---
+
+## `carbon quality`
+
+Show the latest AI-quality report for a project. Exits `1` when the
+report has `needsReview: true` so CI can gate on it.
+
+**Flags**
+
+- `--project <slug>` — required
+- `--latest` — show only the latest report (default true)
+- `--api-url`, `--api-key`
+
+**Example**
+
+```bash
+carbon quality --project petstore
+```
+
+---
+
+## `carbon export`
+
+Download an Enterprise compliance bundle for the current org. Streams
+straight to disk. Requires an `admin`-scoped key.
+
+**Flags**
+
+- `--include <list>` — subset of `events,projects,snapshots,api_keys,
+  members,ai_quality,usage,audit`. Default: all.
+- `--since`, `--until` — ISO-8601 window (default: last 90 days)
+- `--format json|zip` — default `json`
+- `--out <path>` — output filename
+- `--api-url`, `--api-key`
+
+**Example**
+
+```bash
+carbon export --include events,api_keys --format zip --out audit-2026Q1.zip
+```
+
+---
+
+## Global behaviour
+
+- **JSON mode.** Set `CARBON_JSON=1` (or the global `--json` flag) and
+  every command emits newline-delimited JSON events instead of the
+  human table view — safe to pipe into `jq`.
+- **Exit codes.** Commands use a small taxonomy: `0` success,
+  `1` generic, plus specific codes for assertion failures and
+  connectivity errors so CI can react precisely.

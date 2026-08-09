@@ -1,0 +1,61 @@
+---
+title: 'Spec to runtime'
+description: 'How Carbon turns an API description into a live, stateful replica.'
+---
+
+Carbon's core value is turning a *description* of an API into a *runtime*
+that behaves like the real service. That happens in three stages, all
+deterministic and all reversible.
+
+## 1. Parse → Intermediate Representation
+
+The `@carbon/parser` package normalizes every supported input format into
+one shared shape:
+
+| Input format          | Notes                                                                 |
+| --------------------- | --------------------------------------------------------------------- |
+| OpenAPI 3.x           | JSON or YAML, `$ref` resolved                                         |
+| AsyncAPI 2.x / 3.x    | Channels and messages become endpoints + resources                    |
+| GraphQL SDL           | Query/Mutation fields become endpoints; types become resources        |
+| protobuf / gRPC       | RPCs become endpoints; messages become resources                      |
+| HAR                   | Captured request/response pairs become endpoint templates             |
+| Postman collection    | Items become endpoints; folders become tags                           |
+| Recorded traffic      | `carbon record` output; same shape as HAR                             |
+
+The IR is a small, well-typed structure — `api`, `endpoints[]`,
+`resources[]`, `relationships[]`. You can inspect it directly:
+
+```bash
+carbon ingest ./petstore.openapi.json
+```
+
+## 2. Compile → behavior graph
+
+`@carbon/graph` walks the IR and builds a **behavior graph**: a state
+machine that describes how each endpoint reads and mutates resources.
+Where the raw spec is silent, the [AI inference](/concepts/ai-inference)
+pipeline can enrich it — resources are grouped, path parameters are tied
+to resource ids, and cross-resource relationships (owner, membership) are
+proposed. A quality judge then scores the enrichment so bad inferences
+can be caught in CI.
+
+## 3. Serve → deterministic runtime
+
+`@carbon/runtime` boots a Fastify server that serves the behavior graph.
+Requests hit the graph, resources are read/written through
+`@carbon/state`, and everything is deterministic — same request sequence,
+same responses, byte for byte.
+
+Runtime endpoints exposed under `/__carbon/*`:
+
+- `GET  /__carbon/health` — is the runtime up?
+- `GET  /__carbon/inspect` — endpoints, resources, relationships summary
+- `POST /__carbon/state/snapshot` — dump current state as JSON
+- `POST /__carbon/state/restore` — restore a snapshot
+
+## Why an IR at all?
+
+Because API descriptions disagree about almost everything except that
+endpoints exist and take shapes. The IR lets one runtime, one behavior
+graph, one state engine, one snapshot format, and one CI story cover
+every input. Add a parser, get a runtime.

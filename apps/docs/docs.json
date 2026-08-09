@@ -19,29 +19,56 @@
   "topbarCtaButton": { "name": "Get started", "url": "https://carbon-web-psi.vercel.app/#cli" },
   "navigation": [
     {
-      "group": "Getting started",
-      "pages": ["introduction", "quickstart", "installation"]
+      "group": "Get started",
+      "pages": ["index", "quickstart", "installation"]
     },
     {
       "group": "Concepts",
       "pages": [
+        "concepts/spec-to-runtime",
+        "concepts/state-engine",
+        "concepts/ai-inference",
+        "concepts/chaos",
         "concepts/architecture",
         "concepts/behavior-engine",
-        "concepts/parser",
-        "concepts/state-engine"
+        "concepts/parser"
       ]
     },
     {
-      "group": "CLI",
-      "pages": ["cli/overview", "cli/init", "cli/record", "cli/emulate", "cli/snapshot"]
+      "group": "CLI reference",
+      "pages": [
+        "cli/reference",
+        "cli/overview",
+        "cli/init",
+        "cli/record",
+        "cli/emulate",
+        "cli/snapshot"
+      ]
+    },
+    {
+      "group": "Deployment",
+      "pages": [
+        "deployment/fly-io",
+        "deployment/self-hosted",
+        "deployment/prometheus"
+      ]
+    },
+    {
+      "group": "Enterprise",
+      "pages": [
+        "plans",
+        "enterprise/sso",
+        "enterprise/scim",
+        "security/compliance-export"
+      ]
+    },
+    {
+      "group": "API",
+      "pages": ["api/overview"]
     },
     {
       "group": "SDK",
       "pages": ["sdk/overview", "sdk/emulate", "sdk/state", "sdk/snapshots"]
-    },
-    {
-      "group": "SDK reference (generated)",
-      "pages": ["sdk/globals"]
     },
     {
       "group": "Guides",

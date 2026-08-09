@@ -1,24 +1,48 @@
 ---
-title: 'Installation'
-description: 'Install the Carbon CLI.'
+title: 'Install'
+description: 'Install the Carbon CLI on macOS, Linux, or Windows.'
 ---
 
-## macOS / Linux
+## npm (recommended)
+
+```bash
+npm install -g carbon-dev
+```
+
+The package name is **`carbon-dev`**; the primary binary is `carbon`
+(`carbon-dev` and `carbon-api` are linked as aliases). Requires Node.js
+20 or newer.
+
+## One-liner script
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/carbon-dev/carbon/master/install.sh | sh
 ```
 
-## Node
+Fetches the latest published tarball and installs it into your global npm
+prefix.
+
+## Ephemeral
 
 ```bash
-npm install -g carbon-api
+npx carbon-dev <command>
 ```
-
-Requires Node.js 20 or later.
 
 ## Verify
 
 ```bash
 carbon --version
+carbon doctor
+```
+
+`carbon doctor` runs a local diagnostic — Node version, pnpm, port
+availability on 3000/3001/4000, `DATABASE_URL`/`REDIS_URL` sanity, docker
+presence — so you can tell right away whether the environment is ready.
+
+## Shell completion
+
+```bash
+carbon completion bash >> ~/.bashrc
+carbon completion zsh  >  ~/.zsh/completions/_carbon
+carbon completion fish >  ~/.config/fish/completions/carbon.fish
 ```

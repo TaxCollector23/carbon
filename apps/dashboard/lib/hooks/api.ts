@@ -103,6 +103,10 @@ export function useUsageEvents(params: { limit?: number; kind?: string } = {}) {
   return useAsync(() => api.listUsageEvents(params), [params.limit, params.kind]);
 }
 
+export function useChaosPresets() {
+  return useAsync(() => api.listChaosPresets(), []);
+}
+
 export function useSsoProviders(enabled: boolean) {
   return useAsync(async () => {
     if (!enabled) return { data: [] };

@@ -67,6 +67,11 @@ export const sections: Record<string, SectionCopy> = {
     emptyTitle: 'No AI quality reports yet',
     description: 'Groundedness scores for each AI-inferred spec ingest. Run `carbon ingest` to generate a quality report.',
   },
+  'chaos-presets': {
+    title: 'Chaos presets',
+    emptyTitle: 'No chaos presets yet',
+    description: 'Presets bundle latency and error injection rules you can apply to any running emulator to simulate failure modes.',
+  },
   usage: {
     title: 'Usage',
     emptyTitle: 'No usage recorded',

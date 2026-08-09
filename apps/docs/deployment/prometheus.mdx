@@ -1,0 +1,95 @@
+---
+title: 'Prometheus alerts'
+description: 'Scrape queries, alert rules, and the log lines that go with them.'
+---
+
+Carbon's API exposes `/metrics` in Prometheus text format — request
+counts and a latency histogram, both labelled by route pattern, plus
+in-flight requests, event-loop lag, uptime, and RSS. The endpoint is
+unauthenticated so a scraper can reach it without a Carbon key. Set
+`CARBON_METRICS_TOKEN` and scrape with `Authorization: Bearer <token>`
+when it's internet-reachable.
+
+## Useful queries
+
+```promql
+# 5xx rate
+sum(rate(carbon_http_requests_total{status_class="5xx"}[5m]))
+
+# p95 latency by route
+histogram_quantile(
+  0.95,
+  sum by (route, le) (rate(carbon_http_request_duration_ms_bucket[5m]))
+)
+
+# event loop saturation
+carbon_nodejs_eventloop_lag_ms > 100
+```
+
+## Alert rules that have actually paged us
+
+Assumes the `carbon_*` metrics are scraped every 15s.
+
+```yaml
+groups:
+  - name: carbon-api.rules
+    rules:
+      - alert: CarbonApi5xxSurge
+        expr: sum(rate(carbon_http_requests_total{status_class="5xx"}[5m])) > 0.5
+        for: 5m
+        labels: { severity: page }
+        annotations:
+          summary: "carbon-api 5xx > 0.5/s for 5m"
+          runbook: "https://carbon.dev/runbooks/api-5xx"
+
+      - alert: CarbonApiP99Slow
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum by (le) (rate(carbon_http_request_duration_seconds_bucket[10m]))
+          ) > 2
+        for: 10m
+        labels: { severity: warn }
+        annotations:
+          summary: "carbon-api p99 latency > 2s for 10m"
+
+      - alert: CarbonIngestQueueBacklog
+        expr: carbon_ingest_queue_depth > 100
+        for: 15m
+        labels: { severity: warn }
+        annotations:
+          summary: "ingest queue depth > 100 for 15m — workers may be stuck"
+```
+
+## Logs to grep when the alert fires
+
+Every response carries `x-request-id`, and an inbound `x-request-id` is
+honoured. One structured `api.access` line is emitted per request —
+`error` for 5xx, `warn` for 4xx and slow, `info` otherwise — so
+`level>=50` is a usable alert condition without a parsing rule.
+
+```bash
+# Redis unreachable — rate-limit + idempotency fell back to in-memory
+grep '"event":"redis.unreachable"' carbon-api.log
+
+# AI enrichment tripped its circuit-breaker (ingest still succeeds,
+# just without judge annotations)
+grep '"event":"ingestion.ai_skipped_breaker_open"' carbon-api.log
+
+# Assertion plugin found a state-machine invariant violation
+grep '"event":"assertion.violated"' carbon-api.log
+
+# Per-org AI usage — feeds the billing rollup
+grep '"event":"usage.ai.call"' carbon-api.log
+```
+
+## Health probe reference
+
+| Endpoint          | Purpose                                                | Auth             |
+| ----------------- | ------------------------------------------------------ | ---------------- |
+| `/health`         | Liveness (process is up, no dependency checks)         | none             |
+| `/v1/health/live` | Alias of `/health` for callers on the versioned path   | none             |
+| `/ready`          | Readiness (DB + Redis + storage, cached 2s)            | none             |
+| `/v1/health/deep` | Per-dependency latency + status for on-call triage     | admin-scoped key |
+| `/v1/version`     | Build metadata (gitSha, buildTime, plans, toggles)     | none             |
+| `/metrics`        | Prometheus text format                                 | optional bearer  |

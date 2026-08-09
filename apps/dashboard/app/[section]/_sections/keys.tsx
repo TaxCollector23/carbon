@@ -35,7 +35,7 @@ export default function KeysSection() {
     <>
       <header className="flex items-center justify-between">
         <p className="text-muted-foreground text-sm">{keys.loading ? 'Loading…' : `${rows.length} active`}</p>
-        <Button size="sm" onClick={() => setOpenCreate(true)}>
+        <Button size="sm" onClick={() => setOpenCreate(true)} data-testid="new-api-key-button">
           New API key
         </Button>
       </header>
@@ -178,7 +178,13 @@ function CreateKeyModal({
       <form id="new-key-form" className="space-y-3" onSubmit={onSubmit}>
         <label className="block text-sm">
           <span className="text-muted-foreground text-xs">Name</span>
-          <Input value={name} onChange={(e) => setName(e.target.value)} required maxLength={80} />
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            maxLength={80}
+            data-testid="new-api-key-name-input"
+          />
         </label>
         <label className="block text-sm">
           <span className="text-muted-foreground text-xs">Org ID (optional if session has org)</span>

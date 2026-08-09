@@ -5,6 +5,7 @@ import { diffSnapshots, parseSnapshot, serializeSnapshot, type StateSnapshot } f
 import { StorageKeys } from '@carbon/storage';
 import type { AppContext } from '../context.js';
 import { requireScope } from '../plugins/scopes.js';
+import { zodBody, zodQuery, zodResponse } from '../plugins/schema-helpers.js';
 import { getActor, recordEvent } from '../services/events.js';
 import { recordUsage } from '../services/usage.js';
 import { ProjectSlug, resolveProjectAccess } from './project-access.js';
@@ -38,10 +39,38 @@ const CreateSnapshotBody = z.object({
   }),
 });
 
+const SnapshotListItem = z.object({
+  name: z.string(),
+  size: z.number().int(),
+  modifiedAt: z.number(),
+});
+const SnapshotListResponse = z.object({
+  data: z.array(SnapshotListItem),
+  limit: z.number().int(),
+  truncated: z.boolean(),
+});
+const SnapshotCreateResponse = z.object({
+  name: z.string(),
+  storageKey: z.string(),
+});
+const SnapshotListQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+});
+
 export async function registerSnapshotRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
   app.get<{ Params: { slug: string }; Querystring: { limit?: string } }>(
     '/v1/projects/:slug/snapshots',
-    { preHandler: requireScope('read') },
+    {
+      preHandler: requireScope('read'),
+      schema: {
+        summary: 'List project snapshots',
+        description:
+          'Enumerate saved snapshots for a project. Bounded scan — pass `limit` (max 500) to stop early; ' +
+          '`truncated: true` means more snapshots exist beyond the limit.',
+        querystring: zodQuery(SnapshotListQuery),
+        response: { 200: zodResponse(SnapshotListResponse) },
+      },
+    },
     async (req) => {
       const params = z.object({ slug: ProjectSlug }).parse(req.params);
       const query = z
@@ -70,7 +99,17 @@ export async function registerSnapshotRoutes(app: FastifyInstance, ctx: AppConte
     },
   );
 
-  app.post('/v1/snapshots', { preHandler: requireScope('write') }, async (req, reply) => {
+  app.post('/v1/snapshots', {
+    preHandler: requireScope('write'),
+    schema: {
+      summary: 'Save a snapshot',
+      description:
+        'Persist a `StateSnapshot` for the given project under `name`. Overwrites any existing snapshot with the same name; ' +
+        'name must match /^[a-z0-9][a-z0-9-]{0,63}$/ since it is used as a storage key segment.',
+      body: zodBody(CreateSnapshotBody),
+      response: { 201: zodResponse(SnapshotCreateResponse) },
+    },
+  }, async (req, reply) => {
     const body = CreateSnapshotBody.parse(req.body);
     const project = await resolveProjectAccess(ctx, req, body.projectSlug);
     const key = StorageKeys.snapshot(project.storageSlug, body.name);

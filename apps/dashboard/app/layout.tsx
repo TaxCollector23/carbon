@@ -3,6 +3,7 @@ import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import { Sidebar } from '@/components/sidebar';
 import { IdempotencyBannerProvider } from '@/components/idempotency-banner';
+import { ToastProvider } from '@/components/toast';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -31,12 +32,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="font-sans">
-        <IdempotencyBannerProvider>
-          <div className="flex min-h-dvh">
-            <Sidebar />
-            <div className="flex-1">{children}</div>
-          </div>
-        </IdempotencyBannerProvider>
+        <ToastProvider>
+          <IdempotencyBannerProvider>
+            <div className="flex min-h-dvh">
+              <Sidebar />
+              <div className="flex-1">{children}</div>
+            </div>
+          </IdempotencyBannerProvider>
+        </ToastProvider>
       </body>
     </html>
   );

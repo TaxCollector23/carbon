@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import Fastify from 'fastify';
 import { API_TAGS, matchTag, registerDocs } from './docs.js';
+import { registerProjectRoutes } from '../routes/projects.js';
+import { registerSnapshotRoutes } from '../routes/snapshots.js';
+import { registerEventRoutes } from '../routes/events.js';
+import { registerOrganizationRoutes } from '../routes/organizations.js';
+import type { AppContext } from '../context.js';
 
 /**
  * The docs plugin is registered *before* routes, and its `onRoute` hook is
@@ -123,6 +128,60 @@ describe('docs plugin', () => {
         expect(op, `missing ${r.method} ${openapiPath}`).toBeTruthy();
         expect(op?.tags).toContain(r.tag);
         expect(op?.summary).toBeTruthy();
+      }
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('publishes response.200 JSON schemas for hot routes', async () => {
+    const app = Fastify({ logger: false });
+    await registerDocs(app, 'test-1.2.3');
+    // A no-op AppContext is enough — we only need the route registration side
+    // effect (schema attached to the route object), not any handler execution.
+    const ctx = {
+      db: {} as unknown,
+      storage: {} as unknown,
+    } as unknown as AppContext;
+    await registerProjectRoutes(app, ctx);
+    await registerSnapshotRoutes(app, ctx);
+    await registerEventRoutes(app, ctx);
+    await registerOrganizationRoutes(app, ctx);
+    await app.ready();
+    try {
+      const body = app.swagger() as {
+        paths: Record<
+          string,
+          Record<
+            string,
+            {
+              responses?: Record<
+                string,
+                { content?: Record<string, { schema?: unknown }> }
+              >;
+            }
+          >
+        >;
+      };
+
+      const cases: Array<[string, string, string]> = [
+        ['/v1/projects', 'get', '200'],
+        ['/v1/projects', 'post', '201'],
+        ['/v1/projects/{slug}/snapshots', 'get', '200'],
+        ['/v1/snapshots', 'post', '201'],
+        ['/v1/events', 'get', '200'],
+        ['/v1/organizations', 'get', '200'],
+        ['/v1/organizations/{id}/members', 'get', '200'],
+      ];
+      for (const [path, method, status] of cases) {
+        const op = body.paths[path]?.[method];
+        expect(op, `missing operation ${method.toUpperCase()} ${path}`).toBeTruthy();
+        const responseSchema =
+          op?.responses?.[status]?.content?.['application/json']?.schema;
+        expect(
+          responseSchema,
+          `missing responses.${status}.content.application/json.schema for ${method.toUpperCase()} ${path}`,
+        ).toBeTruthy();
       }
     } finally {
       await app.close();

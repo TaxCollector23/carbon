@@ -1,0 +1,30 @@
+---
+title: 'Plans'
+description: 'Which capabilities are in Developer, Team, and Enterprise.'
+---
+
+Carbon's runtime is open to everyone. Team features live in the shared
+control plane; Enterprise adds deployment, governance, and identity.
+
+| Capability                                                                      | Developer | Team   | Enterprise |
+| ------------------------------------------------------------------------------- | :-------: | :----: | :--------: |
+| [Local runtime, all import formats](/concepts/spec-to-runtime)                  |     ✓     |   ✓    |     ✓      |
+| [Snapshots (local JSON)](/concepts/state-engine)                                |     ✓     |   ✓    |     ✓      |
+| [Chaos plugins & presets](/concepts/chaos)                                      |     ✓     |   ✓    |     ✓      |
+| Shared projects, graphs, recordings, snapshots                                  |     —     |   ✓    |     ✓      |
+| Dashboard: projects, runs, activity                                             |     —     |   ✓    |     ✓      |
+| CI-friendly project keys + [AI-quality gate](/concepts/ai-inference)            |     —     |   ✓    |     ✓      |
+| Team retention settings                                                         |     —     |   ✓    |     ✓      |
+| Email support                                                                   |     —     |   ✓    |     ✓      |
+| [Self-hosted control plane](/deployment/self-hosted)                            |     —     |   —    |     ✓      |
+| [SSO](/enterprise/sso) and [SCIM](/enterprise/scim)                             |     —     |   —    |     ✓      |
+| Audit logs + [compliance export](/security/compliance-export)                   |     —     |   —    |     ✓      |
+| Private storage configuration                                                   |     —     |   —    |     ✓      |
+| Support & onboarding plan                                                       |     —     |   —    |     ✓      |
+
+- **Developer** — $0. CLI, runtime, imports, and local snapshots for one
+  developer or one repo.
+- **Team** — $29 / developer / month. Shared projects and snapshots for
+  teams building against the same APIs.
+- **Enterprise** — talk to us. Deployment and governance controls for
+  larger teams.

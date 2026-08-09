@@ -1,0 +1,57 @@
+---
+title: 'AI inference'
+description: 'Enrich the IR with resources and relationships — with a quality judge you can gate CI on.'
+---
+
+Most OpenAPI specs don't declare what a *resource* is or how endpoints
+relate to it. Carbon's AI enrichment fills those gaps during ingest.
+
+## What runs
+
+Two capabilities live in `@carbon/ai`:
+
+- **`inferResources`** — reads endpoints and schemas, groups them into
+  logical resources, and links path parameters to resource ids.
+- **`inferRelationships`** — proposes relationships between resources
+  (owner, membership, parent/child) based on endpoint shapes.
+
+Enrichment runs during `carbon ingest` and during the API's ingest
+worker. It is best-effort: if it fails, the raw IR is used and ingest
+still succeeds. Look for `ingestion.ai_skipped_breaker_open` in the API
+log — that means the circuit breaker tripped and the current window is
+running IR-only.
+
+## The quality judge
+
+Every enrichment is scored by an LLM-as-judge that produces a
+`QualityReport`:
+
+- `resourcesScore` — how well the inferred resources fit the spec
+- `relationshipsScore` — how plausible the inferred relationships are
+- `minScore` — the lower of the two, useful as a single gate
+- `issues[]` — human-readable notes on what went wrong
+- `needsReview` — `true` when either score is below the org threshold
+
+Reports are stored per project and surfaced in the dashboard under
+**AI Quality**.
+
+## Gate CI on quality
+
+The CLI mirrors the dashboard view and, importantly, **exits 1 when the
+latest report has `needsReview: true`** — so you can drop it straight
+into a workflow step:
+
+```bash
+carbon quality --project petstore
+```
+
+```yaml
+# .github/workflows/ci.yml
+- run: carbon quality --project petstore
+  env:
+    CARBON_API_KEY: ${{ secrets.CARBON_API_KEY }}
+```
+
+Add `--json` (via `CARBON_JSON=1` or the global `--json`) to pipe the
+report into another tool. Pass `--latest=false` to walk the paginated
+history.

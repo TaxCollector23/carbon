@@ -1,0 +1,83 @@
+---
+title: 'Fly.io'
+description: 'Deploy the Carbon API and dashboard to Fly.io.'
+---
+
+Both `apps/api` and `apps/dashboard` ship a `fly.toml`. The API's toml
+declares a `release_command` that runs
+`pnpm --filter @carbon/database migrate:apply`, so migrations apply
+automatically on every deploy — **do not run them by hand**.
+
+## 1. Install flyctl
+
+```bash
+curl -L https://fly.io/install.sh | sh
+fly auth login
+```
+
+## 2. Provision Postgres and Redis
+
+Pick one path.
+
+**Fly-native**
+
+```bash
+fly postgres create --name carbon-db
+fly redis    create --name carbon-redis
+fly postgres attach carbon-db --app carbon-api
+```
+
+**Neon + Upstash**
+
+```bash
+fly secrets set DATABASE_URL="postgres://…" REDIS_URL="redis://…" --app carbon-api
+```
+
+Carbon auto-enables TLS for Upstash hosts even when the URL starts
+`redis://`.
+
+## 3. Bootstrap the API
+
+```bash
+fly launch --config apps/api/fly.toml --copy-config --no-deploy --name carbon-api
+
+fly secrets set --app carbon-api \
+  BETTER_AUTH_SECRET=$(openssl rand -hex 32) \
+  CARBON_METRICS_TOKEN=$(openssl rand -hex 16) \
+  ALLOWED_ORIGINS=https://dashboard.carbon.example
+
+fly deploy --config apps/api/fly.toml --remote-only
+```
+
+## 4. Bootstrap the dashboard
+
+```bash
+fly launch --config apps/dashboard/fly.toml --copy-config --no-deploy --name carbon-dashboard
+
+fly secrets set --app carbon-dashboard \
+  DATABASE_URL="$(fly secrets list --app carbon-api | grep DATABASE_URL | awk '{print $2}')" \
+  BETTER_AUTH_SECRET=... \
+  NEXT_PUBLIC_CARBON_API_URL=https://carbon-api.fly.dev
+
+fly deploy --config apps/dashboard/fly.toml --remote-only
+```
+
+## 5. CI
+
+`.github/workflows/ci.yml` redeploys both apps on push to `main` using
+`FLY_API_TOKEN`. After the first bootstrap you never `docker build`
+from a laptop again.
+
+## Health, drain, metrics
+
+- `/health` — liveness (no dependency checks)
+- `/ready` — readiness; 2s cached DB + Redis + storage probe
+- On `SIGTERM` the API fails `/ready` immediately and keeps serving for
+  `CARBON_DRAIN_MS` (default 5s). Set to `0` if your platform removes
+  the instance from the pool before signalling.
+- `/metrics` — Prometheus text; unauthenticated. Set
+  `CARBON_METRICS_TOKEN` and scrape with
+  `Authorization: Bearer <token>` when reachable from the internet.
+
+See [Prometheus](/deployment/prometheus) for scrape queries and alert
+rules.

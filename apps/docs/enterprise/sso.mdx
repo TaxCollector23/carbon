@@ -1,0 +1,68 @@
+---
+title: 'SSO'
+description: 'Manage SAML and OIDC providers for your Carbon org.'
+---
+
+Enterprise orgs can register SAML or OIDC identity providers through
+the admin-only SSO management routes. Configuration is stored on the
+organization record; provider records power the login flow once the
+Better Auth SSO plugin is wired in.
+
+<Note>
+  Provider **management** is available today. End-to-end SAML/OIDC
+  **login enforcement** is deferred until the Better Auth SSO plugin
+  ships in a version this workspace can install. Register your provider
+  now; login flow becomes live in a subsequent release without any
+  config change on your side.
+</Note>
+
+## Routes
+
+All routes require an `admin`-scoped API key and an Enterprise org — a
+non-Enterprise org gets `403 CARBON_FORBIDDEN` with an actionable
+message rather than a silent success.
+
+| Method | Path                        | Purpose                        |
+| ------ | --------------------------- | ------------------------------ |
+| GET    | `/v1/sso/providers`         | List configured providers      |
+| POST   | `/v1/sso/providers`         | Register a SAML or OIDC provider |
+| DELETE | `/v1/sso/providers/:id`     | Remove a provider              |
+
+## Register a SAML provider
+
+```bash
+curl -X POST https://api.carbon.dev/v1/sso/providers \
+  -H "x-carbon-key: ck_live_admin_…" \
+  -H "content-type: application/json" \
+  -d '{
+    "type": "saml",
+    "name": "Okta (Acme)",
+    "entityId": "https://acme.okta.com/…",
+    "ssoUrl":   "https://acme.okta.com/app/…/sso/saml",
+    "certificate": "-----BEGIN CERTIFICATE-----\nMIIC…\n-----END CERTIFICATE-----",
+    "emailDomain": "acme.example"
+  }'
+```
+
+## Register an OIDC provider
+
+```bash
+curl -X POST https://api.carbon.dev/v1/sso/providers \
+  -H "x-carbon-key: ck_live_admin_…" \
+  -H "content-type: application/json" \
+  -d '{
+    "type": "oidc",
+    "name": "Google Workspace (Acme)",
+    "issuer":       "https://accounts.google.com",
+    "clientId":     "…apps.googleusercontent.com",
+    "clientSecret": "GOCSPX-…",
+    "emailDomain":  "acme.example"
+  }'
+```
+
+## Audit trail
+
+Every SSO change writes an audit event (`sso_provider.created` /
+`sso_provider.deleted`) so it shows up in `carbon activity` and in the
+[compliance export](/security/compliance-export) `events` / `audit`
+buckets.

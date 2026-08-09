@@ -6,6 +6,23 @@ import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import { requireScope } from '../plugins/scopes.js';
+import { zodQuery, zodResponse } from '../plugins/schema-helpers.js';
+
+const EventSchema = z.object({
+  id: z.string(),
+  orgId: z.string(),
+  projectId: z.string().nullable(),
+  actorType: z.string(),
+  actorId: z.string().nullable(),
+  action: z.string(),
+  metadata: z.unknown(),
+  createdAt: z.string().datetime(),
+});
+const EventListResponse = z.object({
+  data: z.array(EventSchema),
+  nextCursor: z.string().nullable(),
+  hasMore: z.boolean(),
+});
 
 const ListQuery = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
@@ -37,7 +54,18 @@ interface EventRow {
 }
 
 export async function registerEventRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
-  app.get('/v1/events', { preHandler: requireScope('read') }, async (req) => {
+  app.get('/v1/events', {
+    preHandler: requireScope('read'),
+    schema: {
+      summary: 'List audit events',
+      description:
+        'Return audit events for the caller\'s org in descending time order. ' +
+        'Supports keyset pagination via `cursor` (ISO 8601 timestamp of the last item seen) and ' +
+        'optional filtering by `projectId` or `action`.',
+      querystring: zodQuery(ListQuery),
+      response: { 200: zodResponse(EventListResponse) },
+    },
+  }, async (req) => {
     const query = ListQuery.parse(req.query);
     const orgId = requestOrgId(req, query.orgId);
     if (!orgId) {
@@ -60,7 +88,16 @@ export async function registerEventRoutes(app: FastifyInstance, ctx: AppContext)
     return { data: items, nextCursor, hasMore };
   });
 
-  app.get('/v1/events/export', { preHandler: requireScope('read') }, async (req, reply) => {
+  app.get('/v1/events/export', {
+    preHandler: requireScope('read'),
+    schema: {
+      summary: 'Export audit events as CSV',
+      description:
+        'Stream audit events as a CSV attachment. Same filters as `GET /v1/events` but returns a single denormalized CSV row per event, ' +
+        'capped at `limit` (max 10,000).',
+      querystring: zodQuery(ExportQuery),
+    },
+  }, async (req, reply) => {
     const query = ExportQuery.parse(req.query);
     const orgId = requestOrgId(req, query.orgId);
     if (!orgId) {

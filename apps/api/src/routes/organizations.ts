@@ -8,6 +8,44 @@ import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import type { SessionAuthenticatedRequest } from '../plugins/session-auth.js';
 import { requireScope } from '../plugins/scopes.js';
+import { zodBody, zodResponse } from '../plugins/schema-helpers.js';
+
+const OrgSummary = z.object({
+  id: z.string(),
+  name: z.string(),
+  slug: z.string(),
+  role: z.enum(['owner', 'admin', 'member']).optional(),
+});
+const OrgListResponse = z.object({ data: z.array(OrgSummary) });
+const OrgFull = z.object({
+  id: z.string(),
+  name: z.string(),
+  slug: z.string(),
+  retentionDays: z.number().int().nullable().optional(),
+  settings: z.record(z.unknown()).nullable().optional(),
+  createdAt: z.string().datetime().optional(),
+});
+const OrgMember = z.object({
+  userId: z.string(),
+  role: z.enum(['owner', 'admin', 'member']),
+  createdAt: z.string().datetime().optional(),
+  email: z.string().nullable().optional(),
+  name: z.string().nullable().optional(),
+});
+const OrgMemberListResponse = z.object({ data: z.array(OrgMember) });
+const InvitationResponse = z.object({
+  id: z.string(),
+  orgId: z.string(),
+  email: z.string(),
+  role: z.enum(['owner', 'admin', 'member']),
+  expiresAt: z.string().datetime(),
+  inviteUrl: z.string(),
+});
+const AcceptResponse = z.object({
+  orgId: z.string(),
+  role: z.enum(['owner', 'admin', 'member']),
+  accepted: z.boolean(),
+});
 
 /**
  * Organization management — the surface where owners/admins configure the
@@ -159,7 +197,16 @@ export async function registerOrganizationRoutes(
   // key is scoped to; session users see every org they belong to; auth-
   // disabled dev callers see every org in the store (optionally narrowed by
   // ?userId=). Registered before /:id so the radix router keeps them distinct.
-  app.get('/v1/organizations', { preHandler: requireScope('read') }, async (req) => {
+  app.get('/v1/organizations', {
+    preHandler: requireScope('read'),
+    schema: {
+      summary: 'List organizations for the caller',
+      description:
+        'Return every org the caller can see. API-key callers see the single org their key is scoped to; ' +
+        'session users see every org they belong to.',
+      response: { 200: zodResponse(OrgListResponse) },
+    },
+  }, async (req) => {
     const query = z
       .object({ userId: z.string().min(1).optional() })
       .parse(req.query);
@@ -223,7 +270,17 @@ export async function registerOrganizationRoutes(
   // Resolves the caller's "current" org — the api key's org, the session
   // user's first membership, or (auth-disabled dev) an ?orgId= query param.
   // Registered before /:id so Fastify's radix router routes /current here.
-  app.get('/v1/organizations/current', { preHandler: requireScope('read') }, async (req, reply) => {
+  app.get('/v1/organizations/current', {
+    preHandler: requireScope('read'),
+    schema: {
+      summary: 'Get the caller\'s current organization',
+      description: 'Resolve the caller\'s "current" org — the API key\'s org, the session user\'s first membership, or an `orgId` query param when auth is disabled.',
+      response: {
+        200: zodResponse(OrgFull),
+        404: zodResponse(z.object({ error: z.object({ code: z.string(), message: z.string() }) })),
+      },
+    },
+  }, async (req, reply) => {
     const query = z.object({ orgId: z.string().min(1).optional() }).parse(req.query);
     const apiKey = (req as AuthenticatedRequest).apiKey;
     const session = (req as SessionAuthenticatedRequest).sessionUser;
@@ -237,7 +294,14 @@ export async function registerOrganizationRoutes(
 
   app.get<{ Params: { id: string } }>(
     '/v1/organizations/:id',
-    { preHandler: requireScope('read') },
+    {
+      preHandler: requireScope('read'),
+      schema: {
+        summary: 'Get an organization by id',
+        description: 'Fetch a single organization. The caller must be a member (or hold an API key scoped to it).',
+        response: { 200: zodResponse(OrgFull) },
+      },
+    },
     async (req) => {
       await callerContext(ctx, req, req.params.id);
       return loadOrgOr404(ctx, req.params.id);
@@ -246,7 +310,15 @@ export async function registerOrganizationRoutes(
 
   app.patch<{ Params: { id: string } }>(
     '/v1/organizations/:id',
-    { preHandler: requireScope('admin') },
+    {
+      preHandler: requireScope('admin'),
+      schema: {
+        summary: 'Update an organization',
+        description: 'Owner/admin only. Fields not present in the body are left untouched; `settings` is shallow-merged over the current value.',
+        body: zodBody(PatchOrgBody),
+        response: { 200: zodResponse(OrgFull) },
+      },
+    },
     async (req) => {
       const body = PatchOrgBody.parse(req.body ?? {});
       const caller = await callerContext(ctx, req, req.params.id);
@@ -283,7 +355,14 @@ export async function registerOrganizationRoutes(
 
   app.get<{ Params: { id: string } }>(
     '/v1/organizations/:id/members',
-    { preHandler: requireScope('read') },
+    {
+      preHandler: requireScope('read'),
+      schema: {
+        summary: 'List organization members',
+        description: 'Return every user with a membership row on this org, joined with the users table for display name/email.',
+        response: { 200: zodResponse(OrgMemberListResponse) },
+      },
+    },
     async (req) => {
       await callerContext(ctx, req, req.params.id);
       const rows = await ctx.db
@@ -303,7 +382,15 @@ export async function registerOrganizationRoutes(
 
   app.post<{ Params: { id: string } }>(
     '/v1/organizations/:id/members',
-    { preHandler: requireScope('admin') },
+    {
+      preHandler: requireScope('admin'),
+      schema: {
+        summary: 'Invite a user to the organization',
+        description: 'Owner/admin only. Creates an invitation with a signed accept URL that the invitee opens to join.',
+        body: zodBody(InviteBody),
+        response: { 201: zodResponse(InvitationResponse) },
+      },
+    },
     async (req, reply) => {
       const body = InviteBody.parse(req.body ?? {});
       const caller = await callerContext(ctx, req, req.params.id);
@@ -432,7 +519,14 @@ export async function registerOrganizationRoutes(
   // Invitation acceptance is public in the "no org scope" sense: any
   // authenticated user (Firebase) can accept an invite addressed to them.
   // API-key callers have no user identity, so they can't accept.
-  app.post('/v1/invitations/accept', async (req) => {
+  app.post('/v1/invitations/accept', {
+    schema: {
+      summary: 'Accept an organization invitation',
+      description: 'Consume an invitation token and create the corresponding membership. Requires a signed-in session user.',
+      body: zodBody(AcceptBody),
+      response: { 200: zodResponse(AcceptResponse) },
+    },
+  }, async (req) => {
     const body = AcceptBody.parse(req.body ?? {});
     const sessionUser = (req as SessionAuthenticatedRequest).sessionUser;
     if (!sessionUser) {

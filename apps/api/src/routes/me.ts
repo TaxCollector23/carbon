@@ -3,8 +3,29 @@ import { and, eq } from 'drizzle-orm';
 import { schema } from '@carbon/database';
 import { CarbonError } from '@carbon/core';
 import type { AppContext } from '../context.js';
+import { z } from 'zod';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import type { SessionAuthenticatedRequest } from '../plugins/session-auth.js';
+import { zodResponse } from '../plugins/schema-helpers.js';
+
+const MeResponse = z.object({
+  user: z.object({
+    id: z.string(),
+    email: z.string().nullable(),
+    role: z.string().nullable(),
+  }).nullable(),
+  key: z.object({
+    id: z.string(),
+    prefix: z.string(),
+    scopes: z.array(z.string()),
+  }).nullable(),
+  org: z.object({
+    id: z.string(),
+    name: z.string(),
+    slug: z.string(),
+  }).nullable(),
+  plan: z.string().nullable(),
+});
 
 /**
  * `GET /v1/me` — identity introspection for both auth paths.
@@ -20,7 +41,15 @@ export async function registerMeRoutes(
   app: FastifyInstance,
   ctx: AppContext,
 ): Promise<void> {
-  app.get('/v1/me', async (req) => {
+  app.get('/v1/me', {
+    schema: {
+      summary: 'Identity introspection',
+      description:
+        'Return a compact view of the caller — session user, API key (id/prefix/scopes only, never the secret), current org, and billing plan. ' +
+        'Powers `carbon whoami`, the dashboard header, and support triage.',
+      response: { 200: zodResponse(MeResponse) },
+    },
+  }, async (req) => {
     const apiKey = (req as AuthenticatedRequest).apiKey;
     const sessionUser = (req as SessionAuthenticatedRequest).sessionUser;
 

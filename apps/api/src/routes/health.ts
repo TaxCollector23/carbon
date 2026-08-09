@@ -1,10 +1,33 @@
 import type { FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
+import { z } from 'zod';
 import { CarbonError } from '@carbon/core';
 import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
+import { zodResponse } from '../plugins/schema-helpers.js';
 import { AlwaysReady, type Lifecycle } from '../lifecycle.js';
+
+const LivenessResponse = z.object({
+  ok: z.boolean(),
+  service: z.string(),
+  version: z.string(),
+});
+const VersionResponse = z.object({
+  version: z.string(),
+  release: z.string(),
+  node: z.string(),
+  startedAt: z.string().datetime(),
+  uptimeSec: z.number().int(),
+  gitSha: z.string().nullable(),
+  buildTime: z.string().nullable(),
+  plans: z.array(z.string()),
+  features: z.object({
+    billing: z.boolean(),
+    sso: z.boolean(),
+    scim: z.boolean(),
+  }),
+});
 
 /**
  * `/health` is a lightweight liveness probe — the process is up.
@@ -82,10 +105,28 @@ export async function registerHealthRoutes(
   // `/health` is the historical liveness path; `/v1/health/live` is the
   // versioned alias for symmetry with `/v1/health/deep`. Both are the same
   // handler — dependency checks live on `/ready` (and `/v1/health/deep`).
-  app.get('/health', async () => livenessBody());
-  app.get('/v1/health/live', async () => livenessBody());
+  app.get('/health', {
+    schema: {
+      summary: 'Liveness probe',
+      description: 'Cheap liveness check — returns 200 as long as the process is up. Use as a Kubernetes liveness probe.',
+      response: { 200: zodResponse(LivenessResponse) },
+    },
+  }, async () => livenessBody());
+  app.get('/v1/health/live', {
+    schema: {
+      summary: 'Liveness probe (versioned)',
+      description: 'Versioned alias for `/health`. Identical response shape and cost.',
+      response: { 200: zodResponse(LivenessResponse) },
+    },
+  }, async () => livenessBody());
 
-  app.get('/v1/version', async () => ({
+  app.get('/v1/version', {
+    schema: {
+      summary: 'Server version and feature flags',
+      description: 'Return the running server version, git SHA (if stamped by CI), uptime, and per-deployment feature toggles.',
+      response: { 200: zodResponse(VersionResponse) },
+    },
+  }, async () => ({
     version: '0.1.0',
     release,
     node: process.version,

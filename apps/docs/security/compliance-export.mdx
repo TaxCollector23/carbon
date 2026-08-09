@@ -1,0 +1,70 @@
+---
+title: 'Compliance export'
+description: 'Pull a signed bundle of everything on record about your org for audit review.'
+---
+
+Enterprise orgs can pull a one-shot bundle of everything on record via
+`carbon export`, which calls the admin-only `POST /v1/export` endpoint
+and **streams** the response to disk — nothing is buffered, so a
+multi-GB events dump won't OOM the caller.
+
+## CLI
+
+```bash
+# Full 90-day bundle (default), JSON
+carbon export --out audit.json
+
+# Auditor-friendly zip with just events + api-key history
+carbon export --include events,api_keys --format zip --out audit-2026Q1.zip
+
+# Narrow the window explicitly
+carbon export \
+  --include events,audit \
+  --since 2026-01-01T00:00:00Z \
+  --until 2026-04-01T00:00:00Z \
+  --format zip
+```
+
+Valid `--include` items: `events`, `projects`, `snapshots`, `api_keys`,
+`members`, `ai_quality`, `usage`, `audit`.
+
+## Shape of the JSON bundle
+
+```json
+{
+  "manifest": {
+    "orgId":       "org_…",
+    "generatedAt": "2026-04-01T00:00:00.000Z",
+    "range":       { "since": "2026-01-01T00:00:00Z", "until": "2026-04-01T00:00:00Z" },
+    "include":     ["events", "projects", "snapshots", "api_keys",
+                    "members", "ai_quality", "usage", "audit"],
+    "counts":      { "events": 12034, "projects": 7, "snapshots": 41,
+                     "api_keys": 12, "members": 18, "ai_quality": 340,
+                     "usage": 2200, "audit": 12034 }
+  },
+  "events":     [ /* audit-log style rows */ ],
+  "projects":   [ /* org projects, slug + config metadata */ ],
+  "snapshots":  [ /* snapshot metadata — not the state blob itself */ ],
+  "api_keys":   [ /* { id, prefix, scopes, createdAt, rotatedAt,
+                       revokedAt, expiresAt } — no hash, ever */ ],
+  "members":    [ /* org members and roles */ ],
+  "ai_quality": [ /* QualityReport history */ ],
+  "usage":      [ /* metered usage totals by kind and window */ ],
+  "audit":      [ /* raw audit log */ ]
+}
+```
+
+The `zip` format writes one JSON file per include plus a top-level
+`manifest.json` with the same `{orgId, generatedAt, ranges, include,
+counts}` header — which is what most review workflows want to record
+alongside the raw data.
+
+## Safety
+
+- The `api_keys` bucket **never** contains the stored hash — only
+  prefix, scopes, rotation lineage, and lifecycle timestamps. The
+  bundle is safe to hand to an outside auditor.
+- Session tokens are never included.
+- The route requires an `admin`-scoped API key. Mint a short-lived one
+  with `expiresInSeconds` matching the review window rather than
+  reusing a standing admin credential.

@@ -6,6 +6,45 @@ import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import { requireScope } from '../plugins/scopes.js';
+import { zodBody, zodQuery, zodResponse } from '../plugins/schema-helpers.js';
+
+const ApiKeySummary = z.object({
+  id: z.string(),
+  orgId: z.string(),
+  name: z.string(),
+  prefix: z.string(),
+  scopes: z.array(z.string()),
+  projectIds: z.array(z.string()).nullable(),
+  lastUsedAt: z.string().datetime().nullable(),
+  createdAt: z.string().datetime(),
+  expiresAt: z.string().datetime().nullable(),
+  rotatedFromId: z.string().nullable(),
+});
+const ApiKeyListResponse = z.object({
+  data: z.array(ApiKeySummary),
+  limit: z.number().int(),
+});
+const MintedApiKey = z.object({
+  id: z.string(),
+  secret: z.string().optional(),
+  presented: z.string().optional(),
+  prefix: z.string(),
+  scopes: z.array(z.string()),
+  projectIds: z.array(z.string()).nullable(),
+  expiresAt: z.string().datetime().nullable(),
+  rotatedFromId: z.string().nullable().optional(),
+});
+const RotateResponse = z.object({
+  id: z.string(),
+  secret: z.string(),
+  prefix: z.string(),
+  scopes: z.array(z.string()),
+  projectIds: z.array(z.string()).nullable(),
+  expiresAt: z.string().datetime().nullable(),
+  rotatedFromId: z.string().nullable(),
+  sourceId: z.string(),
+  sourceExpiresAt: z.string().datetime(),
+});
 import { mintApiKey, rotateApiKey } from '../services/api-keys.js';
 import { getActor, recordEvent } from '../services/events.js';
 
@@ -50,7 +89,15 @@ export async function registerApiKeyRoutes(app: FastifyInstance, ctx: AppContext
   // Every /v1/api-keys route is admin — key management is the most sensitive
   // surface on the control plane and must never be reachable from a
   // `write`-scoped key.
-  app.get('/v1/api-keys', { preHandler: requireScope('admin') }, async (req) => {
+  app.get('/v1/api-keys', {
+    preHandler: requireScope('admin'),
+    schema: {
+      summary: 'List API keys',
+      description: 'Return every non-revoked API key on the caller\'s org. Secrets and hashes are never returned; only the id/prefix/scopes/metadata.',
+      querystring: zodQuery(ListQuery),
+      response: { 200: zodResponse(ApiKeyListResponse) },
+    },
+  }, async (req) => {
     const { limit } = ListQuery.parse(req.query);
     const orgId = requestOrgId(req);
     const where = orgId
@@ -78,7 +125,17 @@ export async function registerApiKeyRoutes(app: FastifyInstance, ctx: AppContext
     return { data: rows, limit };
   });
 
-  app.post('/v1/api-keys', { preHandler: requireScope('admin') }, async (req, reply) => {
+  app.post('/v1/api-keys', {
+    preHandler: requireScope('admin'),
+    schema: {
+      summary: 'Mint an API key',
+      description:
+        'Mint a new API key. The presented secret is returned exactly once — store it immediately. ' +
+        'Only the hashed form is persisted server-side.',
+      body: zodBody(CreateBody),
+      response: { 201: zodResponse(MintedApiKey) },
+    },
+  }, async (req, reply) => {
     const body = CreateBody.parse(req.body);
     const orgId = requestOrgId(req, body.orgId);
     if (!orgId) {
@@ -141,7 +198,16 @@ export async function registerApiKeyRoutes(app: FastifyInstance, ctx: AppContext
 
   app.post<{ Params: { id: string } }>(
     '/v1/api-keys/:id/rotate',
-    { preHandler: requireScope('admin') },
+    {
+      preHandler: requireScope('admin'),
+      schema: {
+        summary: 'Rotate an API key',
+        description:
+          'Mint a replacement key and mark the source key to expire after `graceSeconds`. The new secret is returned exactly once.',
+        body: zodBody(RotateBody),
+        response: { 201: zodResponse(RotateResponse) },
+      },
+    },
     async (req, reply) => {
       const body = RotateBody.parse(req.body ?? {});
       const orgId = requestOrgId(req);

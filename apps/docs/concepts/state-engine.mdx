@@ -1,23 +1,73 @@
 ---
-title: 'State Engine'
-description: 'Reads reflect writes.'
+title: 'State engine'
+description: 'Snapshots, the journal, rewind/forward, and fixtures.'
 ---
 
-The State Engine powers every Carbon replica.
-
-## Guarantees
-
-- **Consistency.** After a successful write, subsequent reads reflect it.
-- **Isolation.** Transactions roll back cleanly on failure.
-- **Portability.** Snapshots serialize the full state to a stable JSON blob.
+The state engine (`@carbon/state`) is what makes a Carbon runtime
+*stateful* rather than a mock. Every request routes through it, every
+mutation lands in an in-memory resource store, and every write is
+appended to a journal so you can walk history without replaying traffic.
 
 ## Snapshots
 
+A snapshot is the entire state of the runtime — every resource, every
+counter, every relationship — serialized to a stable JSON shape. They
+travel with your code.
+
+```bash
+# Grab the runtime's current state
+carbon snapshot save baseline
+
+# Restore it later (same shell, another shell, CI job)
+carbon snapshot load baseline
+
+# List and delete
+carbon snapshot list
+carbon snapshot delete baseline
+
+# Push/pull to the shared control plane (Team+)
+carbon snapshot push baseline
+carbon snapshot pull baseline
+```
+
+Locally, snapshots live in `.carbon/snapshots/*.json`. Commit them.
+CI restores them at the start of the run so every test starts from the
+same known baseline.
+
+From the SDK:
+
 ```ts
 const snap = await replica.snapshot.save('after-refund');
-// …later, or in another test file
 await replica.snapshot.restore(snap);
 ```
 
-Snapshots travel with your code. Reviewers can replay them, and CI can restore
-them.
+## The journal
+
+Every write goes through an append-only journal. The journal is what
+lets Carbon do more than snapshot-and-restore:
+
+- **Rewind.** Roll state back to any journal position without replaying
+  traffic.
+- **Forward.** Re-apply journal entries after a rewind to test
+  hypotheticals.
+- **Diff.** Compare two positions and see which resources moved.
+
+## Fixtures
+
+A fixture is a snapshot that boots *with* the runtime. Point the
+runtime at a starting fixture and every request begins from that
+state instead of empty stores.
+
+```ts
+await carbon.emulate({ from: './spec.yaml', fixture: './fixtures/seed.json' });
+```
+
+## Runtime endpoints
+
+The state engine is reachable over HTTP too, so anything that speaks
+`fetch` can drive it:
+
+```
+POST /__carbon/state/snapshot   → { snapshot: {...} }
+POST /__carbon/state/restore    ← { snapshot: {...} }
+```

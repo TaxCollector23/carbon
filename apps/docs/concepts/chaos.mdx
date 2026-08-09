@@ -1,0 +1,66 @@
+---
+title: 'Chaos'
+description: 'Latency and error injection so your client code survives a bad day.'
+---
+
+Real APIs slow down, return 500s, and occasionally rate-limit you. A
+Carbon replica can do the same, on demand, so your client-side retry
+logic, circuit breakers, and timeouts get exercised in tests.
+
+## The two knobs
+
+Every chaos plugin is one of two kinds:
+
+- **`error`** — inject a status code (503, 429, 500) on a matching
+  fraction of requests to a matching route.
+- **`latency`** — add a fixed or distribution-based delay before the
+  response is written.
+
+Both are compositional: multiple plugins can attach to the same
+endpoint, and Carbon evaluates them in a deterministic order so runs are
+reproducible.
+
+## Presets
+
+`@carbon/runtime` ships built-in presets you can apply by name — the
+same names surface as *built-in* rows in the dashboard's Chaos Presets
+tab and via `GET /v1/chaos-presets`. You can also create org-scoped
+custom presets:
+
+```bash
+# List available presets for the current org
+curl -H "x-carbon-key: $CARBON_API_KEY" \
+  https://api.carbon.dev/v1/chaos-presets
+
+# Create a custom preset
+curl -X POST -H "x-carbon-key: $CARBON_API_KEY" \
+  -H "content-type: application/json" \
+  https://api.carbon.dev/v1/chaos-presets \
+  -d '{"name":"flaky-writes","kind":"error","config":{"routes":["POST /*"],"rate":0.1,"status":503}}'
+```
+
+Built-in presets can't be deleted; custom ones can.
+
+## Applying chaos
+
+From the SDK, when you boot a replica:
+
+```ts
+const replica = await carbon.emulate({
+  from: './spec.yaml',
+  chaos: [
+    { kind: 'latency', config: { routes: ['GET /*'], meanMs: 200, jitterMs: 80 } },
+    { kind: 'error',   config: { routes: ['POST /orders'], rate: 0.05, status: 500 } },
+  ],
+});
+```
+
+From a running runtime, POST plugin config to `/__carbon/chaos` at any
+time — it takes effect on the next request.
+
+## Discipline
+
+Chaos is off by default. Turning it on in CI is a policy decision: keep
+one chaos-free job for green-path tests, and one with a named preset
+for resilience tests. Snapshot the state before the chaos job so the
+next job starts clean.

@@ -1,41 +1,94 @@
 ---
 title: 'Quickstart'
-description: 'Start your first replica from a spec or recording.'
+description: 'From npm install to a stateful replica in under five minutes.'
 ---
 
-## Install the CLI
+## 1. Install
+
+The CLI publishes to npm as **`carbon-dev`** and installs a `carbon`
+executable (with `carbon-dev` and `carbon-api` as aliases).
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/carbon-dev/carbon/master/install.sh | sh
+npm install -g carbon-dev
 ```
 
-Or install with npm:
+Or without a global install:
 
 ```bash
-npm install -g carbon-api
+npx carbon-dev <command>
 ```
 
-## Create a project
+## 2. Initialize a project
 
 ```bash
-mkdir acme && cd acme
-carbon init
+mkdir petstore && cd petstore
+carbon init --name petstore
 ```
 
-This creates `carbon.config.ts` and a `.carbon/` directory for snapshots and
-cache files.
+That writes a `carbon.config.ts` you can edit later — project name, slug,
+runtime port. Re-running `carbon init` in the same directory prompts before
+overwriting (use `--force` in scripts).
 
-## Ingest an API
+## 3. Ingest a spec
+
+Any supported description works — OpenAPI, AsyncAPI, GraphQL SDL, protobuf,
+HAR, or a Postman collection. Carbon parses it into its Intermediate
+Representation and prints a summary.
 
 ```bash
-carbon ingest https://api.stripe.com/openapi.json
+carbon ingest ./petstore.openapi.json
 ```
 
-## Run the replica
+```
+Parsed petstore v1.0.0
+Endpoints     14
+Resources     3
+Relationships 2
+```
+
+## 4. Boot the runtime
 
 ```bash
-carbon emulate --from ./stripe.json --port 8787
+carbon emulate --from ./petstore.openapi.json --port 4000
 ```
 
-Point your app at `http://localhost:8787` and use the same runtime in
-development, CI, or review environments.
+The replica listens on `http://localhost:4000`. Health, inspection, and
+state routes live under `/__carbon/*`. Pass `--watch` to auto-reload on
+spec changes.
+
+## 5. Hit it like a real API
+
+```bash
+curl -X POST http://localhost:4000/pets \
+  -H 'content-type: application/json' \
+  -d '{"name":"Milo","tag":"cat"}'
+
+curl http://localhost:4000/pets
+# → the pet you just created is in the list
+```
+
+State survives across requests because Carbon compiled the spec into a
+behavior graph — it isn't returning canned JSON.
+
+## 6. Snapshot the state
+
+```bash
+carbon snapshot save baseline
+```
+
+Snapshots land under `.carbon/snapshots/` as JSON. Restore any time:
+
+```bash
+carbon snapshot load baseline
+```
+
+That's the whole loop: **ingest → emulate → mutate → snapshot → restore**.
+
+## Next steps
+
+- [Spec to runtime](/concepts/spec-to-runtime) — how ingest, IR, and the
+  behavior graph fit together.
+- [State engine](/concepts/state-engine) — snapshots, journal, rewind.
+- [Chaos](/concepts/chaos) — latency and error injection for resilience
+  tests.
+- [CLI reference](/cli/reference) — every command and flag.

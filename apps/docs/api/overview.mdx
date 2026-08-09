@@ -1,0 +1,68 @@
+---
+title: 'API overview'
+description: 'The Carbon control-plane HTTP API, and the three ways to authenticate against it.'
+---
+
+The control-plane API is versioned under `/v1/*` on your API host
+(hosted default: `https://api.carbon.dev`; self-hosted: whatever you
+front the `apps/api` service with).
+
+## Machine-readable spec
+
+- **OpenAPI** — `GET /openapi.json` returns the current spec, generated
+  from the running Fastify route schemas. Feed it to your OpenAPI
+  tooling, or ingest it into another Carbon runtime.
+- **Interactive docs** — `GET /docs` serves a Scalar-powered browser
+  for the same spec: try requests, see schemas, copy curl.
+
+## Authenticating
+
+Carbon accepts three auth mechanisms, in this order of preference for
+programmatic callers:
+
+### 1. API key (`x-carbon-key`) — recommended for CLI, CI, servers
+
+```bash
+curl -H "x-carbon-key: ck_live_…" https://api.carbon.dev/v1/me
+```
+
+Keys are minted per-org and carry a scope (`read`, `write`, `admin`).
+Rotate them from the dashboard or via `POST /v1/api-keys`. See
+[Compliance export](/security/compliance-export) for how key lifecycle
+data shows up in audit bundles.
+
+### 2. Session bearer — for dashboard-issued tokens
+
+The Better Auth session token, sent as a `Bearer` on the
+`Authorization` header. Used by the dashboard's own requests to the
+API host when it isn't same-origin.
+
+```bash
+curl -H "Authorization: Bearer <session-token>" https://api.carbon.dev/v1/me
+```
+
+### 3. Session cookie — for same-origin browser calls
+
+When the dashboard and API share a public origin, the Better Auth
+session cookie is sent automatically. Nothing to configure on the
+caller side; the API validates it exactly the same way as the bearer
+form.
+
+## Scopes
+
+Every route declares a required scope. The three that matter:
+
+- `read` — GETs, list endpoints
+- `write` — mutations that don't affect billing or identity
+- `admin` — usage, exports, api-key rotation, SSO/SCIM configuration
+
+`carbon whoami` prints the scopes attached to your current key so you
+can tell what a call will be allowed to do before you make it.
+
+## Rate limits and idempotency
+
+- Every mutation route accepts an `Idempotency-Key` header; a repeated
+  key returns the previously stored response for 24 hours.
+- Rate limits are per-org, keyed off the API key or session. When
+  Redis is unreachable the API degrades to an in-memory bucket —
+  watch for `redis.unreachable` in the log if numbers look off.

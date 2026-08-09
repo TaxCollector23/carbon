@@ -1,0 +1,66 @@
+---
+title: 'Self-hosted'
+description: 'Run the full Carbon control plane on a single VM with docker-compose.'
+---
+
+For customers who want everything on their own hardware, the repo ships
+a `docker-compose.selfhost.yml` that bundles Postgres, Redis, the
+migration sidecar, the API, the worker process, and the dashboard on one
+Docker network. Requires **Docker Engine 24+** with the compose plugin.
+
+## One-shot setup
+
+```bash
+cat > .env <<'EOF'
+NEXT_PUBLIC_SITE_URL=https://carbon.internal.example
+NEXT_PUBLIC_CARBON_API_URL=https://carbon.internal.example/api
+BETTER_AUTH_SECRET=$(openssl rand -hex 32)
+ALLOWED_ORIGINS=https://carbon.internal.example
+CARBON_METRICS_TOKEN=$(openssl rand -hex 16)
+EOF
+
+docker compose -f docker-compose.selfhost.yml up -d
+```
+
+## What comes up
+
+| Service    | Role                                                          |
+| ---------- | ------------------------------------------------------------- |
+| `postgres` | Control-plane database                                        |
+| `redis`    | Rate limits, idempotency, queue                               |
+| `migrate`  | Runs `pnpm --filter @carbon/database migrate:apply` and exits |
+| `api`      | Fastify API, exposes `:4000`                                  |
+| `workers`  | Ingest queue consumers                                        |
+| `dashboard`| Next.js dashboard, exposes `:3001`                            |
+
+`api`, `workers`, and `dashboard` all wait on
+`service_completed_successfully` for the `migrate` sidecar, so you
+should never run migrations by hand in the self-host path.
+
+## TLS
+
+The compose file exposes plain HTTP on `:3001` (dashboard) and `:4000`
+(API). Front the stack with your own TLS terminator — Caddy, nginx, or
+Cloudflare Tunnel all work fine.
+
+## First API key
+
+The dashboard signs in humans via Better Auth; API traffic uses Carbon
+API keys. Mint the first one from a shell that can reach Postgres:
+
+```bash
+DATABASE_URL="postgres://…" NODE_ENV=production \
+  pnpm --filter @carbon/api bootstrap
+```
+
+The secret is displayed **exactly once**. Store it in your password
+manager or your CI secret store.
+
+## Upgrades
+
+`docker compose pull && docker compose up -d` — the migration sidecar
+runs first, then the rest of the stack restarts against the new schema.
+No manual migration step.
+
+See [Prometheus](/deployment/prometheus) for scraping the same
+`/metrics` endpoint in the self-host path.

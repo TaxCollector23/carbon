@@ -8,9 +8,39 @@ import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import type { SessionAuthenticatedRequest } from '../plugins/session-auth.js';
 import { requireScope } from '../plugins/scopes.js';
+import { zodBody, zodQuery, zodResponse } from '../plugins/schema-helpers.js';
 import { getActor, recordEvent } from '../services/events.js';
 import { ProjectSlug, requireProjectAccessById } from './project-access.js';
 import { registerShareLinkRoutes } from './share-links.js';
+
+const ProjectSchema = z.object({
+  id: z.string(),
+  orgId: z.string(),
+  slug: z.string(),
+  name: z.string().optional(),
+  createdAt: z.string().datetime().optional(),
+  updatedAt: z.string().datetime().optional(),
+});
+
+const ProjectListResponse = z.object({
+  data: z.array(ProjectSchema),
+  nextCursor: z.string().nullable(),
+  hasMore: z.boolean(),
+  total: z.number().int().nullable(),
+});
+
+const ProjectMemberSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  userId: z.string(),
+  role: z.enum(['viewer', 'editor', 'admin']),
+  createdAt: z.string().datetime().optional(),
+});
+
+const MemberBody = z.object({
+  userId: z.string().min(1),
+  role: z.enum(['viewer', 'editor', 'admin']).default('viewer'),
+});
 
 const CreateProjectBody = z.object({
   orgId: z.string().min(1).optional(),
@@ -29,7 +59,18 @@ const ListQuery = z.object({
 });
 
 export async function registerProjectRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
-  app.get('/v1/projects', { preHandler: requireScope('read') }, async (req) => {
+  app.get('/v1/projects', {
+    preHandler: requireScope('read'),
+    schema: {
+      summary: 'List projects',
+      description:
+        'Return projects visible to the caller, ordered by id. Uses a limit+1 ' +
+        'cursor pagination scheme; a stable `nextCursor` continues the scan on the next call. ' +
+        '`total` is only computed when `includeTotal=true` and only on the first page.',
+      querystring: zodQuery(ListQuery),
+      response: { 200: zodResponse(ProjectListResponse) },
+    },
+  }, async (req) => {
     const { limit, cursor, orgId: queryOrgId, includeTotal } = ListQuery.parse(req.query);
     const orgId = requestOrgId(req, queryOrgId);
     const conditions = [];
@@ -59,7 +100,17 @@ export async function registerProjectRoutes(app: FastifyInstance, ctx: AppContex
     return { data: items, nextCursor, hasMore, total };
   });
 
-  app.post('/v1/projects', { preHandler: requireScope('write') }, async (req, reply) => {
+  app.post('/v1/projects', {
+    preHandler: requireScope('write'),
+    schema: {
+      summary: 'Create a project',
+      description:
+        'Create a new project under the caller\'s organization. The slug must be unique per org and ' +
+        'follow the same restricted grammar the path-param routes accept.',
+      body: zodBody(CreateProjectBody),
+      response: { 201: zodResponse(ProjectSchema) },
+    },
+  }, async (req, reply) => {
     const body = CreateProjectBody.parse(req.body);
     const orgId = requestOrgId(req, body.orgId);
     if (!orgId) {
@@ -91,7 +142,15 @@ export async function registerProjectRoutes(app: FastifyInstance, ctx: AppContex
 
   app.get<{ Params: { id: string } }>(
     '/v1/projects/:id',
-    { preHandler: requireScope('read') },
+    {
+      preHandler: requireScope('read'),
+      schema: {
+        summary: 'Get a project',
+        description: 'Look up a single project by id. Returns 404 if the project is not visible to the caller\'s org.',
+        params: zodQuery(z.object({ id: z.string() })),
+        response: { 200: zodResponse(ProjectSchema) },
+      },
+    },
     async (req) => {
     const orgId = requestOrgId(req);
     const where = orgId
@@ -107,14 +166,16 @@ export async function registerProjectRoutes(app: FastifyInstance, ctx: AppContex
   // Absence of any project_members row for a project preserves the legacy
   // org-wide behavior (see project-access.ts). Creating the first row for a
   // project effectively narrows access to just those members plus org admins.
-  const MemberBody = z.object({
-    userId: z.string().min(1),
-    role: z.enum(['viewer', 'editor', 'admin']).default('viewer'),
-  });
-
   app.get<{ Params: { id: string } }>(
     '/v1/projects/:id/members',
-    { preHandler: requireScope('read') },
+    {
+      preHandler: requireScope('read'),
+      schema: {
+        summary: 'List project members',
+        description: 'Return every explicit ACL row for the project. Absent rows mean the org-wide default access applies.',
+        response: { 200: zodResponse(z.object({ data: z.array(ProjectMemberSchema) })) },
+      },
+    },
     async (req) => {
       const project = await requireProjectInOrg(ctx, req, req.params.id);
       const rows = await ctx.db
@@ -127,7 +188,15 @@ export async function registerProjectRoutes(app: FastifyInstance, ctx: AppContex
 
   app.post<{ Params: { id: string }; Body: unknown }>(
     '/v1/projects/:id/members',
-    { preHandler: requireScope('write') },
+    {
+      preHandler: requireScope('write'),
+      schema: {
+        summary: 'Add a project member',
+        description: 'Grant a specific user access to the project at the requested role. Duplicate calls are idempotent.',
+        body: zodBody(MemberBody),
+        response: { 201: zodResponse(ProjectMemberSchema) },
+      },
+    },
     async (req, reply) => {
       const project = await requireProjectInOrg(ctx, req, req.params.id);
       const body = MemberBody.parse(req.body);
