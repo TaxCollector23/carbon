@@ -28,6 +28,7 @@ import { registerMeRoutes } from './routes/me.js';
 import { registerAiQualityRoutes } from './routes/ai-quality.js';
 import { registerUsageRoutes } from './routes/usage.js';
 import { registerSsoRoutes } from './routes/sso.js';
+import { registerExportRoutes } from './routes/export.js';
 import { registerApiKeyAuth, type ApiKeyPluginOptions } from './plugins/api-key.js';
 import { registerSessionAuth } from './plugins/session-auth.js';
 import { registerIdempotency } from './plugins/idempotency.js';
@@ -337,6 +338,7 @@ export async function buildServer(
   await registerAiQualityRoutes(app, ctx);
   await registerUsageRoutes(app, ctx);
   await registerSsoRoutes(app, ctx);
+  await registerExportRoutes(app, ctx);
 
   return app;
 }

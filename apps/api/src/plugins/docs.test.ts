@@ -1,0 +1,142 @@
+import { describe, expect, it } from 'vitest';
+import Fastify from 'fastify';
+import { API_TAGS, matchTag, registerDocs } from './docs.js';
+
+/**
+ * The docs plugin is registered *before* routes, and its `onRoute` hook is
+ * what actually tags each subsequently added handler. These tests boot a
+ * fresh Fastify instance, register the plugin, then register one route per
+ * top-level tag using a URL that must match the plugin's prefix map. If any
+ * mapping regresses, one of the `toContain('<Tag>')` assertions fires.
+ */
+
+interface StubRoute {
+  method: 'GET' | 'POST';
+  url: string;
+  tag: string;
+}
+
+/**
+ * Minimal set of routes — one per API tag — that mirrors the real prefixes
+ * registered by server.ts. Kept alongside the tag list so a new tag added
+ * to `API_TAGS` immediately surfaces here as a missing fixture.
+ */
+const FIXTURE_ROUTES: readonly StubRoute[] = [
+  { method: 'GET', url: '/v1/projects', tag: 'Projects' },
+  { method: 'POST', url: '/v1/snapshots', tag: 'Snapshots' },
+  { method: 'GET', url: '/v1/emulators', tag: 'Emulators' },
+  { method: 'GET', url: '/v1/api-keys', tag: 'Api Keys' },
+  { method: 'GET', url: '/v1/artifacts/abc', tag: 'Artifacts' },
+  { method: 'GET', url: '/v1/events', tag: 'Events' },
+  { method: 'GET', url: '/v1/organizations', tag: 'Organizations' },
+  { method: 'POST', url: '/v1/billing/checkout', tag: 'Billing' },
+  { method: 'GET', url: '/scim/v2/Users', tag: 'SCIM' },
+  { method: 'GET', url: '/v1/chaos-presets', tag: 'Chaos Presets' },
+  { method: 'GET', url: '/v1/contract/xyz', tag: 'Contract' },
+  { method: 'GET', url: '/v1/assertions', tag: 'Assertions' },
+  { method: 'GET', url: '/v1/graphs/xyz', tag: 'Graphs' },
+  { method: 'POST', url: '/v1/cli-auth/start', tag: 'CLI Auth' },
+  { method: 'GET', url: '/v1/me', tag: 'Me' },
+  { method: 'GET', url: '/v1/health/live', tag: 'Health' },
+  { method: 'GET', url: '/v1/ai-quality/latest', tag: 'AI Quality' },
+  { method: 'GET', url: '/v1/usage', tag: 'Usage' },
+  { method: 'GET', url: '/v1/sso/providers', tag: 'SSO' },
+  { method: 'GET', url: '/v1/events/export', tag: 'Export' },
+  { method: 'GET', url: '/v1/projects/pid/share-links', tag: 'Share Links' },
+  { method: 'POST', url: '/v1/ingest', tag: 'Ingest' },
+];
+
+async function bootWithFixtures() {
+  const app = Fastify({ logger: false });
+  await registerDocs(app, 'test-1.2.3');
+  for (const r of FIXTURE_ROUTES) {
+    if (r.method === 'GET') {
+      app.get(r.url, async () => ({ ok: true }));
+    } else {
+      app.post(r.url, async () => ({ ok: true }));
+    }
+  }
+  await app.ready();
+  return app;
+}
+
+describe('docs plugin', () => {
+  it('serves /openapi.json as valid OpenAPI 3.1 JSON', async () => {
+    const app = await bootWithFixtures();
+    try {
+      const res = await app.inject('/openapi.json');
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.openapi).toBe('3.1.0');
+      expect(body.info.title).toBe('Carbon API');
+      expect(body.info.version).toBe('test-1.2.3');
+      expect(body.info.contact?.email).toContain('@');
+      expect(body.info.license?.name).toBe('Apache-2.0');
+      expect(Array.isArray(body.servers)).toBe(true);
+      expect(body.servers).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ url: 'http://localhost:4000' }),
+          expect.objectContaining({ url: 'https://api.carbon.dev' }),
+        ]),
+      );
+      expect(body.components.securitySchemes.apiKey).toBeTruthy();
+      expect(body.components.securitySchemes.bearerAuth).toBeTruthy();
+      expect(body.components.securitySchemes.sessionCookie).toBeTruthy();
+      expect(body.security).toEqual(
+        expect.arrayContaining([
+          { apiKey: [] },
+          { bearerAuth: [] },
+          { sessionCookie: [] },
+        ]),
+      );
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('lists every module tag in the top-level tags array', async () => {
+    const app = await bootWithFixtures();
+    try {
+      const body = app.swagger();
+      const names = (body.tags ?? []).map((t: { name: string }) => t.name);
+      for (const t of API_TAGS) {
+        expect(names).toContain(t.name);
+      }
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('auto-tags each registered route with its module tag', async () => {
+    const app = await bootWithFixtures();
+    try {
+      const body = app.swagger() as {
+        paths: Record<string, Record<string, { tags?: string[]; summary?: string }>>;
+      };
+
+      for (const r of FIXTURE_ROUTES) {
+        // Fastify turns `:id` into `{id}` when materializing the spec.
+        const openapiPath = r.url.replace(/:([A-Za-z0-9_]+)/g, '{$1}');
+        const path = body.paths[openapiPath];
+        expect(path, `missing path ${openapiPath}`).toBeTruthy();
+        const op = path?.[r.method.toLowerCase()];
+        expect(op, `missing ${r.method} ${openapiPath}`).toBeTruthy();
+        expect(op?.tags).toContain(r.tag);
+        expect(op?.summary).toBeTruthy();
+      }
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('matchTag returns the expected tag for representative paths', () => {
+    expect(matchTag('/v1/projects')).toBe('Projects');
+    expect(matchTag('/v1/projects/xyz/share-links')).toBe('Share Links');
+    expect(matchTag('/v1/projects/xyz/snapshots')).toBe('Snapshots');
+    expect(matchTag('/v1/events/export')).toBe('Export');
+    expect(matchTag('/v1/events')).toBe('Events');
+    expect(matchTag('/v1/health/live')).toBe('Health');
+    expect(matchTag('/scim/v2/Users')).toBe('SCIM');
+    expect(matchTag('/something/unknown')).toBeNull();
+  });
+});

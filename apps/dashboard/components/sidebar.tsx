@@ -32,6 +32,10 @@ const items = [
 export function Sidebar() {
   const pathname = usePathname();
 
+  // Sign-in/sign-up chromeless; render nothing so the auth screens are
+  // centered by their own layouts without a workspace nav next to them.
+  if (pathname === '/sign-in' || pathname === '/sign-up') return null;
+
   return (
     <aside className="border-border bg-subtle/30 flex h-dvh w-60 shrink-0 flex-col border-r px-3 py-4">
       <div className="px-3 py-2 text-sm font-medium tracking-tight">Carbon</div>

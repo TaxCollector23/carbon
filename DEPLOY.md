@@ -268,6 +268,40 @@ groups:
 | `/v1/version`        | Build metadata (gitSha, buildTime, plans, feature toggles)       | none              |
 | `/metrics`           | Prometheus text format                                           | optional bearer   |
 
+## Compliance exports
+
+Enterprise orgs can pull a one-shot bundle of everything on record for audit
+review via `carbon export`. The CLI hits the admin-only `POST /v1/export`
+endpoint and streams the response to disk — nothing is buffered in memory,
+so a multi-GB events dump won't OOM the caller.
+
+```bash
+# Full 90-day bundle (default), JSON.
+carbon export --out audit.json
+
+# Auditor-friendly zip with just the events + api-key history.
+carbon export --include events,api_keys --format zip --out audit-2026Q1.zip
+
+# Narrow the window explicitly.
+carbon export \
+  --include events,audit \
+  --since 2026-01-01T00:00:00Z \
+  --until 2026-04-01T00:00:00Z \
+  --format zip
+```
+
+Valid `--include` items: `events`, `projects`, `snapshots`, `api_keys`,
+`members`, `ai_quality`, `usage`, `audit`. The `api_keys` bucket never
+contains the stored hash — only prefix, scopes, rotation lineage, and
+lifecycle timestamps — so the bundle is safe to hand to an outside auditor.
+The zip format also includes a top-level `manifest.json` with the
+`{orgId, generatedAt, ranges, include, counts}` header, which is what most
+review workflows want to record alongside the raw data.
+
+The endpoint requires an `admin`-scoped API key. Mint a short-lived one via
+`carbon` → `/v1/api-keys` with `expiresInSeconds` set to the length of the
+review window rather than reusing a standing admin credential.
+
 ## CLI Install
 
 The public install command is:

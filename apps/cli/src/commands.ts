@@ -3,6 +3,7 @@ import { activityCommand } from './commands/activity.js';
 import { completionCommand } from './commands/completion.js';
 import { doctorCommand } from './commands/doctor.js';
 import { emulateCommand } from './commands/emulate.js';
+import { exportCommand } from './commands/export.js';
 import { generateTestsCommand } from './commands/generate-tests.js';
 import { ingestCommand } from './commands/ingest.js';
 import { initCommand } from './commands/init.js';
@@ -39,6 +40,7 @@ export const cliSubCommands = {
   usage: usageCommand,
   activity: activityCommand,
   quality: qualityCommand,
+  export: exportCommand,
   completion: completionCommand,
 } satisfies Record<string, AnyCommand>;
 
@@ -64,6 +66,7 @@ export const cliCommandCatalog: readonly CliCommandInfo[] = [
   commandInfo('usage', usageCommand),
   commandInfo('activity', activityCommand),
   commandInfo('quality', qualityCommand),
+  commandInfo('export', exportCommand),
   commandInfo('completion', completionCommand),
 ];
 

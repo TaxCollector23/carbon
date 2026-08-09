@@ -165,6 +165,49 @@ describe('session auth plugin', () => {
     });
   });
 
+  it('valid session cookie attaches sessionUser with id, email, orgId, and org role', async () => {
+    // Regression guard for the marketing → dashboard handoff: browsers hit
+    // apps/api with a cookie (no Bearer), and downstream RBAC needs the
+    // resolved org role to be attached. This asserts the exact shape.
+    const app = await buildApp({
+      session: { userId: 'user_42', email: 'bob@example.com' },
+      memberships: [{ orgId: 'org_alpha', role: 'admin' }],
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/whoami',
+      headers: { cookie: 'better-auth.session_token=fresh-cookie-token.sig' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      user: {
+        id: 'user_42',
+        email: 'bob@example.com',
+        orgId: 'org_alpha',
+        role: 'admin',
+      },
+    });
+  });
+
+  it('expired session token does not attach sessionUser (cookie path)', async () => {
+    // The SQL `expiresAt > now()` guard makes an expired token
+    // indistinguishable from an unknown one from the plugin's POV: the
+    // fixture returns no session row. This test locks that behaviour in
+    // for the cookie path specifically (the Bearer path is covered above).
+    const app = await buildApp({ session: null, memberships: [] });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/whoami',
+      headers: { cookie: 'better-auth.session_token=expired-cookie-token.sig' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ user: null });
+  });
+
   it('falls back to the first membership when X-Carbon-Org does not match', async () => {
     const app = await buildApp({
       session: { userId: 'user_1', email: 'alice@example.com' },

@@ -5,8 +5,22 @@ import { useEffect, useState } from 'react';
 import { buttonVariants, cn } from '@carbon/ui';
 import { Wordmark } from './logo';
 
+/**
+ * Cross-app dashboard entry point.
+ *
+ * `NEXT_PUBLIC_DASHBOARD_URL` is baked at build time by Next.js. Fall
+ * back to the local dev origin so `pnpm dev` works out of the box. The
+ * `?next=/` param is honoured by apps/dashboard's /sign-in page.
+ */
+function dashboardSignInUrl(): string {
+  const raw = process.env.NEXT_PUBLIC_DASHBOARD_URL;
+  const base = raw && raw.trim() !== '' ? raw.replace(/\/+$/, '') : 'http://localhost:3001';
+  return `${base}/sign-in?next=/`;
+}
+
 export function Nav() {
   const [scrolled, setScrolled] = useState(false);
+  const dashUrl = dashboardSignInUrl();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -32,12 +46,12 @@ export function Nav() {
           <Link href="/#cli" className={cn(buttonVariants({ size: 'sm' }))}>
             Install CLI
           </Link>
-          <Link
-            href="/dashboard"
+          <a
+            href={dashUrl}
             className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}
           >
             Enter Dashboard
-          </Link>
+          </a>
           <Link
             href="/#benchmarks"
             className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}

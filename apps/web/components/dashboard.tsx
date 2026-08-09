@@ -75,11 +75,11 @@ export function DashboardRoute() {
 }
 
 function defaultSignInUrl(): string {
-  return 'http://localhost:3001/sign-in';
+  return 'http://localhost:3001/sign-in?next=/';
 }
 
 function resolveSignInUrl(): string {
   const base = process.env.NEXT_PUBLIC_DASHBOARD_URL;
   if (!base || base.trim() === '') return defaultSignInUrl();
-  return `${base.replace(/\/+$/, '')}/sign-in`;
+  return `${base.replace(/\/+$/, '')}/sign-in?next=/`;
 }

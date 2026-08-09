@@ -1,0 +1,22 @@
+{
+  "name": "@carbon/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "typecheck": "tsc --noEmit",
+    "install:browsers": "playwright install --with-deps chromium",
+    "seed": "tsx scripts/seed.ts"
+  },
+  "devDependencies": {
+    "@carbon/database": "workspace:*",
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^22.10.0",
+    "postgres": "^3.4.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

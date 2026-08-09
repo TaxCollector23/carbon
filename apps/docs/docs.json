@@ -40,6 +40,10 @@
       "pages": ["sdk/overview", "sdk/emulate", "sdk/state", "sdk/snapshots"]
     },
     {
+      "group": "SDK reference (generated)",
+      "pages": ["sdk/globals"]
+    },
+    {
       "group": "Guides",
       "pages": ["guides/testing", "guides/ci", "guides/deployment"]
     },
