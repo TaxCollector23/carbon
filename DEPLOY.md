@@ -204,6 +204,70 @@ so a trace survives across the proxy, the dashboard, and the API. One structured
 slow requests, `info` otherwise — so `level>=50` is a usable alert condition
 without a parsing rule. Probe endpoints are excluded to keep the volume honest.
 
+Useful grep patterns when triaging incidents:
+
+```bash
+# Redis unreachable — rate-limit + idempotency degrade to in-memory fallback
+grep '"event":"redis.unreachable"' carbon-api.log
+
+# AI enrichment tripped its circuit-breaker (ingest still succeeds, just
+# without judge annotations)
+grep '"event":"ingestion.ai_skipped_breaker_open"' carbon-api.log
+
+# Assertion plugin found a state-machine invariant violation
+grep '"event":"assertion.violated"' carbon-api.log
+
+# Per-org AI usage — feeds the billing rollup
+grep '"event":"usage.ai.call"' carbon-api.log
+```
+
+### Alerting
+
+The Prometheus rules below cover the failure modes that have actually paged us.
+They assume the `carbon_*` metrics from `/metrics` are being scraped every 15s.
+
+```yaml
+groups:
+  - name: carbon-api.rules
+    rules:
+      - alert: CarbonApi5xxSurge
+        expr: sum(rate(carbon_http_requests_total{status_class="5xx"}[5m])) > 0.5
+        for: 5m
+        labels: { severity: page }
+        annotations:
+          summary: "carbon-api 5xx > 0.5/s for 5m"
+          runbook: "https://carbon.dev/runbooks/api-5xx"
+
+      - alert: CarbonApiP99Slow
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum by (le) (rate(carbon_http_request_duration_seconds_bucket[10m]))
+          ) > 2
+        for: 10m
+        labels: { severity: warn }
+        annotations:
+          summary: "carbon-api p99 latency > 2s for 10m"
+
+      - alert: CarbonIngestQueueBacklog
+        expr: carbon_ingest_queue_depth > 100
+        for: 15m
+        labels: { severity: warn }
+        annotations:
+          summary: "ingest queue depth > 100 for 15m — workers may be stuck"
+```
+
+### Health endpoints
+
+| Endpoint             | Purpose                                                          | Auth              |
+| -------------------- | ---------------------------------------------------------------- | ----------------- |
+| `/health`            | Liveness probe (process is up, no dependency checks)             | none              |
+| `/v1/health/live`    | Alias of `/health` for callers that prefer the versioned path    | none              |
+| `/ready`             | Readiness probe (DB + Redis + storage, cached 2s)                | none              |
+| `/v1/health/deep`    | Per-dependency latency + status for on-call triage               | admin-scoped key  |
+| `/v1/version`        | Build metadata (gitSha, buildTime, plans, feature toggles)       | none              |
+| `/metrics`           | Prometheus text format                                           | optional bearer   |
+
 ## CLI Install
 
 The public install command is:

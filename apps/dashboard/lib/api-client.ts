@@ -19,18 +19,22 @@ export interface ApiErrorPayload {
   code: string;
   message: string;
   details?: unknown;
+  /** Optional docs URL served by the API for this error code. */
+  help?: string;
 }
 
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
   readonly details: unknown;
+  readonly help?: string;
   constructor(payload: ApiErrorPayload) {
     super(payload.message);
     this.name = 'ApiError';
     this.status = payload.status;
     this.code = payload.code;
     this.details = payload.details;
+    this.help = payload.help;
   }
 }
 
@@ -366,13 +370,14 @@ export function createApiClient(options: ApiClientOptions = {}) {
 
     if (!response.ok) {
       const errObj = (json && typeof json === 'object' && 'error' in json ? (json as { error: unknown }).error : json) as
-        | { code?: string; message?: string; details?: unknown }
+        | { code?: string; message?: string; details?: unknown; help?: string }
         | null;
       const apiErr = new ApiError({
         status: response.status,
         code: errObj?.code ?? `HTTP_${response.status}`,
         message: errObj?.message ?? response.statusText ?? 'request failed',
         details: errObj?.details,
+        help: typeof errObj?.help === 'string' ? errObj.help : undefined,
       });
       // Announce specific error taxonomies globally so cross-cutting UI (e.g.
       // the idempotency banner) can react without every call-site opting in.

@@ -23,7 +23,8 @@ export type ErrorCode =
   | 'CARBON_DEPENDENCY_UNAVAILABLE'
   | 'CARBON_TIMEOUT'
   | 'CARBON_RATE_LIMITED'
-  | 'CARBON_JOB_FAILED';
+  | 'CARBON_JOB_FAILED'
+  | 'CARBON_AI_QUALITY_BELOW_THRESHOLD';
 
 export interface CarbonErrorOptions {
   readonly code: ErrorCode;
@@ -32,12 +33,53 @@ export interface CarbonErrorOptions {
   readonly details?: Readonly<Record<string, unknown>>;
   /** May the message be shown to end users? Defaults to false. */
   readonly expose?: boolean;
+  /**
+   * A documentation URL explaining the error and how to fix it. When omitted
+   * for a known `code`, defaults to `https://carbon.dev/errors/<slug>` where
+   * the slug is the code lowercased with underscores turned into hyphens
+   * (e.g. `CARBON_RATE_LIMITED` → `carbon-rate-limited`). Pass an empty
+   * string to opt out of the default.
+   */
+  readonly help?: string;
+}
+
+const KNOWN_ERROR_CODES: ReadonlySet<string> = new Set([
+  'CARBON_INTERNAL',
+  'CARBON_INVALID_INPUT',
+  'CARBON_NOT_FOUND',
+  'CARBON_CONFLICT',
+  'CARBON_UNAUTHENTICATED',
+  'CARBON_FORBIDDEN',
+  'CARBON_PARSE_FAILED',
+  'CARBON_INGESTION_FAILED',
+  'CARBON_STATE_VIOLATION',
+  'CARBON_RUNTIME_UNAVAILABLE',
+  'CARBON_STORAGE_FAILED',
+  'CARBON_AI_PROVIDER_FAILED',
+  'CARBON_DEPENDENCY_UNAVAILABLE',
+  'CARBON_TIMEOUT',
+  'CARBON_RATE_LIMITED',
+  'CARBON_JOB_FAILED',
+  'CARBON_AI_QUALITY_BELOW_THRESHOLD',
+] satisfies readonly ErrorCode[]);
+
+export function helpUrlForCode(code: string): string | undefined {
+  if (!KNOWN_ERROR_CODES.has(code)) return undefined;
+  const slug = code.toLowerCase().replace(/_/g, '-');
+  return `https://carbon.dev/errors/${slug}`;
 }
 
 export class CarbonError extends Error {
   readonly code: ErrorCode;
   readonly details: Readonly<Record<string, unknown>>;
   readonly expose: boolean;
+  /**
+   * Documentation URL for this error. Defaults to the canonical carbon.dev
+   * page for known codes; consumers can override on construction. Never
+   * present when the code is unknown and no explicit URL was supplied — we
+   * don't want the docs site to inherit dead links from typos.
+   */
+  readonly help?: string;
 
   constructor(opts: CarbonErrorOptions) {
     super(opts.message, opts.cause ? { cause: opts.cause } : undefined);
@@ -45,6 +87,11 @@ export class CarbonError extends Error {
     this.code = opts.code;
     this.details = opts.details ?? {};
     this.expose = opts.expose ?? false;
+    if (opts.help !== undefined) {
+      this.help = opts.help === '' ? undefined : opts.help;
+    } else {
+      this.help = helpUrlForCode(opts.code);
+    }
   }
 }
 

@@ -91,6 +91,23 @@ export async function registerHealthRoutes(
     node: process.version,
     startedAt: new Date(Date.now() - Math.floor(process.uptime() * 1000)).toISOString(),
     uptimeSec: Math.floor(process.uptime()),
+    // Build metadata is populated by CI when it stamps the container image;
+    // absent in local dev, which is why both keys default to null instead of
+    // omitted — a stable shape is easier to consume than a shifting one.
+    gitSha: process.env.CARBON_GIT_SHA ?? null,
+    buildTime: process.env.CARBON_BUILD_TIME ?? null,
+    // Plan tiers the control plane currently understands. Kept literal here
+    // (not env-driven) because plan gating is code, not config — new tiers
+    // arrive as a code change and this list should follow it.
+    plans: ['developer', 'team', 'enterprise'] as const,
+    // Feature toggles reflect whether the *deployment* has the moving parts
+    // wired up. SSO/SCIM are always-on in code but only useful once the
+    // respective env is configured; billing is dark until Stripe is set.
+    features: {
+      billing: Boolean(process.env.STRIPE_SECRET_KEY),
+      sso: Boolean(process.env.BETTER_AUTH_SSO),
+      scim: true,
+    },
   }));
 
   app.get('/ready', async (_req, reply) => {

@@ -349,6 +349,10 @@ function sendCarbonError(reply: FastifyReply, err: CarbonError): void {
       code: err.code,
       message: err.expose ? err.message : 'Internal error',
       details: err.expose && Object.keys(err.details).length > 0 ? err.details : undefined,
+      // A stable docs URL is safe to surface even when the message is
+      // redacted — the code alone is what determines the link, and the code
+      // is already in the response.
+      help: err.help,
     },
   });
 }

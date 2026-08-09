@@ -221,4 +221,53 @@ describe('health routes', () => {
     expect(res.json().service).toBe('carbon-api');
     expect(calls()).toBe(0);
   });
+
+  it('/v1/version reports build metadata, plans, and feature toggles', async () => {
+    const prev = {
+      sha: process.env.CARBON_GIT_SHA,
+      buildTime: process.env.CARBON_BUILD_TIME,
+      stripe: process.env.STRIPE_SECRET_KEY,
+      sso: process.env.BETTER_AUTH_SSO,
+    };
+    process.env.CARBON_GIT_SHA = 'abc123';
+    process.env.CARBON_BUILD_TIME = '2026-01-01T00:00:00Z';
+    delete process.env.STRIPE_SECRET_KEY;
+    delete process.env.BETTER_AUTH_SSO;
+    try {
+      const app = Fastify();
+      const { db } = countingDb();
+      await registerHealthRoutes(app, makeCtx(db));
+      const res = await app.inject('/v1/version');
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.gitSha).toBe('abc123');
+      expect(body.buildTime).toBe('2026-01-01T00:00:00Z');
+      expect(body.plans).toEqual(['developer', 'team', 'enterprise']);
+      expect(body.features).toEqual({ billing: false, sso: false, scim: true });
+    } finally {
+      restoreEnv('CARBON_GIT_SHA', prev.sha);
+      restoreEnv('CARBON_BUILD_TIME', prev.buildTime);
+      restoreEnv('STRIPE_SECRET_KEY', prev.stripe);
+      restoreEnv('BETTER_AUTH_SSO', prev.sso);
+    }
+  });
+
+  it('/v1/version flips features.billing on when STRIPE_SECRET_KEY is set', async () => {
+    const prev = process.env.STRIPE_SECRET_KEY;
+    process.env.STRIPE_SECRET_KEY = 'sk_test_xyz';
+    try {
+      const app = Fastify();
+      const { db } = countingDb();
+      await registerHealthRoutes(app, makeCtx(db));
+      const body = (await app.inject('/v1/version')).json();
+      expect(body.features.billing).toBe(true);
+    } finally {
+      restoreEnv('STRIPE_SECRET_KEY', prev);
+    }
+  });
 });
+
+function restoreEnv(name: string, prev: string | undefined): void {
+  if (prev === undefined) delete process.env[name];
+  else process.env[name] = prev;
+}

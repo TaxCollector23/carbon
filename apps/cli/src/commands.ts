@@ -1,4 +1,5 @@
 import type { CommandDef } from 'citty';
+import { activityCommand } from './commands/activity.js';
 import { completionCommand } from './commands/completion.js';
 import { doctorCommand } from './commands/doctor.js';
 import { emulateCommand } from './commands/emulate.js';
@@ -8,9 +9,11 @@ import { initCommand } from './commands/init.js';
 import { inspectCommand } from './commands/inspect.js';
 import { loginCommand } from './commands/login.js';
 import { logoutCommand } from './commands/logout.js';
+import { qualityCommand } from './commands/quality.js';
 import { recordCommand } from './commands/record.js';
 import { replayCommand } from './commands/replay.js';
 import { snapshotCommand } from './commands/snapshot.js';
+import { usageCommand } from './commands/usage.js';
 import { whoamiCommand } from './commands/whoami.js';
 
 export interface CliCommandInfo {
@@ -33,6 +36,9 @@ export const cliSubCommands = {
   replay: replayCommand,
   doctor: doctorCommand,
   'generate-tests': generateTestsCommand,
+  usage: usageCommand,
+  activity: activityCommand,
+  quality: qualityCommand,
   completion: completionCommand,
 } satisfies Record<string, AnyCommand>;
 
@@ -55,6 +61,9 @@ export const cliCommandCatalog: readonly CliCommandInfo[] = [
   commandInfo('replay', replayCommand),
   commandInfo('doctor', doctorCommand),
   commandInfo('generate-tests', generateTestsCommand),
+  commandInfo('usage', usageCommand),
+  commandInfo('activity', activityCommand),
+  commandInfo('quality', qualityCommand),
   commandInfo('completion', completionCommand),
 ];
 

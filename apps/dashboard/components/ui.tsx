@@ -22,12 +22,31 @@ export function ErrorBanner({
   onRetry?: () => void;
 }) {
   const message = typeof error === 'string' ? error : error.message;
+  // ApiError carries an optional docs URL served by the API; if present we
+  // show a "Learn more" link so operators can jump straight to the runbook
+  // rather than pasting the code into search.
+  const help =
+    typeof error === 'object' && error !== null && 'help' in error
+      ? ((error as { help?: unknown }).help as string | undefined)
+      : undefined;
   return (
     <div className="border-destructive/40 bg-destructive/5 text-destructive flex items-start gap-3 rounded-md border px-4 py-3 text-sm">
       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
       <div className="flex-1">
         <p className="font-medium">Something went wrong</p>
         <p className="text-destructive/80 mt-1 text-xs leading-5">{message}</p>
+        {help ? (
+          <p className="mt-1 text-xs leading-5">
+            <a
+              href={help}
+              target="_blank"
+              rel="noreferrer"
+              className="text-destructive/80 hover:text-destructive underline underline-offset-2"
+            >
+              Learn more →
+            </a>
+          </p>
+        ) : null}
       </div>
       {onRetry ? (
         <Button size="sm" variant="ghost" onClick={onRetry}>
