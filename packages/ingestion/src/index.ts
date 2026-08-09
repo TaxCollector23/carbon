@@ -24,6 +24,13 @@ export interface IngestRequest {
   readonly input: ParserInput;
   readonly origin?: string;
   readonly enrich?: boolean;
+  /**
+   * Attribution context threaded into the AI provider's usage callback. When
+   * the API resolves an org for the caller, it flows through here so
+   * `onUsage(evt)` can bill against the right tenant. Optional — non-org
+   * callers (CLI, system tasks) leave this unset.
+   */
+  readonly context?: { readonly orgId?: string; readonly projectId?: string };
 }
 
 export interface IngestJudgeReport {
@@ -43,6 +50,12 @@ export interface IngestResult {
    * against a threshold to decide whether to auto-promote or hold for review.
    */
   readonly judge?: IngestJudgeReport;
+  /**
+   * Threshold the judge is configured against. Echoed here so downstream
+   * consumers (SDK, API persistence path) do not have to reach back into the
+   * pipeline deps to know what score gates auto-promotion.
+   */
+  readonly judgeThreshold?: number;
 }
 
 export interface IngestionDeps {
@@ -84,12 +97,12 @@ export function createIngestionPipeline(deps: IngestionDeps): IngestionPipeline 
       let judge: IngestJudgeReport | undefined;
       if (req.enrich && deps.ai) {
         try {
-          const enrichedResources = await deps.ai.inferResources({ ir });
+          const enrichedResources = await deps.ai.inferResources({ ir }, req.context);
           ir = { ...ir, resources: enrichedResources };
-          const enrichedRelationships = await deps.ai.inferRelationships({
-            ir,
-            resources: enrichedResources,
-          });
+          const enrichedRelationships = await deps.ai.inferRelationships(
+            { ir, resources: enrichedResources },
+            req.context,
+          );
           ir = { ...ir, relationships: enrichedRelationships };
           if (deps.judge) {
             // The judge takes the *final* enriched IR + the proposals so it can
@@ -97,14 +110,14 @@ export function createIngestionPipeline(deps: IngestionDeps): IngestionPipeline 
             // inference output). Failures inside the judge fall through to
             // its own fallback verdict — we never let it break ingestion.
             const [resVerdict, relVerdict] = await Promise.all([
-              deps.judge.judgeResourceInference({
-                ir,
-                proposedResources: enrichedResources,
-              }),
-              deps.judge.judgeRelationshipInference({
-                ir,
-                proposedRelationships: enrichedRelationships,
-              }),
+              deps.judge.judgeResourceInference(
+                { ir, proposedResources: enrichedResources },
+                req.context,
+              ),
+              deps.judge.judgeRelationshipInference(
+                { ir, proposedRelationships: enrichedRelationships },
+                req.context,
+              ),
             ]);
             judge = { resources: resVerdict, relationships: relVerdict };
           }
@@ -151,7 +164,15 @@ export function createIngestionPipeline(deps: IngestionDeps): IngestionPipeline 
         );
       }
 
-      return { irId, graphId, ir, graph, warnings, judge };
+      return {
+        irId,
+        graphId,
+        ir,
+        graph,
+        warnings,
+        judge,
+        judgeThreshold: deps.judge?.threshold,
+      };
     },
   };
 }

@@ -78,7 +78,12 @@ export async function registerHealthRoutes(
   let inFlight: Promise<EvalOutcome> | null = null;
   let lastWriteProbeAt = 0;
 
-  app.get('/health', async () => ({ ok: true, service: 'carbon-api', version: '0.1.0' }));
+  const livenessBody = () => ({ ok: true, service: 'carbon-api', version: '0.1.0' });
+  // `/health` is the historical liveness path; `/v1/health/live` is the
+  // versioned alias for symmetry with `/v1/health/deep`. Both are the same
+  // handler — dependency checks live on `/ready` (and `/v1/health/deep`).
+  app.get('/health', async () => livenessBody());
+  app.get('/v1/health/live', async () => livenessBody());
 
   app.get('/v1/version', async () => ({
     version: '0.1.0',

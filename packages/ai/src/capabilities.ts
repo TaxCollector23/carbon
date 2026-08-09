@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { IntermediateRepresentation, RelationshipDef, ResourceDef } from '@carbon/types';
-import type { AiProvider } from './provider.js';
+import type { AiCallContext, AiProvider } from './provider.js';
 
 /**
  * Structural mirror of `@carbon/runtime`'s ErrorInjectionRule. The AI package
@@ -90,15 +90,19 @@ export class AiCapabilities {
   }
 
   /** Turn an IR + accompanying docs into a list of inferred resources. */
-  inferResources(input: {
-    ir: IntermediateRepresentation;
-    docs?: string;
-  }): Promise<ResourceDef[]> {
+  inferResources(
+    input: {
+      ir: IntermediateRepresentation;
+      docs?: string;
+    },
+    context?: AiCallContext,
+  ): Promise<ResourceDef[]> {
     return this.requireProvider().structured({
       instruction:
         'Given an IR of API endpoints and optional documentation, identify the underlying resources. ' +
         'Return only resources you can justify from the input; prefer fewer, well-named resources over many speculative ones.',
       input,
+      context,
       schema: z
         .object({
           resources: z.array(
@@ -114,14 +118,18 @@ export class AiCapabilities {
     });
   }
 
-  inferRelationships(input: {
-    ir: IntermediateRepresentation;
-    resources: readonly ResourceDef[];
-  }): Promise<RelationshipDef[]> {
+  inferRelationships(
+    input: {
+      ir: IntermediateRepresentation;
+      resources: readonly ResourceDef[];
+    },
+    context?: AiCallContext,
+  ): Promise<RelationshipDef[]> {
     return this.requireProvider().structured({
       instruction:
         'Given resources and endpoints, infer ownership and reference relationships. Only report relationships with clear evidence.',
       input,
+      context,
       schema: z
         .object({
           relationships: z.array(

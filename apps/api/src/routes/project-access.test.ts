@@ -11,6 +11,7 @@ import {
   requireProjectAccessById,
   resolveProjectAccess,
 } from './project-access.js';
+import { requireProjectInOrg } from './projects.js';
 
 /**
  * `resolveProjectAccess` terminates with `.limit()`, while
@@ -173,6 +174,49 @@ describe('project access helpers', () => {
     const access = await requireProjectAccessById(ctx, sessionReq as never, 'proj_1');
     expect(access.id).toBe('proj_1');
     expect(access.slug).toBe('acme');
+  });
+
+  // The project-scoped routes in projects.ts + share-links.ts now flow their
+  // ACL through requireProjectInOrg, which delegates to
+  // requireProjectAccessById. These two cases pin the behaviour so a future
+  // refactor cannot silently reopen access.
+  it('requireProjectInOrg (used by /v1/projects/:id/members and share-links) forbids non-members', async () => {
+    const ctx = makeTableAwareCtx({
+      projects: [{ id: 'proj_1', orgId: 'org_1', slug: 'acme' }],
+      projectMembers: [{ projectId: 'proj_1', userId: 'user_a' }],
+      projectMembersForUser: [],
+    });
+    const sessionReq = {
+      apiKey: undefined,
+      sessionUser: {
+        id: 'user_outsider',
+        email: 'x@example.com',
+        orgId: 'org_1',
+        role: 'member' as const,
+      },
+    } as unknown as SessionAuthenticatedRequest;
+    await expect(
+      requireProjectInOrg(ctx, sessionReq as never, 'proj_1'),
+    ).rejects.toMatchObject({ code: 'CARBON_FORBIDDEN' });
+  });
+
+  it('requireProjectInOrg lets a matching session user through', async () => {
+    const ctx = makeTableAwareCtx({
+      projects: [{ id: 'proj_1', orgId: 'org_1', slug: 'acme' }],
+      projectMembers: [{ projectId: 'proj_1', userId: 'user_a' }],
+      projectMembersForUser: [{ userId: 'user_a' }],
+    });
+    const sessionReq = {
+      apiKey: undefined,
+      sessionUser: {
+        id: 'user_a',
+        email: 'a@example.com',
+        orgId: 'org_1',
+        role: 'member' as const,
+      },
+    } as unknown as SessionAuthenticatedRequest;
+    const row = await requireProjectInOrg(ctx, sessionReq as never, 'proj_1');
+    expect(row).toEqual({ id: 'proj_1', orgId: 'org_1', slug: 'acme' });
   });
 
   it('does not query the database when nothing is in the org', async () => {

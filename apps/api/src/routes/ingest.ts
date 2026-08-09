@@ -7,6 +7,7 @@ import type { AppContext } from '../context.js';
 import { requireScope } from '../plugins/scopes.js';
 import { getActor, recordEvent } from '../services/events.js';
 import { recordAiQualityReport } from '../services/ai-quality.js';
+import { recordUsage } from '../services/usage.js';
 import { ProjectSlug, resolveProjectAccess } from './project-access.js';
 
 const IngestBody = z.object({
@@ -75,6 +76,18 @@ export async function registerIngestRoutes(app: FastifyInstance, ctx: AppContext
             metadata: { projectSlug: project.slug, jobId: job.id, origin: body.origin ?? null },
           });
         }
+        if (project.orgId) {
+          await recordUsage(ctx, {
+            orgId: project.orgId,
+            kind: 'ingest',
+            amount: 1,
+            metadata: {
+              projectSlug: project.slug,
+              specKind: body.source.kind,
+              mode: 'async',
+            },
+          });
+        }
         reply.status(202);
         return { jobId: job.id, status: 'queued' };
       }
@@ -84,6 +97,7 @@ export async function registerIngestRoutes(app: FastifyInstance, ctx: AppContext
         input: body.source as never,
         origin: body.origin,
         enrich: body.enrich,
+        context: project.orgId ? { orgId: project.orgId } : undefined,
       });
       if (project.orgId) {
         const actor = getActor(req);
@@ -99,6 +113,16 @@ export async function registerIngestRoutes(app: FastifyInstance, ctx: AppContext
             endpoints: result.ir.endpoints.length,
             resources: result.ir.resources.length,
             origin: body.origin ?? null,
+          },
+        });
+        await recordUsage(ctx, {
+          orgId: project.orgId,
+          kind: 'ingest',
+          amount: 1,
+          metadata: {
+            projectSlug: project.slug,
+            specKind: body.source.kind,
+            mode: 'sync',
           },
         });
       }
@@ -165,6 +189,7 @@ export async function registerIngestRoutes(app: FastifyInstance, ctx: AppContext
         input: { kind: 'json', content: req.body as unknown, hint: 'postman' } as never,
         origin: query.origin,
         enrich: false,
+        context: project.orgId ? { orgId: project.orgId } : undefined,
       });
       if (project.orgId) {
         const actor = getActor(req);
@@ -180,6 +205,16 @@ export async function registerIngestRoutes(app: FastifyInstance, ctx: AppContext
             endpoints: result.ir.endpoints.length,
             resources: result.ir.resources.length,
             origin: query.origin ?? null,
+            source: 'postman',
+          },
+        });
+        await recordUsage(ctx, {
+          orgId: project.orgId,
+          kind: 'ingest',
+          amount: 1,
+          metadata: {
+            projectSlug: project.slug,
+            specKind: 'json',
             source: 'postman',
           },
         });

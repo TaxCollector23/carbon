@@ -9,7 +9,7 @@ import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import type { SessionAuthenticatedRequest } from '../plugins/session-auth.js';
 import { requireScope } from '../plugins/scopes.js';
 import { getActor, recordEvent } from '../services/events.js';
-import { ProjectSlug } from './project-access.js';
+import { ProjectSlug, requireProjectAccessById } from './project-access.js';
 import { registerShareLinkRoutes } from './share-links.js';
 
 const CreateProjectBody = z.object({
@@ -205,27 +205,21 @@ export interface ProjectRow {
 /**
  * Resolve a project by id and confirm the caller's org owns it. Shared with
  * the share-links module to keep authz consistent.
+ *
+ * Delegates to `requireProjectAccessById` so the `project_members` ACL,
+ * API-key project pinning, and cross-org 404 behaviour all live in one place.
+ * The return shape (`{ id, orgId, slug }`) is preserved for existing callers.
  */
 export async function requireProjectInOrg(
   ctx: AppContext,
   req: FastifyRequest,
   projectId: string,
 ): Promise<ProjectRow> {
-  const orgId = requestOrgId(req);
-  const where = orgId
-    ? and(eq(schema.projects.id, projectId), eq(schema.projects.orgId, orgId))
-    : eq(schema.projects.id, projectId);
-  const [row] = await ctx.db.select().from(schema.projects).where(where).limit(1);
-  if (!row) throw new NotFoundError('project', projectId);
-  const apiKey = (req as AuthenticatedRequest).apiKey;
-  if (apiKey?.projectIds && !apiKey.projectIds.includes(row.id)) {
-    throw new CarbonError({
-      code: 'CARBON_FORBIDDEN',
-      message: 'API key not scoped to this project',
-      expose: true,
-    });
-  }
-  return { id: row.id, orgId: row.orgId, slug: row.slug };
+  const access = await requireProjectAccessById(ctx, req, projectId);
+  // `orgId` on ProjectAccess is optional (auth-disabled dev mode). In that
+  // mode the org-in-org check is a no-op and we surface an empty string so
+  // downstream code that reads `.orgId` without checking still compiles.
+  return { id: access.id, orgId: access.orgId ?? '', slug: access.slug };
 }
 
 // Suppress unused-import warnings when unrelated modules add these later.

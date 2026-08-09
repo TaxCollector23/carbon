@@ -44,6 +44,7 @@ export class LocalProvider implements AiProvider {
           model: result.model,
           usage: result.usage,
           latencyMs: Date.now() - start,
+          context: req.context,
         });
       } catch (err) {
         this.logger.warn('ai.usage_callback_failed', { message: (err as Error).message });

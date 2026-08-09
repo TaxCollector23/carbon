@@ -4,7 +4,7 @@ import type {
   RelationshipDef,
   ResourceDef,
 } from '@carbon/types';
-import type { AiProvider } from './provider.js';
+import type { AiCallContext, AiProvider } from './provider.js';
 
 /**
  * The AI Judge is an adversarial second pass over the first-pass inference
@@ -94,26 +94,37 @@ export class AiJudge {
     this.threshold = opts.threshold ?? 0.75;
   }
 
-  async judgeResourceInference(input: {
-    ir: BehaviorIR;
-    docs?: string;
-    proposedResources: readonly Resource[];
-  }): Promise<JudgeVerdict> {
-    return this.run(RESOURCE_INSTRUCTION, input);
+  async judgeResourceInference(
+    input: {
+      ir: BehaviorIR;
+      docs?: string;
+      proposedResources: readonly Resource[];
+    },
+    context?: AiCallContext,
+  ): Promise<JudgeVerdict> {
+    return this.run(RESOURCE_INSTRUCTION, input, context);
   }
 
-  async judgeRelationshipInference(input: {
-    ir: BehaviorIR;
-    proposedRelationships: readonly Relationship[];
-  }): Promise<JudgeVerdict> {
-    return this.run(RELATIONSHIP_INSTRUCTION, input);
+  async judgeRelationshipInference(
+    input: {
+      ir: BehaviorIR;
+      proposedRelationships: readonly Relationship[];
+    },
+    context?: AiCallContext,
+  ): Promise<JudgeVerdict> {
+    return this.run(RELATIONSHIP_INSTRUCTION, input, context);
   }
 
-  private async run(instruction: string, input: unknown): Promise<JudgeVerdict> {
+  private async run(
+    instruction: string,
+    input: unknown,
+    context?: AiCallContext,
+  ): Promise<JudgeVerdict> {
     try {
       const verdict = await this.provider.structured<JudgeVerdict>({
         instruction,
         input,
+        context,
         schema: JudgeVerdictSchema as z.ZodType<JudgeVerdict, z.ZodTypeDef, unknown>,
       });
       // Providers sometimes echo the raw model name inside `model`; if they

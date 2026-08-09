@@ -12,6 +12,13 @@ export interface EmulateAiOptions {
    */
   readonly capabilities: AiCapabilities;
   readonly judge?: AiJudge;
+  /**
+   * Minimum acceptable judge score. Echoed onto the returned
+   * `Replica.aiJudgeThreshold` so consumers can decide whether to promote
+   * without re-computing the gate. Defaults to the judge's own threshold
+   * when omitted (which itself defaults to 0.75).
+   */
+  readonly judgeThreshold?: number;
 }
 
 export interface EmulateOptions {
@@ -47,6 +54,11 @@ export interface Replica {
    * replica was built without AI enrichment or without a judge.
    */
   readonly aiQuality: ReplicaAiQuality | null;
+  /**
+   * The judge threshold this replica was evaluated against — `null` when no
+   * judge ran. Consumers gate on `aiQuality?.resources.score >= aiJudgeThreshold`.
+   */
+  readonly aiJudgeThreshold: number | null;
 }
 
 /**
@@ -69,6 +81,7 @@ export const carbon = {
     // unchanged. Judge verdicts are computed on the *post-enrichment* IR so
     // they cross-reference the same shape the runtime will serve.
     let aiQuality: ReplicaAiQuality | null = null;
+    let aiJudgeThreshold: number | null = null;
     if (opts.ai) {
       const enrichedResources = await opts.ai.capabilities.inferResources({ ir });
       ir = { ...ir, resources: enrichedResources };
@@ -89,6 +102,7 @@ export const carbon = {
           }),
         ]);
         aiQuality = { resources, relationships };
+        aiJudgeThreshold = opts.ai.judgeThreshold ?? opts.ai.judge.threshold ?? 0.75;
       }
     }
 
@@ -112,6 +126,7 @@ export const carbon = {
       },
       close: () => runtime.close(),
       aiQuality,
+      aiJudgeThreshold,
     };
   },
 };

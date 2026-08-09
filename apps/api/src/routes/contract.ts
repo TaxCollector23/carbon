@@ -6,6 +6,7 @@ import { schema } from '@carbon/database';
 import { validateAgainstSpec, type JsonSchemaLike } from '@carbon/parser';
 import type { AppContext } from '../context.js';
 import { requireScope } from '../plugins/scopes.js';
+import { recordUsage } from '../services/usage.js';
 import { requireProjectAccessById } from './project-access.js';
 
 const SampleRequest = z.object({
@@ -47,7 +48,7 @@ export async function registerContractRoutes(
       const body = CheckBody.parse(req.body);
       // ACL: caller's org must own this project, and if project_members
       // narrows access the session user must be listed.
-      await requireProjectAccessById(ctx, req, req.params.id);
+      const access = await requireProjectAccessById(ctx, req, req.params.id);
       const [project] = await ctx.db
         .select({ id: schema.projects.id, name: schema.projects.name })
         .from(schema.projects)
@@ -116,6 +117,20 @@ export async function registerContractRoutes(
         }
       }
 
+      if (access.orgId) {
+        await recordUsage(ctx, {
+          orgId: access.orgId,
+          kind: 'contract_check',
+          amount: reports.length,
+          metadata: {
+            projectId: project.id,
+            projectSlug: access.slug,
+            target: baseUrl,
+            passed,
+            failed: reports.length - passed,
+          },
+        });
+      }
       return {
         projectId: project.id,
         target: baseUrl,

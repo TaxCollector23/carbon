@@ -176,6 +176,12 @@ export async function registerEmulatorRoutes(app: FastifyInstance, ctx: AppConte
           action: 'snapshot.restored',
           metadata: { emulatorId: req.params.id, projectSlug: project.slug, name: body.name },
         });
+        await recordUsage(ctx, {
+          orgId: project.orgId,
+          kind: 'snapshot_restored',
+          amount: 1,
+          metadata: { emulatorId: req.params.id, projectSlug: project.slug, name: body.name },
+        });
       }
       reply.status(204);
     },

@@ -29,6 +29,17 @@ export interface CompletionRequest {
   readonly temperature?: number;
   readonly maxTokens?: number;
   readonly signal?: AbortSignal;
+  /**
+   * Attribution context threaded through from the ingestion pipeline. The
+   * provider echoes this back on the {@link UsageEvent} so `onUsage` can meter
+   * the call against the caller's org rather than a globally-pinned one.
+   */
+  readonly context?: AiCallContext;
+}
+
+export interface AiCallContext {
+  readonly orgId?: string;
+  readonly projectId?: string;
 }
 
 export interface CompletionResponse {
@@ -73,4 +84,10 @@ export interface UsageEvent {
   readonly model: string;
   readonly usage: TokenUsage;
   readonly latencyMs: number;
+  /**
+   * Attribution context supplied by the call site (typically the ingestion
+   * pipeline). Absent for callers that do not thread org context — the
+   * fallback path in `apps/api` pins by `CARBON_METER_ORG_ID` in that case.
+   */
+  readonly context?: AiCallContext;
 }

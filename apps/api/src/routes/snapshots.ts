@@ -6,6 +6,7 @@ import { StorageKeys } from '@carbon/storage';
 import type { AppContext } from '../context.js';
 import { requireScope } from '../plugins/scopes.js';
 import { getActor, recordEvent } from '../services/events.js';
+import { recordUsage } from '../services/usage.js';
 import { ProjectSlug, resolveProjectAccess } from './project-access.js';
 import { collectStorage } from './storage-listing.js';
 
@@ -83,6 +84,12 @@ export async function registerSnapshotRoutes(app: FastifyInstance, ctx: AppConte
         actorType: actor.actorType,
         actorId: actor.actorId,
         action: 'snapshot.saved',
+        metadata: { projectSlug: project.slug, name: body.name },
+      });
+      await recordUsage(ctx, {
+        orgId: project.orgId,
+        kind: 'snapshot_saved',
+        amount: 1,
         metadata: { projectSlug: project.slug, name: body.name },
       });
     }

@@ -55,6 +55,7 @@ import type { AppContext } from './context.js';
 /** Operational endpoints — always public. */
 const OPERATIONAL_PUBLIC_PATHS: readonly string[] = [
   '/health',
+  '/v1/health/live',
   '/ready',
   '/metrics',
   '/v1/version',

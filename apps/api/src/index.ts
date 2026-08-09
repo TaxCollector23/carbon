@@ -99,11 +99,13 @@ async function main(): Promise<void> {
             totalTokens: evt.usage.totalTokens,
             latencyMs: evt.latencyMs,
           });
-          // AI calls aren't yet org-tagged inside the provider — until the
-          // ingestion pipeline threads org through to the call site we can
-          // only meter when a caller pinned the process with CARBON_ORG_ID.
-          // Skipped otherwise so we never mis-attribute to another tenant.
-          const orgId = process.env.CARBON_METER_ORG_ID;
+          // Prefer the org threaded through by the ingestion pipeline
+          // (`evt.context.orgId`) so multi-tenant hosts attribute each AI
+          // call to the caller that triggered it. The env pin is retained
+          // as a fallback for system-caller paths (CLI, workers) that do
+          // not carry a per-request org — without either, the row is
+          // dropped rather than mis-attributed.
+          const orgId = evt.context?.orgId ?? process.env.CARBON_METER_ORG_ID;
           if (ctxRef && orgId) {
             void recordUsage(ctxRef, {
               orgId,
@@ -115,6 +117,7 @@ async function main(): Promise<void> {
                 promptTokens: evt.usage.promptTokens,
                 completionTokens: evt.usage.completionTokens,
                 latencyMs: evt.latencyMs,
+                projectId: evt.context?.projectId,
               },
             });
           }

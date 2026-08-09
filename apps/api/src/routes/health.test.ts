@@ -209,4 +209,16 @@ describe('health routes', () => {
     expect(res.json().ok).toBe(true);
     expect(calls()).toBe(0);
   });
+
+  it('/v1/health/live is an alias of /health and does not touch dependencies', async () => {
+    const app = Fastify();
+    const { db, calls } = countingDb();
+    await registerHealthRoutes(app, makeCtx(db));
+
+    const res = await app.inject('/v1/health/live');
+    expect(res.statusCode).toBe(200);
+    expect(res.json().ok).toBe(true);
+    expect(res.json().service).toBe('carbon-api');
+    expect(calls()).toBe(0);
+  });
 });
