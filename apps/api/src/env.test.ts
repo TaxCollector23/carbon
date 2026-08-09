@@ -7,8 +7,21 @@ const baseEnv = {
 };
 
 describe('env parsing', () => {
-  it('defaults Redis only outside production', () => {
+  it('leaves REDIS_URL undefined when not explicitly set (dev-mode bootless)', () => {
+    // We used to auto-default REDIS_URL to a dead loopback socket, but ioredis
+    // retries forever when that socket refuses connection — turning "no Redis
+    // running" into hung idempotency + rate-limit hooks. Now devs opt in via
+    // env or a compose up.
     const env = parseEnv({ ...baseEnv, NODE_ENV: 'development' });
+    expect(env.REDIS_URL).toBeUndefined();
+  });
+
+  it('accepts an explicit REDIS_URL', () => {
+    const env = parseEnv({
+      ...baseEnv,
+      NODE_ENV: 'development',
+      REDIS_URL: 'redis://127.0.0.1:6379',
+    });
     expect(env.REDIS_URL).toBe('redis://127.0.0.1:6379');
   });
 

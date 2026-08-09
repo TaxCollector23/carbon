@@ -139,7 +139,14 @@ const RawEnvSchema = z
 
 const EnvSchema = RawEnvSchema.transform((env) => ({
   ...env,
-  REDIS_URL: env.REDIS_URL ?? (env.NODE_ENV === 'production' ? undefined : DEV_REDIS_URL),
+  // Historically we auto-defaulted REDIS_URL to redis://127.0.0.1:6379 in dev,
+  // but ioredis retries commands forever when the URL points at a dead
+  // socket — which turns "no Redis running" into hung idempotency + rate-limit
+  // hooks for every non-public request. Now: only wire Redis when the caller
+  // sets REDIS_URL explicitly. `pnpm dev` still works via `docker compose up`
+  // (which sets REDIS_URL), and the auth-disabled bootless path degrades
+  // gracefully because both plugins are gated on ctx.redis presence.
+  REDIS_URL: env.REDIS_URL,
   CARBON_PUBLIC_DOCS: env.CARBON_PUBLIC_DOCS ?? env.NODE_ENV !== 'production',
   CARBON_EMULATOR_ALLOWED_HOSTS: parseAllowedHosts(env.CARBON_EMULATOR_ALLOWED_HOSTS),
 }));

@@ -6,7 +6,7 @@
   "main": "./src/index.ts",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "start": "node --enable-source-maps dist/index.js",
+    "start": "tsx src/index.ts",
     "build": "tsup src/index.ts --format esm --clean",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

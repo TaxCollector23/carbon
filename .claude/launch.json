@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "carbon-web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@carbon/web", "dev"],
+      "port": 1223
+    },
+    {
+      "name": "carbon-dashboard",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@carbon/dashboard", "dev"],
+      "port": 3001
+    },
+    {
+      "name": "carbon-api",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@carbon/api", "dev"],
+      "port": 4000
+    }
+  ]
+}

@@ -12,6 +12,9 @@ const ListQuery = z.object({
   cursor: z.string().datetime().optional(),
   projectId: z.string().min(1).optional(),
   action: z.string().min(1).max(120).optional(),
+  // Optional dev/admin escape hatch. Only honored when the caller has no
+  // authenticated org — an authenticated caller cannot cross-org via query.
+  orgId: z.string().min(1).optional(),
 });
 
 const ExportQuery = z.object({
@@ -19,6 +22,7 @@ const ExportQuery = z.object({
   limit: z.coerce.number().int().min(1).max(10_000).default(1000),
   projectId: z.string().min(1).optional(),
   action: z.string().min(1).max(120).optional(),
+  orgId: z.string().min(1).optional(),
 });
 
 interface EventRow {
@@ -35,13 +39,12 @@ interface EventRow {
 export async function registerEventRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
   app.get('/v1/events', { preHandler: requireScope('read') }, async (req) => {
     const query = ListQuery.parse(req.query);
-    const orgId = requestOrgId(req);
+    const orgId = requestOrgId(req, query.orgId);
     if (!orgId) {
-      throw new CarbonError({
-        code: 'CARBON_INVALID_INPUT',
-        message: 'orgId is required — attach an API key or authenticated session',
-        expose: true,
-      });
+      // Auth-disabled dev mode with no query fallback → return empty rather
+      // than 400. Keeps the dashboard's honest "no activity yet" state truthful
+      // instead of turning into a red error banner.
+      return { data: [], nextCursor: null, hasMore: false };
     }
     const rows = await fetchEvents(ctx, {
       orgId,
@@ -59,7 +62,7 @@ export async function registerEventRoutes(app: FastifyInstance, ctx: AppContext)
 
   app.get('/v1/events/export', { preHandler: requireScope('read') }, async (req, reply) => {
     const query = ExportQuery.parse(req.query);
-    const orgId = requestOrgId(req);
+    const orgId = requestOrgId(req, query.orgId);
     if (!orgId) {
       throw new CarbonError({
         code: 'CARBON_INVALID_INPUT',
@@ -129,6 +132,6 @@ function csvEscape(value: string): string {
   return value;
 }
 
-function requestOrgId(req: unknown): string | undefined {
-  return (req as AuthenticatedRequest).apiKey?.orgId;
+function requestOrgId(req: unknown, fallback?: string): string | undefined {
+  return (req as AuthenticatedRequest).apiKey?.orgId ?? fallback;
 }

@@ -161,15 +161,18 @@ export async function buildServer(
   });
 
   const origins = parseOrigins(options.allowedOrigins);
+  // Since Phase 2 (Better Auth consolidation) the API now reads a session
+  // cookie set by the dashboard, so we MUST allow credentialed CORS from an
+  // explicit origin allow-list. `origin: true` reflects arbitrary origins —
+  // combined with `credentials: true` that's the classic CSRF footgun, so
+  // when ALLOWED_ORIGINS=* we deliberately drop credentials (public API
+  // callers must send `x-carbon-key` on every request instead). API-key
+  // callers keep working in both modes since the key is a header, not a
+  // cookie.
+  const allowCreds = origins !== '*';
   await app.register(cors, {
-    // The API is header-authenticated (`x-carbon-key`); it never sets or reads
-    // cookies. `credentials: false` prevents a future cookie from being sent
-    // cross-origin by mistake, and — combined with `origin: true` when
-    // `ALLOWED_ORIGINS=*` — keeps us from reflecting an arbitrary origin with
-    // `Access-Control-Allow-Credentials: true`, which is the classic CSRF
-    // footgun (a browser attaches credentials to the reflected origin).
     origin: origins === '*' ? true : origins,
-    credentials: false,
+    credentials: allowCreds,
     exposedHeaders: [
       'x-request-id',
       'x-carbon-key-prefix',

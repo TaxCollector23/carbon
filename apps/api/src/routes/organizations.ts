@@ -149,6 +149,21 @@ export async function registerOrganizationRoutes(
   app: FastifyInstance,
   ctx: AppContext,
 ): Promise<void> {
+  // Resolves the caller's "current" org — the api key's org, the session
+  // user's first membership, or (auth-disabled dev) an ?orgId= query param.
+  // Registered before /:id so Fastify's radix router routes /current here.
+  app.get('/v1/organizations/current', { preHandler: requireScope('read') }, async (req, reply) => {
+    const query = z.object({ orgId: z.string().min(1).optional() }).parse(req.query);
+    const apiKey = (req as AuthenticatedRequest).apiKey;
+    const session = (req as SessionAuthenticatedRequest).sessionUser;
+    const orgId = apiKey?.orgId ?? session?.orgId ?? query.orgId;
+    if (!orgId) {
+      reply.status(404);
+      return { error: { code: 'CARBON_NOT_FOUND', message: 'No current organization for this caller' } };
+    }
+    return loadOrgOr404(ctx, orgId);
+  });
+
   app.get<{ Params: { id: string } }>(
     '/v1/organizations/:id',
     { preHandler: requireScope('read') },
