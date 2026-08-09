@@ -7,6 +7,7 @@ import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
 import type { SessionAuthenticatedRequest } from '../plugins/session-auth.js';
 import { registerCliAuthRoutes, __resetCliAuthState } from './cli-auth.js';
+import { createSecretStore, type SecretStore } from '../services/cli-auth-secret-store.js';
 
 /**
  * Exercises the full device-authorization loop against an in-memory shim
@@ -172,6 +173,7 @@ function makeCtx(store: Store): AppContext {
 async function build(
   store: Store,
   sessionUser?: { id: string; email: string },
+  secretStore?: SecretStore,
 ): Promise<FastifyInstance> {
   const app = Fastify();
   app.setErrorHandler((err, _req, reply) => {
@@ -208,6 +210,7 @@ async function build(
   }
   await registerCliAuthRoutes(app, makeCtx(store), {
     dashboardUrl: 'http://localhost:3001',
+    ...(secretStore ? { secretStore } : {}),
   });
   await app.ready();
   return app;
@@ -228,9 +231,13 @@ describe('cli-auth routes', () => {
 
   it('runs the full start → approve → reveal-once → status-only flow', async () => {
     const store = makeStore();
+    // Shared secret store — with the Redis-optional store, each register()
+    // call otherwise gets its own in-memory Map, and the approve/poll would
+    // land on different stores.
+    const secretStore = createSecretStore({ logger: NoopLogger });
 
     // Unauthenticated start.
-    const publicApp = await build(store);
+    const publicApp = await build(store, undefined, secretStore);
     const start = await publicApp.inject({ method: 'POST', url: '/v1/cli-auth/start' });
     expect(start.statusCode).toBe(201);
     const startBody = start.json() as {
@@ -245,8 +252,8 @@ describe('cli-auth routes', () => {
     expect(store.cliRows).toHaveLength(1);
     expect(store.cliRows[0]!.status).toBe('pending');
 
-    // Approve as the signed-in user.
-    const approveApp = await build(store, { id: 'user_1', email: 'a@example.com' });
+    // Approve as the signed-in user — same secret store as the poll side.
+    const approveApp = await build(store, { id: 'user_1', email: 'a@example.com' }, secretStore);
     const approve = await approveApp.inject({
       method: 'POST',
       url: `/v1/cli-auth/${startBody.sessionId}/approve`,

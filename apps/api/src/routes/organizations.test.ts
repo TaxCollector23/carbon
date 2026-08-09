@@ -348,6 +348,39 @@ describe('organization routes', () => {
     expect(res.statusCode).toBe(403);
   });
 
+  it('GET /organizations/current — API-key caller returns their org via apiKey.orgId', async () => {
+    fake.results.push([org]);
+    const app = await buildApp(fake);
+    const res = await app.inject({
+      method: 'GET',
+      url: '/v1/organizations/current',
+      headers: { 'x-test-apikey': 'org_1,admin' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ id: 'org_1', slug: 'acme' });
+  });
+
+  it('GET /organizations/current — 404 when nothing resolves', async () => {
+    const app = await buildApp(fake);
+    const res = await app.inject({ method: 'GET', url: '/v1/organizations/current' });
+    expect(res.statusCode).toBe(404);
+    expect((res.json() as { error: { code: string } }).error.code).toBe('CARBON_NOT_FOUND');
+  });
+
+  it('GET /organizations — API-key caller returns just their scoped org', async () => {
+    fake.results.push([{ id: 'org_1', name: 'Acme', slug: 'acme' }]);
+    const app = await buildApp(fake);
+    const res = await app.inject({
+      method: 'GET',
+      url: '/v1/organizations',
+      headers: { 'x-test-apikey': 'org_1,admin' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect((res.json() as { data: Array<{ id: string }> }).data).toEqual([
+      { id: 'org_1', name: 'Acme', slug: 'acme' },
+    ]);
+  });
+
   it('API-key caller with admin scope on the org is treated as owner (can invite)', async () => {
     // No membership lookup needed for api-key path. Just loadOrgOr404 for the
     // invite handler.

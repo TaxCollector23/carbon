@@ -32,10 +32,51 @@ async function main(): Promise<void> {
     statementTimeoutMs: env.CARBON_DB_STATEMENT_TIMEOUT_MS,
   });
   const storage = buildStorage(env);
-  const redis = env.REDIS_URL ? createRedisConnection(env.REDIS_URL) : undefined;
-  redis?.on('error', (err) => {
-    logger.warn('redis.error', { message: err.message });
-  });
+  let redis = env.REDIS_URL ? createRedisConnection(env.REDIS_URL) : undefined;
+  if (redis) {
+    // ioredis auto-reconnects forever by default. When the URL is set but the
+    // server is unreachable at boot (dev laptop with no local Redis, ops-day
+    // outage, misconfigured env), we get a flood of "connection refused" lines
+    // that drown out every other log message. Wait up to 3s for the first
+    // connect; if it doesn't come, log one warning and drop the handle.
+    const bootDeadlineMs = 3000;
+    let firstErrorLogged = false;
+    const bootOk = await new Promise<boolean>((resolve) => {
+      const timer = setTimeout(() => resolve(false), bootDeadlineMs);
+      redis!.once('ready', () => {
+        clearTimeout(timer);
+        resolve(true);
+      });
+      redis!.once('error', () => {
+        // Don't resolve here — keep waiting for either `ready` or the timeout,
+        // so a transient early error doesn't disable Redis when it would have
+        // been usable a moment later.
+      });
+    });
+    if (!bootOk) {
+      logger.warn('redis.unreachable', {
+        message: 'redis unreachable, disabling redis-dependent features',
+      });
+      // Detach handlers and quit the client so it stops trying to reconnect.
+      try {
+        redis.disconnect();
+      } catch {
+        /* best-effort */
+      }
+      redis = undefined;
+    } else {
+      // Post-boot transient errors: log the first at warn, everything after
+      // at debug to avoid the log flood the audit called out.
+      redis.on('error', (err) => {
+        if (!firstErrorLogged) {
+          firstErrorLogged = true;
+          logger.warn('redis.error', { message: err.message });
+        } else {
+          logger.debug('redis.error', { message: err.message });
+        }
+      });
+    }
+  }
   const parsers = createDefaultParserRegistry();
 
   const aiProvider = env.CARBON_AI_API_KEY

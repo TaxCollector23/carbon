@@ -149,6 +149,71 @@ export async function registerOrganizationRoutes(
   app: FastifyInstance,
   ctx: AppContext,
 ): Promise<void> {
+  // List the caller's memberships. API-key callers see the single org their
+  // key is scoped to; session users see every org they belong to; auth-
+  // disabled dev callers see every org in the store (optionally narrowed by
+  // ?userId=). Registered before /:id so the radix router keeps them distinct.
+  app.get('/v1/organizations', { preHandler: requireScope('read') }, async (req) => {
+    const query = z
+      .object({ userId: z.string().min(1).optional() })
+      .parse(req.query);
+    const apiKey = (req as AuthenticatedRequest).apiKey;
+    const session = (req as SessionAuthenticatedRequest).sessionUser;
+    if (apiKey) {
+      const [row] = await ctx.db
+        .select({
+          id: schema.organizations.id,
+          name: schema.organizations.name,
+          slug: schema.organizations.slug,
+        })
+        .from(schema.organizations)
+        .where(eq(schema.organizations.id, apiKey.orgId))
+        .limit(1);
+      return { data: row ? [row] : [] };
+    }
+    if (session?.id) {
+      const rows = await ctx.db
+        .select({
+          id: schema.organizations.id,
+          name: schema.organizations.name,
+          slug: schema.organizations.slug,
+          role: schema.memberships.role,
+        })
+        .from(schema.memberships)
+        .innerJoin(
+          schema.organizations,
+          eq(schema.organizations.id, schema.memberships.orgId),
+        )
+        .where(eq(schema.memberships.userId, session.id));
+      return { data: rows };
+    }
+    // Auth-disabled dev: return every org (optionally scoped by ?userId=).
+    if (query.userId) {
+      const rows = await ctx.db
+        .select({
+          id: schema.organizations.id,
+          name: schema.organizations.name,
+          slug: schema.organizations.slug,
+          role: schema.memberships.role,
+        })
+        .from(schema.memberships)
+        .innerJoin(
+          schema.organizations,
+          eq(schema.organizations.id, schema.memberships.orgId),
+        )
+        .where(eq(schema.memberships.userId, query.userId));
+      return { data: rows };
+    }
+    const rows = await ctx.db
+      .select({
+        id: schema.organizations.id,
+        name: schema.organizations.name,
+        slug: schema.organizations.slug,
+      })
+      .from(schema.organizations);
+    return { data: rows };
+  });
+
   // Resolves the caller's "current" org — the api key's org, the session
   // user's first membership, or (auth-disabled dev) an ?orgId= query param.
   // Registered before /:id so Fastify's radix router routes /current here.

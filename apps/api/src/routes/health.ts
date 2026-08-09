@@ -1,7 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
+import { CarbonError } from '@carbon/core';
 import type { AppContext } from '../context.js';
+import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import { AlwaysReady, type Lifecycle } from '../lifecycle.js';
 
 /**
@@ -140,6 +142,49 @@ export async function registerHealthRoutes(
     };
   });
 
+  // ------------------------------------------------------------------
+  // GET /v1/health/deep — admin-only, per-dependency detail. Same shape
+  // as /ready but every dependency answers independently with a status
+  // ({ ok | slow | down }), latency, and — when it failed — a message.
+  //
+  // Not in the public paths list on purpose: individual dep timings can
+  // help an attacker fingerprint the deployment (Postgres version, S3
+  // vs R2 latency, redis distance). Requires an admin-scoped API key.
+  // ------------------------------------------------------------------
+  app.get('/v1/health/deep', async (req, reply) => {
+    const apiKey = (req as AuthenticatedRequest).apiKey;
+    if (apiKey && !apiKey.scopes.includes('admin')) {
+      throw new CarbonError({
+        code: 'CARBON_FORBIDDEN',
+        message: 'admin scope required for /v1/health/deep',
+        expose: true,
+      });
+    }
+    const dependencies: Record<
+      string,
+      { status: 'ok' | 'slow' | 'down'; latencyMs: number; message?: string }
+    > = {};
+    await Promise.all([
+      probeDeep(dependencies, 'db', 500, () => ctx.db.execute(sql`select 1`)),
+      ctx.redis
+        ? probeDeep(dependencies, 'redis', 500, () => ctx.redis?.ping() ?? Promise.resolve())
+        : Promise.resolve(),
+      probeDeep(dependencies, 'storage', 500, async () => {
+        // A tiny list() exercises credentials, networking, and the backend's
+        // existence — the same guarantees head() gives us plus the enumerate
+        // path callers rely on when browsing artifacts.
+        const iter = ctx.storage.list('__health__/');
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        for await (const _ of iter) break;
+      }),
+    ]);
+
+    reply.header('cache-control', 'no-store');
+    const anyDown = Object.values(dependencies).some((d) => d.status === 'down');
+    reply.status(anyDown ? 503 : 200);
+    return { ok: !anyDown, dependencies };
+  });
+
   async function evaluate(): Promise<EvalOutcome> {
     const checks: Checks = {};
     const writeProbe = Date.now() - lastWriteProbeAt >= writeProbeIntervalMs;
@@ -191,6 +236,27 @@ export async function registerHealthRoutes(
         /* the write result is what the probe reports on */
       });
     }
+  }
+}
+
+async function probeDeep(
+  out: Record<string, { status: 'ok' | 'slow' | 'down'; latencyMs: number; message?: string }>,
+  name: string,
+  timeoutMs: number,
+  probe: () => Promise<unknown>,
+): Promise<void> {
+  const start = process.hrtime.bigint();
+  try {
+    await withTimeout(probe(), timeoutMs, name);
+    const latencyMs = round(Number(process.hrtime.bigint() - start) / 1e6);
+    out[name] = { status: latencyMs > SLOW_SLA_MS ? 'slow' : 'ok', latencyMs };
+  } catch (err) {
+    const latencyMs = round(Number(process.hrtime.bigint() - start) / 1e6);
+    out[name] = {
+      status: 'down',
+      latencyMs,
+      message: err instanceof Error ? err.message : String(err),
+    };
   }
 }
 

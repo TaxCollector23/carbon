@@ -7,6 +7,7 @@ import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
 import type { SessionAuthenticatedRequest } from '../plugins/session-auth.js';
 import { mintApiKey } from '../services/api-keys.js';
+import { createSecretStore, type SecretStore } from '../services/cli-auth-secret-store.js';
 import { getActor, recordEvent } from '../services/events.js';
 
 /**
@@ -99,6 +100,12 @@ export const CLI_AUTH_PUBLIC_PATHS: readonly string[] = [
 export interface CliAuthOptions {
   /** Base URL used to construct verificationUrl. Defaults to env or localhost. */
   readonly dashboardUrl?: string;
+  /**
+   * Where minted secrets live between /approve and the CLI's next /poll.
+   * Defaults to a Redis-backed store when `ctx.redis` is present, otherwise
+   * an in-memory Map with per-entry TTL.
+   */
+  readonly secretStore?: SecretStore;
 }
 
 export async function registerCliAuthRoutes(
@@ -111,6 +118,8 @@ export async function registerCliAuthRoutes(
     process.env.CARBON_DASHBOARD_URL ??
     'http://localhost:3001'
   ).replace(/\/+$/, '');
+  const secretStore =
+    opts.secretStore ?? createSecretStore({ redis: ctx.redis, logger: ctx.logger });
 
   const startLimit = makeIpLimiter(APPROVE_LIMIT, APPROVE_WINDOW_MS);
   const pollLimit = makeIpLimiter(APPROVE_LIMIT * 6, APPROVE_WINDOW_MS); // 60/min polls
@@ -215,7 +224,7 @@ export async function registerCliAuthRoutes(
     // temporarily via `verifier` field? No — we stamp revealedAt and return
     // the secret from the approve step's transient store. See notes on
     // pendingSecrets below.
-    const secret = pendingSecrets.get(row.id);
+    const secret = await secretStore.take(row.id);
     if (!secret) {
       // Server was restarted between approve and reveal, or a race lost the
       // secret. Force the user to restart the flow.
@@ -223,7 +232,6 @@ export async function registerCliAuthRoutes(
       reply.status(410);
       return { status: 'expired' as const };
     }
-    pendingSecrets.delete(row.id);
     await ctx.db
       .update(schema.cliAuthSessions)
       .set({ revealedAt: new Date() })
@@ -327,7 +335,7 @@ export async function registerCliAuthRoutes(
         scopes: ['read', 'write'],
         expiresAt: null,
       });
-      pendingSecrets.set(row.id, minted.presented);
+      await secretStore.put(row.id, minted.presented);
 
       await ctx.db
         .update(schema.cliAuthSessions)
@@ -395,7 +403,7 @@ export async function registerCliAuthRoutes(
             eq(schema.cliAuthSessions.status, 'pending'),
           ),
         );
-      pendingSecrets.delete(row.id);
+      await secretStore.take(row.id);
       reply.status(200);
       return { status: 'denied' as const };
     },
@@ -403,17 +411,10 @@ export async function registerCliAuthRoutes(
 }
 
 /**
- * Transient per-process store for freshly minted secrets between approve and
- * the CLI's next poll. We deliberately do NOT persist the secret — only its
- * hash is in `apiKeys.hash` — so a server restart in this narrow window
- * requires the user to re-run `carbon login`. That's a worse UX than a
- * restart-tolerant store, but it keeps the invariant "the secret is never
- * written to disk" true for CLI login the same way it is for dashboard-minted
- * keys.
+ * Test-only no-op kept for backwards compatibility with the older test file
+ * (the transient secret store used to be a module-scope Map; it now lives on
+ * the registration closure and is reset by rebuilding the app instance).
  */
-const pendingSecrets = new Map<string, string>();
-
-/** Test-only: clear the transient secret store between cases. */
 export function __resetCliAuthState(): void {
-  pendingSecrets.clear();
+  /* no-op */
 }

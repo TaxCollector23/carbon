@@ -164,6 +164,41 @@ describe('health routes', () => {
     expect(res.json().checks.queue).toBeUndefined();
   });
 
+  it('/v1/health/deep reports each dependency with { status, latencyMs }', async () => {
+    const app = Fastify();
+    const { db } = countingDb();
+    await registerHealthRoutes(app, makeCtx(db));
+    const res = await app.inject({ method: 'GET', url: '/v1/health/deep' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as {
+      ok: boolean;
+      dependencies: Record<string, { status: 'ok' | 'slow' | 'down'; latencyMs: number }>;
+    };
+    expect(body.ok).toBe(true);
+    expect(body.dependencies.db?.status).toBe('ok');
+    expect(typeof body.dependencies.db?.latencyMs).toBe('number');
+    expect(body.dependencies.storage?.status).toBe('ok');
+  });
+
+  it('/v1/health/deep marks a broken dep as down and returns 503', async () => {
+    const app = Fastify();
+    const brokenDb = {
+      execute: async () => {
+        throw new Error('ECONNREFUSED');
+      },
+    } as unknown as AppContext['db'];
+    await registerHealthRoutes(app, makeCtx(brokenDb));
+    const res = await app.inject({ method: 'GET', url: '/v1/health/deep' });
+    expect(res.statusCode).toBe(503);
+    const body = res.json() as {
+      ok: boolean;
+      dependencies: Record<string, { status: string; message?: string }>;
+    };
+    expect(body.ok).toBe(false);
+    expect(body.dependencies.db?.status).toBe('down');
+    expect(body.dependencies.db?.message).toContain('ECONNREFUSED');
+  });
+
   it('/health stays cheap and never consults a dependency', async () => {
     const app = Fastify();
     const { db, calls } = countingDb();
