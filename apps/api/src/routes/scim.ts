@@ -6,6 +6,42 @@ import { CarbonError, makeId, NotFoundError } from '@carbon/core';
 import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
+import { zodBody, zodQuery, zodResponse } from '../plugins/schema-helpers.js';
+
+const ScimUserSchema = z.object({
+  schemas: z.array(z.string()),
+  id: z.string(),
+  userName: z.string(),
+  active: z.boolean(),
+  emails: z.array(z.object({ value: z.string(), primary: z.boolean() })),
+  name: z.object({ formatted: z.string().nullable().optional() }).optional(),
+  meta: z.object({
+    resourceType: z.literal('User'),
+    created: z.string(),
+    lastModified: z.string(),
+  }),
+});
+const ScimUserListResponse = z.object({
+  schemas: z.array(z.string()),
+  totalResults: z.number().int(),
+  startIndex: z.number().int(),
+  itemsPerPage: z.number().int(),
+  Resources: z.array(ScimUserSchema),
+});
+const ScimGroupSchema = z.object({
+  schemas: z.array(z.string()),
+  id: z.string(),
+  displayName: z.string(),
+  members: z.array(z.object({ value: z.string(), display: z.string() })),
+  meta: z.object({ resourceType: z.literal('Group') }),
+});
+const ScimGroupListResponse = z.object({
+  schemas: z.array(z.string()),
+  totalResults: z.number().int(),
+  startIndex: z.number().int(),
+  itemsPerPage: z.number().int(),
+  Resources: z.array(ScimGroupSchema),
+});
 
 /**
  * Minimal SCIM 2.0 provisioning surface. Enterprise-only: gated behind
@@ -140,7 +176,14 @@ export async function registerScimRoutes(app: FastifyInstance, ctx: AppContext):
     return apiKey.orgId;
   };
 
-  app.get('/scim/v2/Users', async (req, reply) => {
+  app.get('/scim/v2/Users', {
+    schema: {
+      summary: 'SCIM: list users',
+      description: 'Enterprise-only. Authenticate with `x-carbon-key` (admin) or `X-SCIM-Token`. Supports the standard `userName eq "..."` filter plus `startIndex`/`count` paging.',
+      querystring: zodQuery(ListQuery),
+      response: { 200: zodResponse(ScimUserListResponse) },
+    },
+  }, async (req, reply) => {
     const orgId = await gate(req, reply);
     if (!orgId) return;
     const { filter, startIndex, count } = ListQuery.parse(req.query);
@@ -181,7 +224,13 @@ export async function registerScimRoutes(app: FastifyInstance, ctx: AppContext):
     };
   });
 
-  app.get<{ Params: { id: string } }>('/scim/v2/Users/:id', async (req, reply) => {
+  app.get<{ Params: { id: string } }>('/scim/v2/Users/:id', {
+    schema: {
+      summary: 'SCIM: get user by id',
+      description: 'Enterprise-only. Returns the SCIM Core User representation, or a SCIM error envelope on 404.',
+      response: { 200: zodResponse(ScimUserSchema) },
+    },
+  }, async (req, reply) => {
     const orgId = await gate(req, reply);
     if (!orgId) return;
     const row = await loadUser(ctx, orgId, req.params.id);
@@ -192,7 +241,14 @@ export async function registerScimRoutes(app: FastifyInstance, ctx: AppContext):
     return toScimUser(row.userId, row.email, row.name, true, row.createdAt, row.updatedAt);
   });
 
-  app.post('/scim/v2/Users', async (req, reply) => {
+  app.post('/scim/v2/Users', {
+    schema: {
+      summary: 'SCIM: create user',
+      description: 'Enterprise-only. Provisions a user (if missing) and attaches a membership. Existing users are re-attached idempotently. SCIM provisioning does not set a password — an invitation token is created for the invitee to finish sign-up.',
+      body: zodBody(CreateUserBody),
+      response: { 201: zodResponse(ScimUserSchema) },
+    },
+  }, async (req, reply) => {
     const orgId = await gate(req, reply);
     if (!orgId) return;
     let body: z.infer<typeof CreateUserBody>;
@@ -263,7 +319,14 @@ export async function registerScimRoutes(app: FastifyInstance, ctx: AppContext):
     return toScimUser(userId, email, body.name?.formatted ?? null, body.active !== false, createdAt, updatedAt);
   });
 
-  app.patch<{ Params: { id: string } }>('/scim/v2/Users/:id', async (req, reply) => {
+  app.patch<{ Params: { id: string } }>('/scim/v2/Users/:id', {
+    schema: {
+      summary: 'SCIM: patch user',
+      description: 'Enterprise-only. Applies a SCIM PatchOp. Setting `active: false` removes the membership; other operations are accepted as no-ops so IdPs do not retry.',
+      body: zodBody(PatchBody),
+      response: { 200: zodResponse(ScimUserSchema) },
+    },
+  }, async (req, reply) => {
     const orgId = await gate(req, reply);
     if (!orgId) return;
     let body: z.infer<typeof PatchBody>;
@@ -297,7 +360,12 @@ export async function registerScimRoutes(app: FastifyInstance, ctx: AppContext):
     return toScimUser(row.userId, row.email, row.name, active, row.createdAt, row.updatedAt);
   });
 
-  app.delete<{ Params: { id: string } }>('/scim/v2/Users/:id', async (req, reply) => {
+  app.delete<{ Params: { id: string } }>('/scim/v2/Users/:id', {
+    schema: {
+      summary: 'SCIM: delete user',
+      description: 'Enterprise-only. Removes the membership for the target user in the caller\'s org. The underlying user row is retained.',
+    },
+  }, async (req, reply) => {
     const orgId = await gate(req, reply);
     if (!orgId) return;
     const row = await loadUser(ctx, orgId, req.params.id);
@@ -311,7 +379,13 @@ export async function registerScimRoutes(app: FastifyInstance, ctx: AppContext):
     reply.status(204);
   });
 
-  app.get('/scim/v2/Groups', async (req, reply) => {
+  app.get('/scim/v2/Groups', {
+    schema: {
+      summary: 'SCIM: list groups (by role)',
+      description: 'Enterprise-only. Returns one SCIM Group per membership role in the caller\'s org (`owner`/`admin`/`member`) with members listed.',
+      response: { 200: zodResponse(ScimGroupListResponse) },
+    },
+  }, async (req, reply) => {
     const orgId = await gate(req, reply);
     if (!orgId) return;
     const rows = await ctx.db

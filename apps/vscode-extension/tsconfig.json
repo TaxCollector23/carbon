@@ -1,15 +1,9 @@
 {
+  "extends": "@carbon/config/tsconfig/node.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "CommonJS",
-    "moduleResolution": "Node",
     "outDir": "dist",
     "rootDir": "src",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "resolveJsonModule": true,
-    "declaration": false,
+    "noEmit": true,
     "types": ["node", "vscode"]
   },
   "include": ["src/**/*.ts"]

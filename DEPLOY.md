@@ -221,6 +221,36 @@ grep '"event":"assertion.violated"' carbon-api.log
 grep '"event":"usage.ai.call"' carbon-api.log
 ```
 
+### OpenTelemetry
+
+Distributed tracing is off by default. Set `OTEL_EXPORTER_OTLP_ENDPOINT` to any
+OTLP/HTTP collector and the API auto-instruments HTTP, Fastify, ioredis, and
+pg, plus manual spans around ingestion stages (`ingest.parse`,
+`ingest.infer.resources`, `ingest.infer.relationships`, `ingest.judge`,
+`ingest.build_graph`, `ingest.persist`) and provider calls (`ai.complete` with
+`ai.provider`, `ai.model`, `ai.prompt_tokens`, `ai.completion_tokens`).
+
+```bash
+# Grafana Tempo / Alloy / OTel Collector (self-hosted)
+OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4318
+OTEL_SERVICE_NAME=carbon-api
+
+# Honeycomb
+OTEL_EXPORTER_OTLP_ENDPOINT=https://api.honeycomb.io
+OTEL_EXPORTER_OTLP_HEADERS=x-honeycomb-team=YOUR_API_KEY
+OTEL_SERVICE_NAME=carbon-api
+
+# Jaeger (v1.35+ speaks OTLP directly)
+OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+OTEL_SERVICE_NAME=carbon-api
+
+# Datadog / New Relic / any other OTLP-HTTP vendor — set the vendor's endpoint
+# and pass credentials via OTEL_EXPORTER_OTLP_HEADERS.
+```
+
+Unsetting `OTEL_EXPORTER_OTLP_ENDPOINT` returns to the fast-boot path — no OTel
+packages are loaded and no spans are exported.
+
 ### Alerting
 
 The Prometheus rules below cover the failure modes that have actually paged us.

@@ -5,12 +5,29 @@ import { NotFoundError } from '@carbon/core';
 import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
 import { requireScope } from '../plugins/scopes.js';
+import { zodQuery, zodResponse } from '../plugins/schema-helpers.js';
 import { requireProjectAccessById } from './project-access.js';
 
 const ListQuery = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
   /** ISO-8601 createdAt of the last row from the previous page. */
   cursor: z.string().datetime().optional(),
+});
+
+const AiQualityReport = z
+  .object({
+    id: z.string(),
+    projectId: z.string(),
+    irKey: z.string().nullable().optional(),
+    score: z.number().nullable().optional(),
+    verdicts: z.unknown().optional(),
+    createdAt: z.union([z.string(), z.date()]).optional(),
+  })
+  .passthrough();
+const AiQualityListResponse = z.object({
+  data: z.array(AiQualityReport),
+  nextCursor: z.string().nullable(),
+  hasMore: z.boolean(),
 });
 
 /**
@@ -24,7 +41,16 @@ export async function registerAiQualityRoutes(
 ): Promise<void> {
   app.get<{ Params: { id: string } }>(
     '/v1/projects/:id/ai-quality',
-    { preHandler: requireScope('read') },
+    {
+      preHandler: requireScope('read'),
+      schema: {
+        summary: 'List AI-quality reports for a project',
+        description:
+          'Return historical AI-quality reports for a project in descending time order. Supports keyset pagination via `cursor` (ISO 8601 timestamp).',
+        querystring: zodQuery(ListQuery),
+        response: { 200: zodResponse(AiQualityListResponse) },
+      },
+    },
     async (req) => {
       const query = ListQuery.parse(req.query);
       await requireProjectAccessById(ctx, req, req.params.id);
@@ -51,7 +77,14 @@ export async function registerAiQualityRoutes(
 
   app.get<{ Params: { id: string } }>(
     '/v1/projects/:id/ai-quality/latest',
-    { preHandler: requireScope('read') },
+    {
+      preHandler: requireScope('read'),
+      schema: {
+        summary: 'Get the latest AI-quality report for a project',
+        description: 'Return the most recent AI-quality report row for the given project. 404 if no reports exist yet.',
+        response: { 200: zodResponse(AiQualityReport) },
+      },
+    },
     async (req) => {
       await requireProjectAccessById(ctx, req, req.params.id);
       const [row] = await ctx.db

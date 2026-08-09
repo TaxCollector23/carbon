@@ -1,0 +1,20 @@
+{
+  "name": "@carbon/example-sdk-basic",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Copy-pasteable example: boot a Carbon replica from an OpenAPI file, hit it with fetch, tear it down.",
+  "scripts": {
+    "dev": "tsx index.ts",
+    "start": "tsx index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@carbon/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@carbon/config": "workspace:*",
+    "tsx": "^4.23.8",
+    "typescript": "^5.7.2"
+  }
+}

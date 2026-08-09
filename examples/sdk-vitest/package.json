@@ -1,0 +1,20 @@
+{
+  "name": "@carbon/example-sdk-vitest",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Copy-pasteable example: use the Carbon SDK inside a Vitest suite with proper setup/teardown.",
+  "scripts": {
+    "dev": "vitest run",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@carbon/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@carbon/config": "workspace:*",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

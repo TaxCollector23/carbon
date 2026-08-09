@@ -1,0 +1,8 @@
+{
+  "extends": "@carbon/config/tsconfig/node.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["replica.test.ts", "vitest.config.ts"]
+}

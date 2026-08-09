@@ -18,6 +18,10 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,md,json}\"",
     "test": "vitest run",
     "docs:sdk": "pnpm --filter @carbon/sdk docs",
+    "examples:basic": "pnpm --filter @carbon/example-sdk-basic dev",
+    "examples:ai": "pnpm --filter @carbon/example-sdk-with-ai dev",
+    "examples:vitest": "pnpm --filter @carbon/example-sdk-vitest test",
+    "examples:typecheck": "pnpm --filter \"@carbon/example-*\" typecheck",
     "clean": "turbo run clean && rm -rf node_modules"
   },
   "devDependencies": {

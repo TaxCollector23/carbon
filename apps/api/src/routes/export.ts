@@ -7,6 +7,7 @@ import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import type { SessionAuthenticatedRequest } from '../plugins/session-auth.js';
 import { requireScope } from '../plugins/scopes.js';
+import { zodBody } from '../plugins/schema-helpers.js';
 
 /**
  * Compliance export — the Enterprise-tier "give me everything about my
@@ -52,7 +53,15 @@ const ALL_INCLUDES: readonly Include[] = [
 ];
 
 export async function registerExportRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
-  app.post('/v1/export', { preHandler: requireScope('admin') }, async (req, reply) => {
+  app.post('/v1/export', {
+    preHandler: requireScope('admin'),
+    schema: {
+      summary: 'Export org data',
+      description:
+        'Admin-only compliance export. Emits a bundle across the requested include categories (`events`, `projects`, `snapshots`, `api_keys`, `members`, `ai_quality`, `usage`, `audit`). Returns JSON by default; pass `format: "zip"` for a downloadable archive (binary content-type `application/zip`; not covered by the response schema).',
+      body: zodBody(ExportBody),
+    },
+  }, async (req, reply) => {
     const body = ExportBody.parse(req.body ?? {});
     const orgId = requireCallerOrg(req);
     const until = body.until ? new Date(body.until) : new Date();

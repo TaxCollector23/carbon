@@ -14,3 +14,23 @@ const replica = await carbon.emulate({
 await replica.state.reset();
 await replica.close();
 ```
+
+## Runnable examples
+
+Every snippet below has a matching runnable package under
+[`examples/`](https://github.com/carbondev/carbon/tree/master/examples) in the
+monorepo — each one typechecks in CI and works from a fresh clone.
+
+| Example                                                                                                          | What it shows                                                                       |
+| ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| [`sdk-basic`](https://github.com/carbondev/carbon/tree/master/examples/sdk-basic)                                | Boot a replica, hit it with `fetch`, read `usage()` / `metrics()`, `stop()`.        |
+| [`sdk-with-ai`](https://github.com/carbondev/carbon/tree/master/examples/sdk-with-ai)                            | `AiCapabilities` + `AiJudge` enrichment gated by `replica.assertQuality()`.         |
+| [`sdk-vitest`](https://github.com/carbondev/carbon/tree/master/examples/sdk-vitest)                              | The SDK inside a Vitest suite — one replica per file, `state.reset()` between tests. |
+
+Run them locally:
+
+```bash
+pnpm --filter @carbon/example-sdk-basic dev
+pnpm --filter @carbon/example-sdk-with-ai dev   # offline-friendly; set CARBON_AI_API_KEY for a live provider
+pnpm --filter @carbon/example-sdk-vitest test
+```

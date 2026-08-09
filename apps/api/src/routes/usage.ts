@@ -7,8 +7,33 @@ import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import type { SessionAuthenticatedRequest } from '../plugins/session-auth.js';
 import { requireScope } from '../plugins/scopes.js';
+import { zodQuery, zodResponse } from '../plugins/schema-helpers.js';
 
 const DEFAULT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+const AggregateResponse = z.object({
+  orgId: z.string(),
+  since: z.string(),
+  until: z.string(),
+  totals: z.array(z.object({ kind: z.string(), total: z.number() })),
+});
+
+const UsageEvent = z
+  .object({
+    id: z.string(),
+    orgId: z.string(),
+    kind: z.string(),
+    amount: z.number(),
+    metadata: z.unknown().optional(),
+    occurredAt: z.union([z.string(), z.date()]).optional(),
+  })
+  .passthrough();
+
+const UsageEventsResponse = z.object({
+  data: z.array(UsageEvent),
+  nextCursor: z.string().nullable(),
+  hasMore: z.boolean(),
+});
 
 const AggregateQuery = z.object({
   kind: z.string().min(1).max(120).optional(),
@@ -28,7 +53,16 @@ const EventsQuery = z.object({
  * invoicing and are not something a per-project viewer should see.
  */
 export async function registerUsageRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
-  app.get('/v1/usage', { preHandler: requireScope('admin') }, async (req) => {
+  app.get('/v1/usage', {
+    preHandler: requireScope('admin'),
+    schema: {
+      summary: 'Aggregate usage totals for the caller\'s org',
+      description:
+        'Return metered usage totals grouped by kind for a time window. Defaults to the last 30 days; narrow with `since`/`until` (ISO 8601). Admin scope required.',
+      querystring: zodQuery(AggregateQuery),
+      response: { 200: zodResponse(AggregateResponse) },
+    },
+  }, async (req) => {
     const query = AggregateQuery.parse(req.query);
     const orgId = requireCallerOrg(req);
     const until = query.until ? new Date(query.until) : new Date();
@@ -55,7 +89,16 @@ export async function registerUsageRoutes(app: FastifyInstance, ctx: AppContext)
     };
   });
 
-  app.get('/v1/usage/events', { preHandler: requireScope('admin') }, async (req) => {
+  app.get('/v1/usage/events', {
+    preHandler: requireScope('admin'),
+    schema: {
+      summary: 'List raw usage events',
+      description:
+        'Return raw usage events for the caller\'s org in descending time order. Keyset pagination via `cursor` (ISO 8601). Optionally filter by `kind`.',
+      querystring: zodQuery(EventsQuery),
+      response: { 200: zodResponse(UsageEventsResponse) },
+    },
+  }, async (req) => {
     const query = EventsQuery.parse(req.query);
     const orgId = requireCallerOrg(req);
     const conditions: SQL[] = [eq(schema.usageEvents.orgId, orgId)];

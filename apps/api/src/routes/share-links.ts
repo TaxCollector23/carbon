@@ -7,7 +7,20 @@ import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
 import type { SessionAuthenticatedRequest } from '../plugins/session-auth.js';
 import { requireScope } from '../plugins/scopes.js';
+import { zodBody, zodResponse } from '../plugins/schema-helpers.js';
 import { getActor, recordEvent } from '../services/events.js';
+
+const ShareLinkResponse = z.object({
+  id: z.string(),
+  token: z.string(),
+  expiresAt: z.union([z.string(), z.date()]),
+  url: z.string(),
+});
+const ShareLinkStateResponse = z.object({
+  projectId: z.string(),
+  expiresAt: z.union([z.string(), z.date()]),
+  state: z.unknown().nullable(),
+});
 
 /**
  * Short-lived, read-only shareable replica links.
@@ -39,7 +52,15 @@ export async function registerShareLinkRoutes(
 
   app.post<{ Params: { id: string }; Body: unknown }>(
     '/v1/projects/:id/share-links',
-    { preHandler: requireScope('write') },
+    {
+      preHandler: requireScope('write'),
+      schema: {
+        summary: 'Create a share link for a project',
+        description: 'Mint a short-lived shareable read-only link for a project. Default TTL is 24h; cap 30 days.',
+        body: zodBody(CreateBody),
+        response: { 201: zodResponse(ShareLinkResponse) },
+      },
+    },
     async (req, reply) => {
       const project = await deps.requireProjectInOrg(ctx, req, req.params.id);
       const body = CreateBody.parse(req.body ?? {});
@@ -80,6 +101,13 @@ export async function registerShareLinkRoutes(
    */
   app.get<{ Params: { token: string } }>(
     '/v1/share-links/:token/state',
+    {
+      schema: {
+        summary: 'Read a share link\'s current state',
+        description: 'Public token-gated readback of a share link. Unauthenticated beyond the token itself; returns the most recent snapshot artifact metadata.',
+        response: { 200: zodResponse(ShareLinkStateResponse) },
+      },
+    },
     async (req) => {
       const params = z.object({ token: z.string().min(16).max(64) }).parse(req.params);
       const [link] = await ctx.db
@@ -116,7 +144,13 @@ export async function registerShareLinkRoutes(
 
   app.delete<{ Params: { id: string } }>(
     '/v1/share-links/:id',
-    { preHandler: requireScope('write') },
+    {
+      preHandler: requireScope('write'),
+      schema: {
+        summary: 'Revoke a share link',
+        description: 'Mark a share link revoked so subsequent state reads 404. The row is retained for audit rather than deleted.',
+      },
+    },
     async (req, reply) => {
       const params = z.object({ id: z.string().min(1) }).parse(req.params);
       const [row] = await ctx.db

@@ -84,6 +84,21 @@ carbon snapshot load baseline
 
 That's the whole loop: **ingest → emulate → mutate → snapshot → restore**.
 
+<Note>
+  **Try the examples.** Runnable copy-paste samples live under
+  [`examples/`](https://github.com/carbondev/carbon/tree/master/examples) in the
+  repo:
+
+  - [`examples/sdk-basic`](https://github.com/carbondev/carbon/tree/master/examples/sdk-basic)
+    — boot a replica from an OpenAPI file with `carbon.emulate()`.
+  - [`examples/sdk-with-ai`](https://github.com/carbondev/carbon/tree/master/examples/sdk-with-ai)
+    — same, plus AI-inferred resources gated by `replica.assertQuality()`.
+  - [`examples/sdk-vitest`](https://github.com/carbondev/carbon/tree/master/examples/sdk-vitest)
+    — drop the SDK into a Vitest suite with proper setup/teardown.
+
+  From a clone: `pnpm --filter @carbon/example-sdk-basic dev`.
+</Note>
+
 ## Next steps
 
 - [Spec to runtime](/concepts/spec-to-runtime) — how ingest, IR, and the

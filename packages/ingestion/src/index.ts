@@ -6,6 +6,34 @@ import { StorageKeys, type Storage } from '@carbon/storage';
 import type { AiCapabilities, AiJudge, JudgeVerdict } from '@carbon/ai';
 import type { BehaviorGraph, IntermediateRepresentation } from '@carbon/types';
 import { makeId } from '@carbon/core';
+import { SpanStatusCode, trace, type Span } from '@opentelemetry/api';
+
+// Named tracer so operators can filter spans by instrumentation library. When
+// no OTel SDK is registered (the default) this is a no-op ProxyTracer.
+const tracer = trace.getTracer('@carbon/ingestion');
+
+async function withSpan<T>(
+  name: string,
+  attrs: Record<string, string | number | boolean | undefined>,
+  fn: (span: Span) => Promise<T>,
+): Promise<T> {
+  return tracer.startActiveSpan(name, async (span) => {
+    for (const [k, v] of Object.entries(attrs)) {
+      if (v !== undefined) span.setAttribute(k, v);
+    }
+    try {
+      const out = await fn(span);
+      span.setStatus({ code: SpanStatusCode.OK });
+      return out;
+    } catch (err) {
+      span.recordException(err as Error);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error).message });
+      throw err;
+    } finally {
+      span.end();
+    }
+  });
+}
 
 /**
  * The Ingestion orchestrator wires the pipeline end-to-end for a single
@@ -74,6 +102,19 @@ export function createIngestionPipeline(deps: IngestionDeps): IngestionPipeline 
 
   return {
     async ingest(req) {
+      return withSpan(
+        'ingest.pipeline',
+        {
+          'carbon.project_slug': req.projectSlug,
+          'carbon.enrich': Boolean(req.enrich),
+          'carbon.org_id': req.context?.orgId,
+        },
+        () => runIngest(req),
+      );
+    },
+  };
+
+  async function runIngest(req: IngestRequest): Promise<IngestResult> {
       const warnings: string[] = [];
       const ctx = createParserContext(deps.logger, req.origin);
       const originalWarn = ctx.warn;
@@ -85,7 +126,9 @@ export function createIngestionPipeline(deps: IngestionDeps): IngestionPipeline 
         },
       };
 
-      const parsedIr = await deps.parsers.parse(req.input, captured);
+      const parsedIr = await withSpan('ingest.parse', {}, () =>
+        deps.parsers.parse(req.input, captured),
+      );
       let ir: IntermediateRepresentation = {
         ...parsedIr,
         api: {
@@ -97,11 +140,18 @@ export function createIngestionPipeline(deps: IngestionDeps): IngestionPipeline 
       let judge: IngestJudgeReport | undefined;
       if (req.enrich && deps.ai) {
         try {
-          const enrichedResources = await deps.ai.inferResources({ ir }, req.context);
+          const enrichedResources = await withSpan('ingest.infer.resources', {}, () =>
+            deps.ai!.inferResources({ ir }, req.context),
+          );
           ir = { ...ir, resources: enrichedResources };
-          const enrichedRelationships = await deps.ai.inferRelationships(
-            { ir, resources: enrichedResources },
-            req.context,
+          const enrichedRelationships = await withSpan(
+            'ingest.infer.relationships',
+            {},
+            () =>
+              deps.ai!.inferRelationships(
+                { ir, resources: enrichedResources },
+                req.context,
+              ),
           );
           ir = { ...ir, relationships: enrichedRelationships };
           if (deps.judge) {
@@ -109,16 +159,18 @@ export function createIngestionPipeline(deps: IngestionDeps): IngestionPipeline 
             // cross-reference the two sources of truth (endpoints vs.
             // inference output). Failures inside the judge fall through to
             // its own fallback verdict — we never let it break ingestion.
-            const [resVerdict, relVerdict] = await Promise.all([
-              deps.judge.judgeResourceInference(
-                { ir, proposedResources: enrichedResources },
-                req.context,
-              ),
-              deps.judge.judgeRelationshipInference(
-                { ir, proposedRelationships: enrichedRelationships },
-                req.context,
-              ),
-            ]);
+            const [resVerdict, relVerdict] = await withSpan('ingest.judge', {}, () =>
+              Promise.all([
+                deps.judge!.judgeResourceInference(
+                  { ir, proposedResources: enrichedResources },
+                  req.context,
+                ),
+                deps.judge!.judgeRelationshipInference(
+                  { ir, proposedRelationships: enrichedRelationships },
+                  req.context,
+                ),
+              ]),
+            );
             judge = { resources: resVerdict, relationships: relVerdict };
           }
         } catch (err) {
@@ -140,18 +192,20 @@ export function createIngestionPipeline(deps: IngestionDeps): IngestionPipeline 
         }
       }
 
-      const graph = builder.build(ir);
+      const graph = await withSpan('ingest.build_graph', {}, async () => builder.build(ir));
       const irId = makeId('ir');
       const graphId = makeId('grf');
 
-      await deps.storage.put(StorageKeys.ir(req.projectSlug, irId), JSON.stringify(ir), {
-        contentType: 'application/json',
+      await withSpan('ingest.persist', { 'carbon.ir_id': irId, 'carbon.graph_id': graphId }, async () => {
+        await deps.storage.put(StorageKeys.ir(req.projectSlug, irId), JSON.stringify(ir), {
+          contentType: 'application/json',
+        });
+        await deps.storage.put(
+          StorageKeys.graph(req.projectSlug, graphId),
+          JSON.stringify(graph),
+          { contentType: 'application/json' },
+        );
       });
-      await deps.storage.put(
-        StorageKeys.graph(req.projectSlug, graphId),
-        JSON.stringify(graph),
-        { contentType: 'application/json' },
-      );
       if (judge) {
         // Persist the judge report alongside the IR so `/v1/projects/:slug/ir/:id`
         // consumers can fetch review context by convention. This is the "meta"
@@ -173,6 +227,5 @@ export function createIngestionPipeline(deps: IngestionDeps): IngestionPipeline 
         judge,
         judgeThreshold: deps.judge?.threshold,
       };
-    },
-  };
+  }
 }

@@ -7,7 +7,18 @@ import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import type { SessionAuthenticatedRequest } from '../plugins/session-auth.js';
 import { requireScope } from '../plugins/scopes.js';
+import { zodBody, zodResponse } from '../plugins/schema-helpers.js';
 import { getActor, recordEvent } from '../services/events.js';
+
+const ProviderView = z.object({
+  id: z.string(),
+  type: z.enum(['saml', 'oidc']),
+  name: z.string(),
+  emailDomain: z.string().optional(),
+  config: z.record(z.unknown()),
+  createdAt: z.string(),
+});
+const ProviderListResponse = z.object({ data: z.array(ProviderView) });
 
 /**
  * SSO provider management — SAML and OIDC. Stored inside the
@@ -54,13 +65,28 @@ interface OrgSettings {
 }
 
 export async function registerSsoRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
-  app.get('/v1/sso/providers', { preHandler: requireScope('admin') }, async (req) => {
+  app.get('/v1/sso/providers', {
+    preHandler: requireScope('admin'),
+    schema: {
+      summary: 'List SSO providers',
+      description: 'Return every SAML/OIDC provider configured for the caller\'s org. Client secrets are stripped from the response.',
+      response: { 200: zodResponse(ProviderListResponse) },
+    },
+  }, async (req) => {
     const orgId = requireCallerOrg(req);
     const org = await loadOrg(ctx, orgId);
     return { data: (org.settings.ssoProviders ?? []).map(publicView) };
   });
 
-  app.post('/v1/sso/providers', { preHandler: requireScope('admin') }, async (req, reply) => {
+  app.post('/v1/sso/providers', {
+    preHandler: requireScope('admin'),
+    schema: {
+      summary: 'Configure an SSO provider',
+      description: 'Add a SAML or OIDC provider to the org. Enterprise-only — non-enterprise orgs get 403. OIDC client secrets are stored but never returned.',
+      body: zodBody(ProviderBody),
+      response: { 201: zodResponse(ProviderView) },
+    },
+  }, async (req, reply) => {
     const body = ProviderBody.parse(req.body);
     const orgId = requireCallerOrg(req);
     const org = await loadOrg(ctx, orgId);
@@ -104,7 +130,13 @@ export async function registerSsoRoutes(app: FastifyInstance, ctx: AppContext): 
 
   app.delete<{ Params: { id: string } }>(
     '/v1/sso/providers/:id',
-    { preHandler: requireScope('admin') },
+    {
+      preHandler: requireScope('admin'),
+      schema: {
+        summary: 'Remove an SSO provider',
+        description: 'Delete the provider by id from the org. 404 if the id is not configured.',
+      },
+    },
     async (req, reply) => {
       const orgId = requireCallerOrg(req);
       const org = await loadOrg(ctx, orgId);

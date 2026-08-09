@@ -6,8 +6,33 @@ import { schema } from '@carbon/database';
 import { validateAgainstSpec, type JsonSchemaLike } from '@carbon/parser';
 import type { AppContext } from '../context.js';
 import { requireScope } from '../plugins/scopes.js';
+import { zodBody, zodResponse } from '../plugins/schema-helpers.js';
 import { recordUsage } from '../services/usage.js';
 import { requireProjectAccessById } from './project-access.js';
+
+const SampleReportSchema = z.object({
+  method: z.string(),
+  path: z.string(),
+  status: z.number().int().nullable(),
+  durationMs: z.number(),
+  ok: z.boolean(),
+  error: z.string().optional(),
+  mismatches: z
+    .array(
+      z.object({ path: z.string(), expected: z.string(), got: z.string() }),
+    )
+    .optional(),
+});
+const ContractCheckResponse = z.object({
+  projectId: z.string(),
+  target: z.string(),
+  summary: z.object({
+    total: z.number().int(),
+    passed: z.number().int(),
+    failed: z.number().int(),
+  }),
+  results: z.array(SampleReportSchema),
+});
 
 const SampleRequest = z.object({
   method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD']).default('GET'),
@@ -43,7 +68,16 @@ export async function registerContractRoutes(
 ): Promise<void> {
   app.post<{ Params: { id: string } }>(
     '/v1/projects/:id/contract-check',
-    { preHandler: requireScope('write') },
+    {
+      preHandler: requireScope('write'),
+      schema: {
+        summary: 'Run contract checks against a live URL',
+        description:
+          'Send each sample request in the body to the target URL and report status, latency, and (optionally) schema mismatches. Counts as one contract_check usage event per sample.',
+        body: zodBody(CheckBody),
+        response: { 200: zodResponse(ContractCheckResponse) },
+      },
+    },
     async (req) => {
       const body = CheckBody.parse(req.body);
       // ACL: caller's org must own this project, and if project_members

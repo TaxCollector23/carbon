@@ -1,0 +1,22 @@
+{
+  "name": "@carbon/example-sdk-with-ai",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Copy-pasteable example: boot a Carbon replica with AI-inferred resources + judge-gated quality assertion.",
+  "scripts": {
+    "dev": "tsx index.ts",
+    "start": "tsx index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@carbon/ai": "workspace:*",
+    "@carbon/core": "workspace:*",
+    "@carbon/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@carbon/config": "workspace:*",
+    "tsx": "^4.23.8",
+    "typescript": "^5.7.2"
+  }
+}

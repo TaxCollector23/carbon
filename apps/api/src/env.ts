@@ -122,6 +122,14 @@ const RawEnvSchema = z
     STRIPE_WEBHOOK_SECRET: optionalNonEmptyString(),
     /** Price id for the Team plan; used when creating a Checkout session. */
     STRIPE_PRICE_TEAM: optionalNonEmptyString(),
+    /**
+     * OTLP HTTP endpoint for OpenTelemetry traces (e.g. `http://tempo:4318`,
+     * `https://api.honeycomb.io`). When unset, tracing is fully disabled —
+     * no OTel packages are loaded, no spans are exported, and boot stays fast.
+     */
+    OTEL_EXPORTER_OTLP_ENDPOINT: optionalNonEmptyString(),
+    /** Service name reported on every span. */
+    OTEL_SERVICE_NAME: z.string().default('carbon-api'),
   })
   .superRefine((env, ctx) => {
     if (env.STORAGE_BACKEND === 's3') {

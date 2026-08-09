@@ -7,7 +7,42 @@ import { runThroughput } from '@carbon/benchmarks/throughput-lib';
 import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import { requireScope } from '../plugins/scopes.js';
+import { zodBody, zodResponse } from '../plugins/schema-helpers.js';
 import { compileRules, type ChaosRule } from '../services/chaos.js';
+
+const EmulatorSummary = z
+  .object({
+    id: z.string(),
+    projectSlug: z.string().optional(),
+    url: z.string().optional(),
+    host: z.string().optional(),
+    port: z.number().int().optional(),
+    startedAt: z.union([z.string(), z.number()]).optional(),
+  })
+  .passthrough();
+const EmulatorListResponse = z.object({ data: z.array(EmulatorSummary) });
+const SnapshotAckResponse = z
+  .object({ name: z.string() })
+  .passthrough();
+const ApplyPresetResponse = z.object({
+  applied: z.boolean(),
+  presetId: z.string(),
+  name: z.string(),
+  errorRuleCount: z.number().int(),
+  latency: z.unknown().optional(),
+});
+const LoadTestResponse = z.object({
+  emulatorId: z.string(),
+  target: z.string(),
+  concurrency: z.number().int(),
+  durationMs: z.number(),
+  rps: z.number(),
+  p50: z.number(),
+  p95: z.number(),
+  p99: z.number(),
+  errorRate: z.number(),
+  totalRequests: z.number(),
+});
 import { getActor, recordEvent } from '../services/events.js';
 import { recordUsage } from '../services/usage.js';
 import {
@@ -58,7 +93,15 @@ export async function registerEmulatorRoutes(app: FastifyInstance, ctx: AppConte
 
   const allowedHosts = ctx.emulatorAllowedHosts ?? DEFAULT_ALLOWED_HOSTS;
 
-  app.post('/v1/emulators', { preHandler: requireScope('write') }, async (req, reply) => {
+  app.post('/v1/emulators', {
+    preHandler: requireScope('write'),
+    schema: {
+      summary: 'Start an emulator',
+      description: 'Boot an emulator serving the specified IR. Host must be in `CARBON_EMULATOR_ALLOWED_HOSTS` (default loopback only) so callers cannot bind to public interfaces on a shared control plane.',
+      body: zodBody(CreateBody),
+      response: { 201: zodResponse(EmulatorSummary) },
+    },
+  }, async (req, reply) => {
     const body = CreateBody.parse(req.body);
     // Default to loopback and reject anything the operator did not opt into.
     // Passing an arbitrary interface straight to `server.listen()` is how an
@@ -100,7 +143,14 @@ export async function registerEmulatorRoutes(app: FastifyInstance, ctx: AppConte
 
   app.get<{ Params: { id: string } }>(
     '/v1/emulators/:id',
-    { preHandler: requireScope('read') },
+    {
+      preHandler: requireScope('read'),
+      schema: {
+        summary: 'Get an emulator by id',
+        description: 'Return the emulator\'s current binding and metadata.',
+        response: { 200: zodResponse(EmulatorSummary) },
+      },
+    },
     async (req) => {
     const record = ctx.emulators.get(req.params.id);
     const project = await resolveStoredProjectAccess(ctx, req, record.projectSlug);
@@ -110,7 +160,13 @@ export async function registerEmulatorRoutes(app: FastifyInstance, ctx: AppConte
 
   app.delete<{ Params: { id: string } }>(
     '/v1/emulators/:id',
-    { preHandler: requireScope('write') },
+    {
+      preHandler: requireScope('write'),
+      schema: {
+        summary: 'Stop an emulator',
+        description: 'Shut down and remove a running emulator.',
+      },
+    },
     async (req, reply) => {
       const record = ctx.emulators.get(req.params.id);
       const project = await resolveStoredProjectAccess(ctx, req, record.projectSlug);
@@ -137,7 +193,13 @@ export async function registerEmulatorRoutes(app: FastifyInstance, ctx: AppConte
 
   app.post<{ Params: { id: string } }>(
     '/v1/emulators/:id/reset',
-    { preHandler: requireScope('write') },
+    {
+      preHandler: requireScope('write'),
+      schema: {
+        summary: 'Reset an emulator\'s state',
+        description: 'Clear the emulator\'s in-memory state without restarting its HTTP listener.',
+      },
+    },
     async (req, reply) => {
       const record = ctx.emulators.get(req.params.id);
       await resolveStoredProjectAccess(ctx, req, record.projectSlug);
@@ -148,7 +210,15 @@ export async function registerEmulatorRoutes(app: FastifyInstance, ctx: AppConte
 
   app.post<{ Params: { id: string } }>(
     '/v1/emulators/:id/snapshot',
-    { preHandler: requireScope('write') },
+    {
+      preHandler: requireScope('write'),
+      schema: {
+        summary: 'Snapshot an emulator',
+        description: 'Persist the emulator\'s current state under `name`. Overwrites any existing snapshot with the same name.',
+        body: zodBody(SnapshotBody),
+        response: { 201: zodResponse(SnapshotAckResponse) },
+      },
+    },
     async (req, reply) => {
       const body = SnapshotBody.parse(req.body);
       const record = ctx.emulators.get(req.params.id);
@@ -161,7 +231,14 @@ export async function registerEmulatorRoutes(app: FastifyInstance, ctx: AppConte
 
   app.post<{ Params: { id: string } }>(
     '/v1/emulators/:id/restore',
-    { preHandler: requireScope('write') },
+    {
+      preHandler: requireScope('write'),
+      schema: {
+        summary: 'Restore an emulator from a snapshot',
+        description: 'Replace the emulator\'s current state with the named snapshot.',
+        body: zodBody(RestoreBody),
+      },
+    },
     async (req, reply) => {
       const body = RestoreBody.parse(req.body);
       const record = ctx.emulators.get(req.params.id);
@@ -191,7 +268,15 @@ export async function registerEmulatorRoutes(app: FastifyInstance, ctx: AppConte
 
   app.post<{ Params: { id: string } }>(
     '/v1/emulators/:id/apply-preset',
-    { preHandler: requireScope('write') },
+    {
+      preHandler: requireScope('write'),
+      schema: {
+        summary: 'Apply a chaos preset to an emulator',
+        description: 'Compile and apply the referenced chaos preset (must be owned by the caller\'s org). Overwrites any active chaos configuration.',
+        body: zodBody(ApplyPresetBody),
+        response: { 200: zodResponse(ApplyPresetResponse) },
+      },
+    },
     async (req) => {
       const body = ApplyPresetBody.parse(req.body);
       const record = ctx.emulators.get(req.params.id);
@@ -244,7 +329,15 @@ export async function registerEmulatorRoutes(app: FastifyInstance, ctx: AppConte
 
   app.post<{ Params: { id: string } }>(
     '/v1/emulators/:id/load-test',
-    { preHandler: requireScope('write') },
+    {
+      preHandler: requireScope('write'),
+      schema: {
+        summary: 'Run a throughput load test',
+        description: 'Fire load at the emulator for a bounded duration (max 60s) and return latency percentiles. Blocks the API event loop while running, so durations are capped hard.',
+        body: zodBody(LoadTestBody),
+        response: { 200: zodResponse(LoadTestResponse) },
+      },
+    },
     async (req) => {
       const body = LoadTestBody.parse(req.body);
       const record = ctx.emulators.get(req.params.id);

@@ -6,8 +6,37 @@ import { StorageKeys } from '@carbon/storage';
 import type { AppContext } from '../context.js';
 import { z } from 'zod';
 import { requireScope } from '../plugins/scopes.js';
+import { zodBody, zodQuery, zodResponse } from '../plugins/schema-helpers.js';
 import { ProjectSlug, resolveProjectAccess } from './project-access.js';
 import { collectStorage } from './storage-listing.js';
+
+const ArtifactListItem = z.object({
+  kind: z.enum(['ir', 'graph']),
+  id: z.string(),
+  size: z.number().int(),
+  modifiedAt: z.number(),
+});
+const ArtifactListResponse = z.object({
+  data: z.array(ArtifactListItem),
+  limit: z.number().int(),
+  truncated: z.boolean(),
+});
+const ArtifactListQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+});
+const TagsBody = z.object({ tags: z.array(z.string().min(1).max(80)).max(50) });
+const TagsResponse = z.object({ id: z.string(), tags: z.array(z.string()) });
+const CommentBody = z.object({ body: z.string().min(1).max(10_000) });
+const CommentSchema = z
+  .object({
+    id: z.string(),
+    artifactId: z.string(),
+    authorId: z.string().nullable(),
+    body: z.string(),
+    createdAt: z.union([z.string(), z.date()]).optional(),
+  })
+  .passthrough();
+const CommentListResponse = z.object({ data: z.array(CommentSchema) });
 import type { SessionAuthenticatedRequest } from '../plugins/session-auth.js';
 
 /**
@@ -68,7 +97,14 @@ async function sendArtifact(
 export async function registerArtifactRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
   app.get<{ Params: { slug: string; id: string } }>(
     '/v1/projects/:slug/ir/:id',
-    { preHandler: requireScope('read') },
+    {
+      preHandler: requireScope('read'),
+      schema: {
+        summary: 'Fetch an IR artifact',
+        description:
+          'Stream a stored IR artifact as `application/json`. Content-addressed and immutably cacheable; emits weak ETags for If-None-Match short-circuit. Response body is the raw IR JSON (schema not published).',
+      },
+    },
     async (req, reply) => {
       const params = z.object({ slug: ProjectSlug, id: z.string().min(1) }).parse(req.params);
       const project = await resolveProjectAccess(ctx, req, params.slug);
@@ -79,7 +115,14 @@ export async function registerArtifactRoutes(app: FastifyInstance, ctx: AppConte
 
   app.get<{ Params: { slug: string; id: string } }>(
     '/v1/projects/:slug/graphs/:id',
-    { preHandler: requireScope('read') },
+    {
+      preHandler: requireScope('read'),
+      schema: {
+        summary: 'Fetch a behavior-graph artifact',
+        description:
+          'Stream a stored behavior graph as `application/json`. Immutable and ETag-cacheable. Response body is the raw graph JSON (schema not published).',
+      },
+    },
     async (req, reply) => {
       const params = z.object({ slug: ProjectSlug, id: z.string().min(1) }).parse(req.params);
       const project = await resolveProjectAccess(ctx, req, params.slug);
@@ -90,7 +133,16 @@ export async function registerArtifactRoutes(app: FastifyInstance, ctx: AppConte
 
   app.get<{ Params: { slug: string }; Querystring: { limit?: string } }>(
     '/v1/projects/:slug/artifacts',
-    { preHandler: requireScope('read') },
+    {
+      preHandler: requireScope('read'),
+      schema: {
+        summary: 'List a project\'s artifacts',
+        description:
+          'Enumerate IR + graph artifacts for a project, newest first. Bounded scan — pass `limit` (max 500); `truncated: true` means more artifacts exist beyond the limit.',
+        querystring: zodQuery(ArtifactListQuery),
+        response: { 200: zodResponse(ArtifactListResponse) },
+      },
+    },
     async (req) => {
       const params = z.object({ slug: ProjectSlug }).parse(req.params);
       const query = z
@@ -136,7 +188,15 @@ export async function registerArtifactRoutes(app: FastifyInstance, ctx: AppConte
 
   app.patch<{ Params: { id: string }; Body: unknown }>(
     '/v1/artifacts/:id',
-    { preHandler: requireScope('write') },
+    {
+      preHandler: requireScope('write'),
+      schema: {
+        summary: 'Set an artifact\'s tags',
+        description: 'Replace the tag list on an artifact. Caller must have write access to the underlying project.',
+        body: zodBody(TagsBody),
+        response: { 200: zodResponse(TagsResponse) },
+      },
+    },
     async (req) => {
       const params = z.object({ id: z.string().min(1) }).parse(req.params);
       const body = z.object({ tags: z.array(z.string().min(1).max(80)).max(50) }).parse(req.body);
@@ -152,7 +212,14 @@ export async function registerArtifactRoutes(app: FastifyInstance, ctx: AppConte
 
   app.get<{ Params: { id: string } }>(
     '/v1/artifacts/:id/comments',
-    { preHandler: requireScope('read') },
+    {
+      preHandler: requireScope('read'),
+      schema: {
+        summary: 'List artifact comments',
+        description: 'Return every comment on an artifact, newest first, up to 500 rows.',
+        response: { 200: zodResponse(CommentListResponse) },
+      },
+    },
     async (req) => {
       const params = z.object({ id: z.string().min(1) }).parse(req.params);
       await requireArtifactForCaller(ctx, req, params.id);
@@ -168,7 +235,15 @@ export async function registerArtifactRoutes(app: FastifyInstance, ctx: AppConte
 
   app.post<{ Params: { id: string }; Body: unknown }>(
     '/v1/artifacts/:id/comments',
-    { preHandler: requireScope('write') },
+    {
+      preHandler: requireScope('write'),
+      schema: {
+        summary: 'Post a comment on an artifact',
+        description: 'Append a comment to an artifact. `authorId` is derived from the session user (null for API-key callers).',
+        body: zodBody(CommentBody),
+        response: { 201: zodResponse(CommentSchema) },
+      },
+    },
     async (req, reply) => {
       const params = z.object({ id: z.string().min(1) }).parse(req.params);
       const body = z.object({ body: z.string().min(1).max(10_000) }).parse(req.body);

@@ -52,7 +52,24 @@ pnpm --filter @carbon/e2e test:headed    # headed browser
 
 - `homepage.spec.ts` — overview page renders; health pill is optional.
 - `projects.spec.ts` — create a project via the modal, see it in the list.
-- `activity.spec.ts` — timeline or empty state (both are valid).
+- `activity.spec.ts` — timeline or empty state; also seeds a project via
+  the API and reloads to verify an event landed.
 - `keys.spec.ts` — create an API key, see the one-time secret modal.
+- `snapshots.spec.ts` — per-project snapshots page; select-a-project empty
+  state, plus post-seed empty/table render.
+- `emulators.spec.ts` — polling indicator, chaos + load-test modal opens
+  (when a row is present), input clamps on the load-test form.
+- `chaos-presets.spec.ts` — opens the New preset modal, submits valid JSON
+  rules, and expects the new row.
+- `ai-quality.spec.ts` — project picker + latest report card or empty
+  state.
+- `usage.spec.ts` — aggregate chart or empty state, kind filter dropdown
+  round-trip.
+- `settings.spec.ts` — resolves org via the OrgIdPrompt fallback, saves a
+  Slack webhook, reloads and confirms it persisted.
+- `cli-auth.spec.ts` — POSTs `/v1/cli-auth/start`, opens the returned
+  session URL, accepts either the approval UI or a `/sign-in` redirect.
 - `api-endpoints.spec.ts` — direct HTTP probes at `/health`, `/ready`,
   `/v1/version`, `/v1/projects`, `/v1/organizations/current`.
+- `api-endpoints-extended.spec.ts` — iterates every GET path in
+  `/openapi.json`, substitutes fixture params, and asserts no 5xx.

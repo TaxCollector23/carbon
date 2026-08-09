@@ -8,6 +8,7 @@ import type {
   StructuredRequest,
 } from '../provider.js';
 import { extractJson, withCircuitBreaker, withRetryJitter, withTimeout } from '../util.js';
+import { withAiSpan } from '../tracing.js';
 
 /** Google Gemini generative-language provider. */
 export class GeminiProvider implements AiProvider {
@@ -34,7 +35,7 @@ export class GeminiProvider implements AiProvider {
 
   async complete(req: CompletionRequest): Promise<CompletionResponse> {
     const start = Date.now();
-    const result = await this.guarded(req);
+    const result = await withAiSpan(this.name, req, () => this.guarded(req));
     if (this.onUsage) {
       try {
         this.onUsage({

@@ -1,3 +1,12 @@
+// Re-export the generated OpenAPI `paths` map as a secondary, machine-checked
+// source of truth. Consumers that want raw wire types can pull them out with
+//   type Resp = ApiPaths['/v1/projects']['get']['responses']['200']['content']['application/json'];
+// The hand-written interfaces below stay authoritative for the ergonomic
+// client surface — the generated types are permissive in places (e.g. routes
+// without an explicit response schema materialise as `content?: never`), so
+// swapping them in wholesale would regress call-site type safety.
+export type { paths as ApiPaths, components as ApiComponents } from './api-types.gen';
+
 /**
  * Typed browser client for the Carbon control-plane API (`apps/api`).
  *

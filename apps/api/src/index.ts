@@ -1,3 +1,8 @@
+// MUST be the first import so OTel auto-instrumentation patches http/fastify/
+// ioredis/pg before those modules are pulled in. No-op when OTEL_EXPORTER_OTLP_
+// ENDPOINT is unset.
+import './preload.js';
+import { getTracingHandle } from './observability/tracing.js';
 import { createLogger } from '@carbon/core';
 import { createDatabase } from '@carbon/database';
 import { FsStorage, S3Storage, type Storage } from '@carbon/storage';
@@ -241,6 +246,9 @@ async function main(): Promise<void> {
         if (workers) await workers.close();
         if (ingestionQueue) await ingestionQueue.close();
         if (redis) await redis.quit();
+        // Flush any pending spans to the collector before exit. No-op when
+        // tracing is disabled.
+        await getTracingHandle().shutdown();
         clearTimeout(forceKill);
         logger.info('api.shutdown_complete', { signal });
         process.exit(0);

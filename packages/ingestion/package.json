@@ -13,7 +13,8 @@
     "@carbon/graph": "workspace:*",
     "@carbon/parser": "workspace:*",
     "@carbon/storage": "workspace:*",
-    "@carbon/types": "workspace:*"
+    "@carbon/types": "workspace:*",
+    "@opentelemetry/api": "^1.9.0"
   },
   "devDependencies": {
     "@carbon/config": "workspace:*",

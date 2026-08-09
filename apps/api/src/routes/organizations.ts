@@ -426,7 +426,17 @@ export async function registerOrganizationRoutes(
 
   app.patch<{ Params: { id: string; userId: string } }>(
     '/v1/organizations/:id/members/:userId',
-    { preHandler: requireScope('admin') },
+    {
+      preHandler: requireScope('admin'),
+      schema: {
+        summary: 'Change a member\'s role',
+        description: 'Owner/admin only. Demoting the last remaining owner is rejected with 409 so the org cannot be stranded without an admin path back in.',
+        body: zodBody(PatchMemberBody),
+        response: {
+          200: zodResponse(z.object({ userId: z.string(), role: RoleEnum })),
+        },
+      },
+    },
     async (req) => {
       const body = PatchMemberBody.parse(req.body ?? {});
       const caller = await callerContext(ctx, req, req.params.id);
@@ -476,7 +486,13 @@ export async function registerOrganizationRoutes(
 
   app.delete<{ Params: { id: string; userId: string } }>(
     '/v1/organizations/:id/members/:userId',
-    { preHandler: requireScope('admin') },
+    {
+      preHandler: requireScope('admin'),
+      schema: {
+        summary: 'Remove an organization member',
+        description: 'Owner/admin only. Removing the last remaining owner is rejected with 409.',
+      },
+    },
     async (req, reply) => {
       const caller = await callerContext(ctx, req, req.params.id);
       requireAdminOrOwner(caller);

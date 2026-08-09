@@ -8,6 +8,7 @@ import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import { requireScope } from '../plugins/scopes.js';
+import { zodBody, zodResponse } from '../plugins/schema-helpers.js';
 import {
   billingEnabled,
   getStripe,
@@ -15,6 +16,18 @@ import {
   type BillingEnv,
   type PlanTier,
 } from '../services/billing.js';
+
+const UrlResponse = z.object({ url: z.string().nullable() });
+const SubscriptionResponse = z.object({
+  plan: z
+    .object({
+      plan: z.enum(['developer', 'team', 'enterprise']),
+      status: z.string().optional(),
+      seats: z.number().int().optional(),
+      currentPeriodEnd: z.union([z.string(), z.date()]).nullable().optional(),
+    })
+    .passthrough(),
+});
 
 /**
  * Stripe billing surface.
@@ -69,7 +82,16 @@ export async function registerBillingRoutes(
       },
     });
 
-  app.post('/v1/billing/checkout', { preHandler: requireScope('admin') }, async (req, reply) => {
+  app.post('/v1/billing/checkout', {
+    preHandler: requireScope('admin'),
+    schema: {
+      summary: 'Create a Stripe Checkout session',
+      description:
+        'Start a Stripe Checkout flow for the caller\'s org. Returns the hosted-Checkout URL. 501 if billing is disabled (no STRIPE_SECRET_KEY). Enterprise plans are sales-only and return 400.',
+      body: zodBody(CheckoutBody),
+      response: { 200: zodResponse(UrlResponse) },
+    },
+  }, async (req, reply) => {
     if (!enabled || !stripe) return disabledReply(reply);
     const body = CheckoutBody.parse(req.body);
     const orgId = requireOrgId(req);
@@ -110,7 +132,15 @@ export async function registerBillingRoutes(
     return { url: session.url };
   });
 
-  app.post('/v1/billing/portal', { preHandler: requireScope('admin') }, async (req, reply) => {
+  app.post('/v1/billing/portal', {
+    preHandler: requireScope('admin'),
+    schema: {
+      summary: 'Create a Stripe Billing Portal session',
+      description: 'Return a signed URL to the Stripe Billing Portal for the caller\'s org. 501 if billing is disabled; 404 if the org has no customer on file.',
+      body: zodBody(PortalBody),
+      response: { 200: zodResponse(UrlResponse) },
+    },
+  }, async (req, reply) => {
     if (!enabled || !stripe) return disabledReply(reply);
     const body = PortalBody.parse(req.body);
     const orgId = requireOrgId(req);
@@ -135,7 +165,14 @@ export async function registerBillingRoutes(
 
   app.get(
     '/v1/billing/subscription',
-    { preHandler: requireScope('read') },
+    {
+      preHandler: requireScope('read'),
+      schema: {
+        summary: 'Get the caller\'s current subscription',
+        description: 'Return the resolved plan tier, status, seat count, and current period end for the caller\'s org.',
+        response: { 200: zodResponse(SubscriptionResponse) },
+      },
+    },
     async (req) => {
       const orgId = requireOrgId(req);
       const plan = await resolvePlan(orgId, ctx.db);

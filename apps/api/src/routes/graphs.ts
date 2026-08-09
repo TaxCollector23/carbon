@@ -5,7 +5,31 @@ import { BehaviorGraphBuilder } from '@carbon/graph';
 import { StorageKeys } from '@carbon/storage';
 import type { AppContext } from '../context.js';
 import { requireScope } from '../plugins/scopes.js';
+import { zodResponse } from '../plugins/schema-helpers.js';
 import { ProjectSlug, resolveProjectAccess } from './project-access.js';
+
+const GraphResponse = z.object({
+  projectId: z.string(),
+  irId: z.string().optional(),
+  nodes: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      readers: z.number().int(),
+      writers: z.number().int(),
+    }),
+  ),
+  edges: z.array(
+    z.object({
+      from: z.string(),
+      to: z.string(),
+      kind: z.string(),
+    }),
+  ),
+  transitions: z.number().int(),
+  constraints: z.number().int(),
+  graphKey: z.string(),
+});
 
 /**
  * Serve a project's most-recent behavior graph in a shape the dashboard's
@@ -19,7 +43,15 @@ import { ProjectSlug, resolveProjectAccess } from './project-access.js';
 export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
   app.get<{ Params: { id: string } }>(
     '/v1/projects/:id/graph',
-    { preHandler: requireScope('read') },
+    {
+      preHandler: requireScope('read'),
+      schema: {
+        summary: 'Get a project\'s current behavior graph',
+        description:
+          'Rebuild and return the behavior graph derived from the project\'s most recent IR blob. Shape is stable enough for the dashboard\'s graph explorer to render directly.',
+        response: { 200: zodResponse(GraphResponse) },
+      },
+    },
     async (req) => {
       const params = z.object({ id: ProjectSlug }).parse(req.params);
       const project = await resolveProjectAccess(ctx, req, params.id);

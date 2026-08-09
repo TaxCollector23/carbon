@@ -2,6 +2,9 @@ packages:
   - 'apps/*'
   - 'packages/*'
   - 'benchmarks'
+  - 'examples/*'
 allowBuilds:
   '@firebase/util': true
+  '@vscode/vsce-sign': false
+  esbuild: false
   protobufjs: true

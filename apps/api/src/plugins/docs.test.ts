@@ -5,6 +5,18 @@ import { registerProjectRoutes } from '../routes/projects.js';
 import { registerSnapshotRoutes } from '../routes/snapshots.js';
 import { registerEventRoutes } from '../routes/events.js';
 import { registerOrganizationRoutes } from '../routes/organizations.js';
+import { registerArtifactRoutes } from '../routes/artifacts.js';
+import { registerAssertionRoutes } from '../routes/assertions.js';
+import { registerAiQualityRoutes } from '../routes/ai-quality.js';
+import { registerChaosPresetRoutes } from '../routes/chaos-presets.js';
+import { registerContractRoutes } from '../routes/contract.js';
+import { registerEmulatorRoutes } from '../routes/emulators.js';
+import { registerGraphRoutes } from '../routes/graphs.js';
+import { registerIngestRoutes } from '../routes/ingest.js';
+import { registerJobRoutes } from '../routes/jobs.js';
+import { registerScimRoutes } from '../routes/scim.js';
+import { registerSsoRoutes } from '../routes/sso.js';
+import { registerUsageRoutes } from '../routes/usage.js';
 import type { AppContext } from '../context.js';
 
 /**
@@ -183,6 +195,73 @@ describe('docs plugin', () => {
           `missing responses.${status}.content.application/json.schema for ${method.toUpperCase()} ${path}`,
         ).toBeTruthy();
       }
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('publishes response.200 schemas for every /v1/* GET route that returns JSON', async () => {
+    const app = Fastify({ logger: false });
+    await registerDocs(app, 'test-1.2.3');
+    const ctx = {
+      db: {} as unknown,
+      storage: { list: () => (async function* () {})(), get: async () => null, head: async () => null } as unknown,
+      emulators: { list: () => [] } as unknown,
+    } as unknown as AppContext;
+    await registerProjectRoutes(app, ctx);
+    await registerSnapshotRoutes(app, ctx);
+    await registerEventRoutes(app, ctx);
+    await registerOrganizationRoutes(app, ctx);
+    await registerArtifactRoutes(app, ctx);
+    await registerAssertionRoutes(app, ctx);
+    await registerAiQualityRoutes(app, ctx);
+    await registerChaosPresetRoutes(app, ctx);
+    await registerContractRoutes(app, ctx);
+    await registerEmulatorRoutes(app, ctx);
+    await registerGraphRoutes(app, ctx);
+    await registerIngestRoutes(app, ctx);
+    await registerJobRoutes(app, ctx);
+    await registerScimRoutes(app, ctx);
+    await registerSsoRoutes(app, ctx);
+    await registerUsageRoutes(app, ctx);
+    await app.ready();
+    try {
+      const spec = app.swagger() as {
+        paths: Record<
+          string,
+          Record<
+            string,
+            {
+              responses?: Record<
+                string,
+                { content?: Record<string, { schema?: unknown }> }
+              >;
+            }
+          >
+        >;
+      };
+
+      // Endpoints whose 200 body is deliberately not JSON (binary streams,
+      // CSV, ZIP). Everything else must publish a JSON schema so codegen
+      // tools have something to point at.
+      const SKIP: readonly string[] = [
+        '/v1/projects/{slug}/ir/{id}', // application/json but raw byte stream
+        '/v1/projects/{slug}/graphs/{id}', // application/json but raw byte stream
+        '/v1/projects/{slug}/snapshots/{name}', // raw serialized StateSnapshot JSON
+        '/v1/events/export', // text/csv attachment
+      ];
+
+      const missing: string[] = [];
+      for (const [path, ops] of Object.entries(spec.paths ?? {})) {
+        if (!path.startsWith('/v1/')) continue;
+        const get = ops.get;
+        if (!get) continue;
+        if (SKIP.includes(path)) continue;
+        const schema =
+          get.responses?.['200']?.content?.['application/json']?.schema;
+        if (!schema) missing.push(`GET ${path}`);
+      }
+      expect(missing, `missing response.200 schemas:\n${missing.join('\n')}`).toEqual([]);
     } finally {
       await app.close();
     }

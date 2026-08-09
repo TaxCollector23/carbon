@@ -5,7 +5,31 @@ import { schema } from '@carbon/database';
 import { StorageKeys } from '@carbon/storage';
 import type { AppContext } from '../context.js';
 import { requireScope } from '../plugins/scopes.js';
+import { zodBody, zodQuery, zodResponse } from '../plugins/schema-helpers.js';
 import { getActor, recordEvent } from '../services/events.js';
+
+const IngestSyncResponse = z
+  .object({
+    irId: z.string(),
+    graphId: z.string(),
+    api: z.unknown().optional(),
+    endpoints: z.number().int(),
+    resources: z.number().int(),
+    warnings: z.array(z.unknown()).optional(),
+    judge: z.unknown().optional(),
+  })
+  .passthrough();
+const IngestAsyncResponse = z.object({
+  jobId: z.string(),
+  status: z.string(),
+});
+const IngestUnavailableResponse = z.object({
+  error: z.object({ code: z.string(), message: z.string() }),
+});
+const PostmanQuery = z.object({
+  projectSlug: z.string(),
+  origin: z.string().optional(),
+});
 import { recordAiQualityReport } from '../services/ai-quality.js';
 import { recordUsage } from '../services/usage.js';
 import { ProjectSlug, resolveProjectAccess } from './project-access.js';
@@ -34,6 +58,17 @@ export async function registerIngestRoutes(app: FastifyInstance, ctx: AppContext
       // 10MB but well below anything that would starve the event loop.
       bodyLimit: 32 * 1024 * 1024,
       preHandler: requireScope('write'),
+      schema: {
+        summary: 'Ingest a spec into a project',
+        description:
+          'Turn an OpenAPI / HAR / Postman payload into an IR and behavior graph. Set `async: true` to enqueue the work and return a `jobId` immediately (recommended for large specs); the sync path returns the persisted artifact ids and counts.',
+        body: zodBody(IngestBody),
+        response: {
+          201: zodResponse(IngestSyncResponse),
+          202: zodResponse(IngestAsyncResponse),
+          503: zodResponse(IngestUnavailableResponse),
+        },
+      },
     },
     async (req, reply) => {
       const body = IngestBody.parse(req.body);
@@ -178,6 +213,12 @@ export async function registerIngestRoutes(app: FastifyInstance, ctx: AppContext
     {
       bodyLimit: 32 * 1024 * 1024,
       preHandler: requireScope('write'),
+      schema: {
+        summary: 'Ingest a raw Postman collection',
+        description: 'Shortcut that accepts a raw Postman collection JSON body (any content) and routes it through the Postman adapter. Target project is picked via `?projectSlug=`.',
+        querystring: zodQuery(PostmanQuery),
+        response: { 201: zodResponse(IngestSyncResponse) },
+      },
     },
     async (req, reply) => {
       const query = z

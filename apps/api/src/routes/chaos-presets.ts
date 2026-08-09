@@ -6,7 +6,21 @@ import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import { requireScope } from '../plugins/scopes.js';
+import { zodBody, zodResponse } from '../plugins/schema-helpers.js';
 import { getActor, recordEvent } from '../services/events.js';
+
+const ChaosPresetSchema = z
+  .object({
+    id: z.string(),
+    orgId: z.string(),
+    name: z.string(),
+    description: z.string().nullable().optional(),
+    rules: z.array(z.unknown()),
+    builtIn: z.boolean().optional(),
+    createdAt: z.union([z.string(), z.date()]).optional(),
+  })
+  .passthrough();
+const ChaosPresetListResponse = z.object({ data: z.array(ChaosPresetSchema) });
 
 const RuleSchema = z.object({
   kind: z.enum(['error', 'latency']),
@@ -37,7 +51,14 @@ export async function registerChaosPresetRoutes(
   app: FastifyInstance,
   ctx: AppContext,
 ): Promise<void> {
-  app.get('/v1/chaos-presets', { preHandler: requireScope('read') }, async (req) => {
+  app.get('/v1/chaos-presets', {
+    preHandler: requireScope('read'),
+    schema: {
+      summary: 'List chaos presets',
+      description: 'Return every chaos preset visible to the caller\'s org, sorted by name.',
+      response: { 200: zodResponse(ChaosPresetListResponse) },
+    },
+  }, async (req) => {
     const orgId = requireOrgId(req);
     const rows = await ctx.db
       .select()
@@ -47,7 +68,15 @@ export async function registerChaosPresetRoutes(
     return { data: rows };
   });
 
-  app.post('/v1/chaos-presets', { preHandler: requireScope('write') }, async (req, reply) => {
+  app.post('/v1/chaos-presets', {
+    preHandler: requireScope('write'),
+    schema: {
+      summary: 'Create a chaos preset',
+      description: 'Register a named chaos preset scoped to the caller\'s org. Names are unique per org; duplicates return 409.',
+      body: zodBody(CreateBody),
+      response: { 201: zodResponse(ChaosPresetSchema) },
+    },
+  }, async (req, reply) => {
     const body = CreateBody.parse(req.body);
     const orgId = requireOrgId(req);
     const id = makeId('chaos');
@@ -85,7 +114,13 @@ export async function registerChaosPresetRoutes(
 
   app.delete<{ Params: { id: string } }>(
     '/v1/chaos-presets/:id',
-    { preHandler: requireScope('admin') },
+    {
+      preHandler: requireScope('admin'),
+      schema: {
+        summary: 'Delete a chaos preset',
+        description: 'Delete a chaos preset owned by the caller\'s org. Built-in presets and cross-org ids return 404.',
+      },
+    },
     async (req, reply) => {
       const orgId = requireOrgId(req);
       // Never let a caller delete another org's presets — a shared control

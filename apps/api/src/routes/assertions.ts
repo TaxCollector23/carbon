@@ -6,10 +6,25 @@ import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import { requireScope } from '../plugins/scopes.js';
+import { zodBody, zodQuery, zodResponse } from '../plugins/schema-helpers.js';
 import { getActor, recordEvent } from '../services/events.js';
 import { requireProjectAccessById } from './project-access.js';
 
 const AssertionKind = z.enum(['latency', 'field', 'status']);
+
+const AssertionSchema = z
+  .object({
+    id: z.string(),
+    projectId: z.string(),
+    name: z.string(),
+    endpoint: z.string().nullable().optional(),
+    kind: AssertionKind,
+    config: z.record(z.unknown()),
+    enabled: z.boolean(),
+    createdAt: z.union([z.string(), z.date()]).optional(),
+  })
+  .passthrough();
+const AssertionListResponse = z.object({ data: z.array(AssertionSchema) });
 
 const CreateBody = z.object({
   projectId: z.string().min(1).max(80),
@@ -30,7 +45,15 @@ export async function registerAssertionRoutes(
   app: FastifyInstance,
   ctx: AppContext,
 ): Promise<void> {
-  app.get('/v1/assertions', { preHandler: requireScope('read') }, async (req) => {
+  app.get('/v1/assertions', {
+    preHandler: requireScope('read'),
+    schema: {
+      summary: 'List assertion rules',
+      description: 'Return every assertion rule, optionally scoped by `projectId`.',
+      querystring: zodQuery(ListQuery),
+      response: { 200: zodResponse(AssertionListResponse) },
+    },
+  }, async (req) => {
     const { projectId } = ListQuery.parse(req.query);
     const where = projectId ? eq(schema.assertionRules.projectId, projectId) : undefined;
     const q = ctx.db.select().from(schema.assertionRules).orderBy(asc(schema.assertionRules.name)).$dynamic();
@@ -38,7 +61,15 @@ export async function registerAssertionRoutes(
     return { data: rows };
   });
 
-  app.post('/v1/assertions', { preHandler: requireScope('write') }, async (req, reply) => {
+  app.post('/v1/assertions', {
+    preHandler: requireScope('write'),
+    schema: {
+      summary: 'Create an assertion rule',
+      description: 'Create a declarative response assertion targeting `projectId`. Caller must have write access to the project.',
+      body: zodBody(CreateBody),
+      response: { 201: zodResponse(AssertionSchema) },
+    },
+  }, async (req, reply) => {
     const body = CreateBody.parse(req.body);
     // Assertions target a specific project — confirm the caller can act on
     // it before we spend a write on their behalf.
@@ -71,7 +102,15 @@ export async function registerAssertionRoutes(
 
   app.patch<{ Params: { id: string } }>(
     '/v1/assertions/:id',
-    { preHandler: requireScope('write') },
+    {
+      preHandler: requireScope('write'),
+      schema: {
+        summary: 'Update an assertion rule',
+        description: 'Partially update an assertion. Omitted fields are left untouched. Returns the current row when the body is empty.',
+        body: zodBody(UpdateBody),
+        response: { 200: zodResponse(AssertionSchema) },
+      },
+    },
     async (req) => {
       const body = UpdateBody.parse(req.body ?? {});
       const patch: Record<string, unknown> = {};
@@ -101,7 +140,13 @@ export async function registerAssertionRoutes(
 
   app.delete<{ Params: { id: string } }>(
     '/v1/assertions/:id',
-    { preHandler: requireScope('write') },
+    {
+      preHandler: requireScope('write'),
+      schema: {
+        summary: 'Delete an assertion rule',
+        description: 'Delete an assertion by id. 404 if the id is unknown.',
+      },
+    },
     async (req, reply) => {
       const deleted = await ctx.db
         .delete(schema.assertionRules)

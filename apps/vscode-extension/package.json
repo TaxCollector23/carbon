@@ -4,31 +4,56 @@
   "description": "Emulate your API and inspect its behavior graph from inside VS Code.",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "publisher": "carbon-dev",
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": ["Other"],
-  "main": "./dist/extension.js",
+  "main": "./dist/extension.cjs",
   "activationEvents": [
     "onCommand:carbon.emulate",
-    "onCommand:carbon.inspectGraph"
+    "onCommand:carbon.stopEmulate",
+    "onCommand:carbon.inspectGraph",
+    "onCommand:carbon.newProject",
+    "onCommand:carbon.viewLogs"
   ],
   "contributes": {
     "commands": [
-      {
-        "command": "carbon.emulate",
-        "title": "Carbon: Emulate current spec"
-      },
-      {
-        "command": "carbon.inspectGraph",
-        "title": "Carbon: Inspect behavior graph"
+      { "command": "carbon.emulate", "title": "Carbon: Emulate current spec" },
+      { "command": "carbon.stopEmulate", "title": "Carbon: Stop emulator" },
+      { "command": "carbon.inspectGraph", "title": "Carbon: Inspect behavior graph" },
+      { "command": "carbon.newProject", "title": "Carbon: New project" },
+      { "command": "carbon.viewLogs", "title": "Carbon: View logs" }
+    ],
+    "configuration": {
+      "title": "Carbon",
+      "properties": {
+        "carbon.apiUrl": {
+          "type": "string",
+          "default": "http://localhost:4000",
+          "description": "Carbon control-plane URL."
+        },
+        "carbon.telemetry": {
+          "type": "boolean",
+          "default": false,
+          "description": "Send anonymous usage telemetry to Carbon."
+        },
+        "carbon.judgeThreshold": {
+          "type": "number",
+          "default": 0.75,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Minimum acceptable AI-judge score for enriched IRs."
+        }
       }
-    ]
+    }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc --noEmit"
+    "build": "node esbuild.config.mjs",
+    "typecheck": "tsc --noEmit",
+    "package": "pnpm build && vsce package --no-dependencies --out dist/carbon-vscode.vsix",
+    "test": "node --test --import tsx dist-test/*.test.js || vitest run"
   },
   "dependencies": {
     "@carbon/core": "workspace:*",
@@ -37,8 +62,12 @@
     "@carbon/sdk": "workspace:*"
   },
   "devDependencies": {
+    "@carbon/config": "workspace:*",
     "@types/node": "^22.10.0",
     "@types/vscode": "^1.85.0",
-    "typescript": "^5.7.2"
+    "@vscode/vsce": "^3.2.1",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   }
 }

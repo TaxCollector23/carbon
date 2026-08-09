@@ -48,6 +48,24 @@ jobs:
       - run: pnpm install --frozen-lockfile=false
       - run: pnpm turbo run typecheck
 
+  examples:
+    name: Examples typecheck
+    runs-on: ubuntu-latest
+    needs: install
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.6.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile=false
+      # Typecheck only — several examples want real fixtures or network
+      # (e.g. live AI providers) that CI intentionally does not provide.
+      - run: pnpm examples:typecheck
+
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -63,6 +81,14 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile=false
       - run: pnpm test
+      - name: Dashboard OpenAPI codegen drift check
+        run: |
+          pnpm --filter @carbon/dashboard codegen:api:from-file
+          git diff --exit-code -- apps/dashboard/lib/api-types.gen.ts
+        # Regenerates the typed client from the committed snapshot and fails
+        # if the working copy diverges. When the API schema changes, run
+        # `pnpm --filter @carbon/dashboard codegen:api:local` to refresh both
+        # the snapshot and the generated types, then commit.
 
   format:
     name: Format check
@@ -175,7 +201,7 @@ jobs:
   deploy:
     name: Deploy to Fly.io
     runs-on: ubuntu-latest
-    needs: [typecheck, test, format, integration, e2e]
+    needs: [typecheck, test, format, examples, integration, e2e]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     concurrency:
       group: deploy-fly-${{ github.ref }}

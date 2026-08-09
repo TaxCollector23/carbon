@@ -9,6 +9,35 @@ import type { SessionAuthenticatedRequest } from '../plugins/session-auth.js';
 import { mintApiKey } from '../services/api-keys.js';
 import { createSecretStore, type SecretStore } from '../services/cli-auth-secret-store.js';
 import { getActor, recordEvent } from '../services/events.js';
+import { zodBody, zodQuery, zodResponse } from '../plugins/schema-helpers.js';
+
+const StartResponse = z.object({
+  sessionId: z.string(),
+  verifier: z.string(),
+  verificationUrl: z.string(),
+  expiresAt: z.string(),
+});
+const PollResponse = z
+  .object({
+    status: z.enum(['pending', 'approved', 'denied', 'expired']),
+    key: z.string().optional(),
+  })
+  .passthrough();
+const ApproveResponse = z
+  .object({
+    status: z.enum(['approved']).optional(),
+    orgId: z.string().optional(),
+    error: z
+      .object({
+        code: z.string(),
+        message: z.string(),
+        availableOrgs: z.array(z.unknown()).optional(),
+      })
+      .optional(),
+  })
+  .passthrough();
+const DenyResponse = z.object({ status: z.string() });
+const PollQuery = z.object({ verifier: z.string() });
 
 /**
  * CLI device-authorization flow ("gh auth login" style).
@@ -125,7 +154,13 @@ export async function registerCliAuthRoutes(
   const pollLimit = makeIpLimiter(APPROVE_LIMIT * 6, APPROVE_WINDOW_MS); // 60/min polls
 
   // ---------------- POST /v1/cli-auth/start ----------------
-  app.post('/v1/cli-auth/start', async (req, reply) => {
+  app.post('/v1/cli-auth/start', {
+    schema: {
+      summary: 'Start a CLI device-authorization session',
+      description: 'Unauthenticated. Mints a short-lived `sessionId` + `verifier` pair. The CLI opens `verificationUrl` in the user\'s browser and polls the session until it flips to `approved`.',
+      response: { 201: zodResponse(StartResponse) },
+    },
+  }, async (req, reply) => {
     if (!startLimit(req.ip)) {
       reply.header('retry-after', '60');
       throw new CarbonError({
@@ -157,7 +192,14 @@ export async function registerCliAuthRoutes(
   app.get<{
     Params: { sessionId: string };
     Querystring: { verifier?: string };
-  }>('/v1/cli-auth/:sessionId', async (req, reply) => {
+  }>('/v1/cli-auth/:sessionId', {
+    schema: {
+      summary: 'Poll a CLI auth session',
+      description: 'Unauthenticated. The CLI polls with its `verifier`; when the session flips to `approved` the minted key is revealed exactly once. Rate-limited per-IP.',
+      querystring: zodQuery(PollQuery),
+      response: { 200: zodResponse(PollResponse) },
+    },
+  }, async (req, reply) => {
     if (!pollLimit(req.ip)) {
       reply.header('retry-after', '60');
       throw new CarbonError({
@@ -243,6 +285,14 @@ export async function registerCliAuthRoutes(
   // ---------------- POST /v1/cli-auth/:sessionId/approve ----------------
   app.post<{ Params: { sessionId: string } }>(
     '/v1/cli-auth/:sessionId/approve',
+    {
+      schema: {
+        summary: 'Approve a CLI auth session',
+        description: 'Requires a signed-in Better Auth session. Mints an API key scoped to `orgId` (or the caller\'s only org) and stashes it for the CLI to fetch on its next poll.',
+        body: zodBody(ApproveBody),
+        response: { 200: zodResponse(ApproveResponse) },
+      },
+    },
     async (req, reply) => {
       const sessionUser = (req as SessionAuthenticatedRequest).sessionUser;
       if (!sessionUser) {
@@ -374,6 +424,13 @@ export async function registerCliAuthRoutes(
   // ---------------- POST /v1/cli-auth/:sessionId/deny ----------------
   app.post<{ Params: { sessionId: string } }>(
     '/v1/cli-auth/:sessionId/deny',
+    {
+      schema: {
+        summary: 'Deny a CLI auth session',
+        description: 'Requires a signed-in session. Denies a pending session; idempotent for already-terminal sessions.',
+        response: { 200: zodResponse(DenyResponse) },
+      },
+    },
     async (req, reply) => {
       const sessionUser = (req as SessionAuthenticatedRequest).sessionUser;
       if (!sessionUser) {
