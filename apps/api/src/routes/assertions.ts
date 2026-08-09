@@ -65,9 +65,8 @@ export async function registerAssertionRoutes(
     preHandler: requireScope('write'),
     schema: {
       summary: 'Create an assertion rule',
-      description: 'Create a declarative response assertion targeting `projectId`. Caller must have write access to the project.',
-      body: zodBody(CreateBody),
-      response: { 201: zodResponse(AssertionSchema) },
+      description:
+        'Create a declarative response assertion targeting `projectId`. Caller must have write access to the project.',
     },
   }, async (req, reply) => {
     const body = CreateBody.parse(req.body);
@@ -108,7 +107,6 @@ export async function registerAssertionRoutes(
         summary: 'Update an assertion rule',
         description: 'Partially update an assertion. Omitted fields are left untouched. Returns the current row when the body is empty.',
         body: zodBody(UpdateBody),
-        response: { 200: zodResponse(AssertionSchema) },
       },
     },
     async (req) => {

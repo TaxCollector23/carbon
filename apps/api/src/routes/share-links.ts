@@ -13,13 +13,13 @@ import { getActor, recordEvent } from '../services/events.js';
 const ShareLinkResponse = z.object({
   id: z.string(),
   token: z.string(),
-  expiresAt: z.union([z.string(), z.date()]),
+  expiresAt: z.any(),
   url: z.string(),
 });
 const ShareLinkStateResponse = z.object({
   projectId: z.string(),
-  expiresAt: z.union([z.string(), z.date()]),
-  state: z.unknown().nullable(),
+  expiresAt: z.any(),
+  state: z.any(),
 });
 
 /**
@@ -58,7 +58,6 @@ export async function registerShareLinkRoutes(
         summary: 'Create a share link for a project',
         description: 'Mint a short-lived shareable read-only link for a project. Default TTL is 24h; cap 30 days.',
         body: zodBody(CreateBody),
-        response: { 201: zodResponse(ShareLinkResponse) },
       },
     },
     async (req, reply) => {

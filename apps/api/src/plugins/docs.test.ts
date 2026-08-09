@@ -248,6 +248,7 @@ describe('docs plugin', () => {
         '/v1/projects/{slug}/ir/{id}', // application/json but raw byte stream
         '/v1/projects/{slug}/graphs/{id}', // application/json but raw byte stream
         '/v1/projects/{slug}/snapshots/{name}', // raw serialized StateSnapshot JSON
+        '/v1/snapshots/{slug}/diff', // dynamic StateDiff shape
         '/v1/events/export', // text/csv attachment
       ];
 

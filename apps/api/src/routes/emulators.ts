@@ -87,7 +87,14 @@ const SnapshotBody = z.object({
 const RestoreBody = z.object({ name: z.string().min(1) });
 
 export async function registerEmulatorRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
-  app.get('/v1/emulators', { preHandler: requireScope('read') }, async (req) => ({
+  app.get('/v1/emulators', {
+    preHandler: requireScope('read'),
+    schema: {
+      summary: 'List running emulators',
+      description: 'Return every emulator visible to the caller\'s org / project ACLs.',
+      response: { 200: zodResponse(EmulatorListResponse) },
+    },
+  }, async (req) => ({
     data: await filterStoredProjectRecords(ctx, req, ctx.emulators.list()),
   }));
 
