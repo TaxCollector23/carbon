@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  Activity,
   Box,
   Cog,
   Database,
@@ -10,6 +11,7 @@ import {
   History,
   KeyRound,
   Layers,
+  ShieldCheck,
   Waypoints,
 } from 'lucide-react';
 import { cn } from '@carbon/ui/cn';
@@ -21,6 +23,8 @@ const items = [
   { href: '/snapshots', label: 'Snapshots', icon: Layers },
   { href: '/recordings', label: 'Recordings', icon: History },
   { href: '/state', label: 'State', icon: Database },
+  { href: '/ai-quality', label: 'AI quality', icon: ShieldCheck },
+  { href: '/usage', label: 'Usage', icon: Activity },
   { href: '/keys', label: 'API keys', icon: KeyRound },
   { href: '/settings', label: 'Settings', icon: Cog },
 ];

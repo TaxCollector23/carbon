@@ -123,6 +123,9 @@ export interface Organization {
   slug: string;
   name: string;
   createdAt?: string;
+  isEnterprise?: boolean;
+  retentionDays?: number | null;
+  settings?: Record<string, unknown>;
 }
 
 export interface Membership {
@@ -140,6 +143,144 @@ export interface Subscription {
   status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'incomplete' | 'unpaid';
   seats: number;
   currentPeriodEnd: string | null;
+}
+
+// -----------------------------------------------------------------------------
+// Round 3+4 additions
+// -----------------------------------------------------------------------------
+
+export interface AiQualityIssue {
+  path?: string;
+  message?: string;
+  score?: number;
+  [k: string]: unknown;
+}
+
+export interface AiQualityReport {
+  id: string;
+  projectId: string;
+  irKey: string | null;
+  resourcesScore: string | number | null;
+  relationshipsScore: string | number | null;
+  minScore: string | number | null;
+  issues: AiQualityIssue[];
+  needsReview: boolean;
+  model: string | null;
+  createdAt: string;
+}
+
+export type UsageKind =
+  | 'ingest'
+  | 'ai_call'
+  | 'snapshot_saved'
+  | 'snapshot_restored'
+  | 'contract_check'
+  | 'emulator_started'
+  | 'emulator_stopped'
+  | (string & {});
+
+export interface UsageAggregateRow {
+  kind: UsageKind;
+  total: number;
+}
+
+export interface UsageAggregate {
+  orgId: string;
+  since: string;
+  until: string;
+  totals: UsageAggregateRow[];
+}
+
+export interface UsageEvent {
+  id: string;
+  orgId: string;
+  kind: UsageKind;
+  amount: number;
+  metadata: Record<string, unknown> | null;
+  occurredAt: string;
+}
+
+export interface HealthDepStatus {
+  status: 'ok' | 'slow' | 'down';
+  latencyMs: number;
+  message?: string;
+}
+
+export interface HealthDeep {
+  ok: boolean;
+  dependencies: {
+    db?: HealthDepStatus;
+    redis?: HealthDepStatus;
+    storage?: HealthDepStatus;
+    [k: string]: HealthDepStatus | undefined;
+  };
+}
+
+export type SsoProviderKind = 'saml' | 'oidc';
+
+export interface SsoProvider {
+  id: string;
+  type: SsoProviderKind;
+  name: string;
+  emailDomain?: string;
+  config: Record<string, unknown>;
+  createdAt: string;
+}
+
+export type SsoProviderInput =
+  | {
+      type: 'saml';
+      name: string;
+      entityId: string;
+      ssoUrl: string;
+      certificate: string;
+      emailDomain?: string;
+    }
+  | {
+      type: 'oidc';
+      name: string;
+      issuer: string;
+      clientId: string;
+      clientSecret: string;
+      emailDomain?: string;
+    };
+
+export interface ChaosRule {
+  kind: 'error' | 'latency';
+  match?: { method?: string; path?: string };
+  probability?: number;
+  status?: number;
+  body?: unknown;
+  floorMs?: number;
+  jitterMs?: number;
+}
+
+export interface ChaosPreset {
+  id: string;
+  orgId: string;
+  name: string;
+  description?: string | null;
+  rules: ChaosRule[];
+  builtIn?: boolean;
+}
+
+export interface ChaosPresetInput {
+  name: string;
+  description?: string;
+  rules: ChaosRule[];
+}
+
+export interface LoadTestResult {
+  emulatorId: string;
+  target: string;
+  concurrency: number;
+  durationMs: number;
+  rps: number;
+  p50: number;
+  p95: number;
+  p99: number;
+  errorRate: number;
+  totalRequests: number;
 }
 
 // -----------------------------------------------------------------------------
@@ -227,12 +368,24 @@ export function createApiClient(options: ApiClientOptions = {}) {
       const errObj = (json && typeof json === 'object' && 'error' in json ? (json as { error: unknown }).error : json) as
         | { code?: string; message?: string; details?: unknown }
         | null;
-      throw new ApiError({
+      const apiErr = new ApiError({
         status: response.status,
         code: errObj?.code ?? `HTTP_${response.status}`,
         message: errObj?.message ?? response.statusText ?? 'request failed',
         details: errObj?.details,
       });
+      // Announce specific error taxonomies globally so cross-cutting UI (e.g.
+      // the idempotency banner) can react without every call-site opting in.
+      if (typeof window !== 'undefined' && apiErr.code === 'IDEMPOTENCY_KEY_REQUIRED') {
+        try {
+          window.dispatchEvent(
+            new CustomEvent('carbon:api-error', { detail: { code: apiErr.code, message: apiErr.message } }),
+          );
+        } catch {
+          /* ignore */
+        }
+      }
+      throw apiErr;
     }
     return json as T;
   }
@@ -315,7 +468,15 @@ export function createApiClient(options: ApiClientOptions = {}) {
     getOrganization(id: string) {
       return request<Organization>('GET', `/v1/organizations/${encodeURIComponent(id)}`);
     },
-    updateOrganization(id: string, body: { name?: string; slug?: string }) {
+    updateOrganization(
+      id: string,
+      body: {
+        name?: string;
+        slug?: string;
+        retentionDays?: number | null;
+        settings?: Record<string, unknown>;
+      },
+    ) {
       return request<Organization>('PATCH', `/v1/organizations/${encodeURIComponent(id)}`, body);
     },
     getCurrentOrganization() {
@@ -357,6 +518,80 @@ export function createApiClient(options: ApiClientOptions = {}) {
     },
     createCheckout(body: { orgId: string; plan: 'team' | 'enterprise'; seats: number }) {
       return request<{ url: string }>('POST', '/v1/billing/checkout', body);
+    },
+
+    // ------------------------------- AI quality -----------------------------
+    listAiQuality(projectId: string, params: { limit?: number; cursor?: string } = {}) {
+      const q = toQuery(params);
+      return request<ListResponse<AiQualityReport>>(
+        'GET',
+        `/v1/projects/${encodeURIComponent(projectId)}/ai-quality${q}`,
+      );
+    },
+    async getLatestAiQuality(projectId: string): Promise<AiQualityReport | null> {
+      try {
+        return await request<AiQualityReport>(
+          'GET',
+          `/v1/projects/${encodeURIComponent(projectId)}/ai-quality/latest`,
+        );
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 404) return null;
+        throw err;
+      }
+    },
+
+    // -------------------------------- usage ---------------------------------
+    getUsage(params: { since?: string; until?: string; kind?: string } = {}) {
+      const q = toQuery(params);
+      return request<UsageAggregate>('GET', `/v1/usage${q}`);
+    },
+    listUsageEvents(params: { limit?: number; cursor?: string; kind?: string } = {}) {
+      const q = toQuery(params);
+      return request<ListResponse<UsageEvent>>('GET', `/v1/usage/events${q}`);
+    },
+
+    // -------------------------------- health --------------------------------
+    getHealthDeep() {
+      return request<HealthDeep>('GET', '/v1/health/deep');
+    },
+
+    // --------------------------------- sso ----------------------------------
+    listSsoProviders() {
+      return request<ListResponse<SsoProvider>>('GET', '/v1/sso/providers');
+    },
+    createSsoProvider(input: SsoProviderInput) {
+      return request<SsoProvider>('POST', '/v1/sso/providers', input);
+    },
+    deleteSsoProvider(id: string) {
+      return request<void>('DELETE', `/v1/sso/providers/${encodeURIComponent(id)}`);
+    },
+
+    // ------------------------------ chaos presets ---------------------------
+    listChaosPresets() {
+      return request<ListResponse<ChaosPreset>>('GET', '/v1/chaos-presets');
+    },
+    createChaosPreset(input: ChaosPresetInput) {
+      return request<ChaosPreset>('POST', '/v1/chaos-presets', input);
+    },
+    deleteChaosPreset(id: string) {
+      return request<void>('DELETE', `/v1/chaos-presets/${encodeURIComponent(id)}`);
+    },
+    applyChaosPreset(emulatorId: string, presetId: string) {
+      return request<{ applied: boolean; presetId: string; name: string }>(
+        'POST',
+        `/v1/emulators/${encodeURIComponent(emulatorId)}/apply-preset`,
+        { presetId },
+      );
+    },
+    loadTestEmulator(
+      emulatorId: string,
+      body: { concurrency: number; durationMs: number; path?: string; method?: string },
+    ) {
+      return request<LoadTestResult>(
+        'POST',
+        `/v1/emulators/${encodeURIComponent(emulatorId)}/load-test`,
+        body,
+      );
     },
   };
 }

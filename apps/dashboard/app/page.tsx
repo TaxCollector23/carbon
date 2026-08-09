@@ -9,6 +9,7 @@ import { useApiKeys, useEmulators, useProjects } from '@/lib/hooks/api';
 import { useSelectedProjectSlug } from '@/lib/hooks/use-project-slug';
 import { useSnapshots } from '@/lib/hooks/api';
 import { getSectionCopy } from '@/lib/empty-data';
+import { HealthPill } from '@/components/health-pill';
 
 /**
  * Overview page. Fetches counts+recent items for the four resources that
@@ -40,9 +41,12 @@ export default function DashboardHome() {
                 dashboard is pointed at ({process.env.NEXT_PUBLIC_CARBON_API_URL ?? 'http://localhost:3000'}).
               </p>
             </div>
-            <Link href="/#cli" className="text-muted-foreground hover:text-foreground text-sm">
-              Install CLI →
-            </Link>
+            <div className="flex items-center gap-3">
+              <HealthPill />
+              <Link href="/#cli" className="text-muted-foreground hover:text-foreground text-sm">
+                Install CLI →
+              </Link>
+            </div>
           </div>
         </section>
 

@@ -3,9 +3,15 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Button, Input } from '@carbon/ui';
 import { EmptyState, ErrorBanner, Modal, Skeleton, Table, Td, Th } from '@/components/ui';
-import { api } from '@/lib/hooks/api';
+import { api, useSsoProviders } from '@/lib/hooks/api';
 import { useAsync } from '@/lib/hooks/use-async';
-import { ApiError, type MemberRole, type Organization } from '@/lib/api-client';
+import {
+  ApiError,
+  type MemberRole,
+  type Organization,
+  type SsoProvider,
+  type SsoProviderInput,
+} from '@/lib/api-client';
 import { getSectionCopy } from '@/lib/empty-data';
 
 const ORG_STORAGE_KEY = 'carbon.orgId';
@@ -62,7 +68,18 @@ export default function SettingsSection() {
         <OrgForm org={org.data} onSaved={() => void org.refetch()} />
       ) : null}
 
-      {orgId ? (
+      {orgId && org.data ? (
+        <>
+          <section className="space-y-3">
+            <h3 className="text-base font-medium">Members</h3>
+            <MembersPanel orgId={orgId} members={members} />
+          </section>
+          <section className="space-y-3">
+            <h3 className="text-base font-medium">Integrations</h3>
+            <IntegrationsPanel org={org.data} onSaved={() => void org.refetch()} />
+          </section>
+        </>
+      ) : orgId ? (
         <section className="space-y-3">
           <h3 className="text-base font-medium">Members</h3>
           <MembersPanel orgId={orgId} members={members} />
@@ -341,6 +358,303 @@ function InviteMemberModal({
             <option value="member">member</option>
           </select>
         </label>
+        {err ? <p className="text-destructive text-xs">{err}</p> : null}
+      </form>
+    </Modal>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Integrations subsection: webhooks + SSO providers. All state lives under
+// `organizations.settings` on the API; the PATCH merges shallowly so a
+// partial update doesn't overwrite unrelated keys.
+// -----------------------------------------------------------------------------
+
+function IntegrationsPanel({ org, onSaved }: { org: Organization; onSaved: () => void }) {
+  const settings = (org.settings ?? {}) as Record<string, unknown>;
+  const initialSlack = typeof settings.slackWebhookUrl === 'string' ? settings.slackWebhookUrl : '';
+  const initialDiscord = typeof settings.discordWebhookUrl === 'string' ? settings.discordWebhookUrl : '';
+
+  const [slack, setSlack] = useState(initialSlack);
+  const [discord, setDiscord] = useState(initialDiscord);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSlack(initialSlack);
+    setDiscord(initialDiscord);
+  }, [initialSlack, initialDiscord]);
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setErr(null);
+    setMsg(null);
+    try {
+      await api.updateOrganization(org.id, {
+        settings: {
+          slackWebhookUrl: slack.trim() || undefined,
+          discordWebhookUrl: discord.trim() || undefined,
+        },
+      });
+      setMsg('Saved.');
+      onSaved();
+    } catch (e2) {
+      setErr(e2 instanceof ApiError ? e2.message : String(e2));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <form className="border-border max-w-xl space-y-3 rounded-md border p-4" onSubmit={onSubmit}>
+        <h4 className="text-sm font-medium">Webhooks</h4>
+        <label className="block text-sm">
+          <span className="text-muted-foreground text-xs">Slack webhook URL</span>
+          <Input
+            type="url"
+            value={slack}
+            onChange={(e) => setSlack(e.target.value)}
+            placeholder="https://hooks.slack.com/services/…"
+          />
+        </label>
+        <label className="block text-sm">
+          <span className="text-muted-foreground text-xs">Discord webhook URL</span>
+          <Input
+            type="url"
+            value={discord}
+            onChange={(e) => setDiscord(e.target.value)}
+            placeholder="https://discord.com/api/webhooks/…"
+          />
+        </label>
+        {err ? <p className="text-destructive text-xs">{err}</p> : null}
+        {msg ? <p className="text-muted-foreground text-xs">{msg}</p> : null}
+        <Button type="submit" size="sm" disabled={saving}>
+          {saving ? 'Saving…' : 'Save webhooks'}
+        </Button>
+      </form>
+
+      {org.isEnterprise ? (
+        <SsoPanel />
+      ) : (
+        <div className="border-border max-w-xl rounded-md border border-dashed p-4">
+          <h4 className="text-sm font-medium">SSO</h4>
+          <p className="text-muted-foreground mt-1 text-xs">
+            SSO providers (SAML and OIDC) are available on Enterprise plans.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SsoPanel() {
+  const providers = useSsoProviders(true);
+  const [adding, setAdding] = useState(false);
+  const [rowError, setRowError] = useState<string | null>(null);
+
+  async function remove(id: string) {
+    if (!confirm('Remove this SSO provider?')) return;
+    setRowError(null);
+    try {
+      await api.deleteSsoProvider(id);
+      await providers.refetch();
+    } catch (e) {
+      setRowError(e instanceof ApiError ? e.message : String(e));
+    }
+  }
+
+  const rows = providers.data?.data ?? [];
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h4 className="text-sm font-medium">SSO providers</h4>
+        <Button size="sm" onClick={() => setAdding(true)}>
+          Add provider
+        </Button>
+      </div>
+      {rowError ? <ErrorBanner error={rowError} /> : null}
+      {providers.loading ? (
+        <Skeleton className="h-16" />
+      ) : providers.error ? (
+        <ErrorBanner error={providers.error} onRetry={providers.refetch} />
+      ) : rows.length === 0 ? (
+        <p className="text-muted-foreground text-sm">No providers configured.</p>
+      ) : (
+        <Table>
+          <thead>
+            <tr>
+              <Th>Name</Th>
+              <Th>Type</Th>
+              <Th>Domain</Th>
+              <Th className="w-24">Actions</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((p: SsoProvider) => (
+              <tr key={p.id} className="hover:bg-muted/30">
+                <Td>{p.name}</Td>
+                <Td className="uppercase">{p.type}</Td>
+                <Td>{p.emailDomain ?? '—'}</Td>
+                <Td>
+                  <Button size="sm" variant="ghost" onClick={() => remove(p.id)}>
+                    Remove
+                  </Button>
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      )}
+
+      <AddSsoModal
+        open={adding}
+        onClose={() => setAdding(false)}
+        onAdded={() => {
+          setAdding(false);
+          void providers.refetch();
+        }}
+      />
+    </div>
+  );
+}
+
+function AddSsoModal({
+  open,
+  onClose,
+  onAdded,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onAdded: () => void;
+}) {
+  const [type, setType] = useState<'saml' | 'oidc'>('saml');
+  const [name, setName] = useState('');
+  const [emailDomain, setEmailDomain] = useState('');
+  // SAML fields
+  const [entityId, setEntityId] = useState('');
+  const [ssoUrl, setSsoUrl] = useState('');
+  const [certificate, setCertificate] = useState('');
+  // OIDC fields
+  const [issuer, setIssuer] = useState('');
+  const [clientId, setClientId] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
+
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setErr(null);
+    try {
+      const input: SsoProviderInput =
+        type === 'saml'
+          ? {
+              type: 'saml',
+              name: name.trim(),
+              entityId: entityId.trim(),
+              ssoUrl: ssoUrl.trim(),
+              certificate: certificate.trim(),
+              emailDomain: emailDomain.trim() || undefined,
+            }
+          : {
+              type: 'oidc',
+              name: name.trim(),
+              issuer: issuer.trim(),
+              clientId: clientId.trim(),
+              clientSecret: clientSecret.trim(),
+              emailDomain: emailDomain.trim() || undefined,
+            };
+      await api.createSsoProvider(input);
+      onAdded();
+    } catch (e2) {
+      setErr(e2 instanceof ApiError ? e2.message : String(e2));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Add SSO provider"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button form="sso-form" type="submit" disabled={busy}>
+            {busy ? 'Saving…' : 'Add provider'}
+          </Button>
+        </>
+      }
+    >
+      <form id="sso-form" className="space-y-3" onSubmit={onSubmit}>
+        <label className="block text-sm">
+          <span className="text-muted-foreground text-xs">Type</span>
+          <select
+            className="border-border bg-background w-full rounded-md border px-2 py-1.5 text-sm"
+            value={type}
+            onChange={(e) => setType(e.target.value as 'saml' | 'oidc')}
+          >
+            <option value="saml">SAML</option>
+            <option value="oidc">OIDC</option>
+          </select>
+        </label>
+        <label className="block text-sm">
+          <span className="text-muted-foreground text-xs">Display name</span>
+          <Input value={name} onChange={(e) => setName(e.target.value)} required />
+        </label>
+        <label className="block text-sm">
+          <span className="text-muted-foreground text-xs">Email domain (optional)</span>
+          <Input value={emailDomain} onChange={(e) => setEmailDomain(e.target.value)} placeholder="example.com" />
+        </label>
+        {type === 'saml' ? (
+          <>
+            <label className="block text-sm">
+              <span className="text-muted-foreground text-xs">Entity ID</span>
+              <Input value={entityId} onChange={(e) => setEntityId(e.target.value)} required />
+            </label>
+            <label className="block text-sm">
+              <span className="text-muted-foreground text-xs">SSO URL</span>
+              <Input type="url" value={ssoUrl} onChange={(e) => setSsoUrl(e.target.value)} required />
+            </label>
+            <label className="block text-sm">
+              <span className="text-muted-foreground text-xs">X.509 certificate</span>
+              <textarea
+                className="border-border bg-background mt-1 h-24 w-full rounded-md border px-2 py-1.5 font-mono text-xs"
+                value={certificate}
+                onChange={(e) => setCertificate(e.target.value)}
+                required
+              />
+            </label>
+          </>
+        ) : (
+          <>
+            <label className="block text-sm">
+              <span className="text-muted-foreground text-xs">Issuer</span>
+              <Input type="url" value={issuer} onChange={(e) => setIssuer(e.target.value)} required />
+            </label>
+            <label className="block text-sm">
+              <span className="text-muted-foreground text-xs">Client ID</span>
+              <Input value={clientId} onChange={(e) => setClientId(e.target.value)} required />
+            </label>
+            <label className="block text-sm">
+              <span className="text-muted-foreground text-xs">Client secret</span>
+              <Input
+                type="password"
+                value={clientSecret}
+                onChange={(e) => setClientSecret(e.target.value)}
+                required
+              />
+            </label>
+          </>
+        )}
         {err ? <p className="text-destructive text-xs">{err}</p> : null}
       </form>
     </Modal>

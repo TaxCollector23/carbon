@@ -78,6 +78,38 @@ export function useSubscription(orgId: string | null | undefined) {
   }, [orgId]);
 }
 
+export function useAiQualityLatest(projectId: string | null | undefined) {
+  return useAsync(async () => {
+    if (!projectId) return null;
+    return api.getLatestAiQuality(projectId);
+  }, [projectId]);
+}
+
+export function useAiQualityHistory(
+  projectId: string | null | undefined,
+  params: { limit?: number } = {},
+) {
+  return useAsync(async () => {
+    if (!projectId) return { data: [] };
+    return api.listAiQuality(projectId, params);
+  }, [projectId, params.limit]);
+}
+
+export function useUsage(params: { since?: string; until?: string; kind?: string } = {}) {
+  return useAsync(() => api.getUsage(params), [params.since, params.until, params.kind]);
+}
+
+export function useUsageEvents(params: { limit?: number; kind?: string } = {}) {
+  return useAsync(() => api.listUsageEvents(params), [params.limit, params.kind]);
+}
+
+export function useSsoProviders(enabled: boolean) {
+  return useAsync(async () => {
+    if (!enabled) return { data: [] };
+    return api.listSsoProviders();
+  }, [enabled]);
+}
+
 // Re-export helpers so section files can share one import path.
 export { api };
 export type { MemberRole, Scope };

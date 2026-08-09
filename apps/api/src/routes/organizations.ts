@@ -36,6 +36,12 @@ const PatchOrgBody = z.object({
     .regex(/^[a-z0-9][a-z0-9-]*$/, 'slug must be lowercase letters, numbers, and dashes')
     .optional(),
   retentionDays: z.number().int().min(1).max(3650).nullable().optional(),
+  /**
+   * Free-form org settings blob — currently stores integration webhooks and
+   * SSO providers. Kept permissive so new fields can land without a coordinated
+   * dashboard release; merged shallow-over-existing on write.
+   */
+  settings: z.record(z.unknown()).optional(),
 });
 
 const InviteBody = z.object({
@@ -252,10 +258,18 @@ export async function registerOrganizationRoutes(
         name: string;
         slug: string;
         retentionDays: number | null;
+        settings: Record<string, unknown>;
       }> = {};
       if (body.name !== undefined) patch.name = body.name;
       if (body.slug !== undefined) patch.slug = body.slug;
       if (body.retentionDays !== undefined) patch.retentionDays = body.retentionDays;
+      if (body.settings !== undefined) {
+        // Shallow-merge so a partial write (e.g. just the Slack webhook) does
+        // not clobber unrelated keys like `ssoProviders`.
+        const existing = await loadOrgOr404(ctx, req.params.id);
+        const current = (existing.settings ?? {}) as Record<string, unknown>;
+        patch.settings = { ...current, ...body.settings };
+      }
       if (Object.keys(patch).length === 0) return loadOrgOr404(ctx, req.params.id);
 
       const [updated] = await ctx.db

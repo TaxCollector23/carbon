@@ -10,6 +10,8 @@ import RecordingsSection from './_sections/recordings';
 import StateSection from './_sections/state';
 import ActivitySection from './_sections/activity';
 import SettingsSection from './_sections/settings';
+import AiQualitySection from './_sections/ai-quality';
+import UsageSection from './_sections/usage';
 
 export function generateStaticParams() {
   return Object.keys(sections).map((section) => ({ section }));
@@ -58,6 +60,10 @@ function renderSection(slug: string) {
       return <ActivitySection />;
     case 'settings':
       return <SettingsSection />;
+    case 'ai-quality':
+      return <AiQualitySection />;
+    case 'usage':
+      return <UsageSection />;
     default:
       return null;
   }

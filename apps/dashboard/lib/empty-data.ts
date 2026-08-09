@@ -62,6 +62,16 @@ export const sections: Record<string, SectionCopy> = {
     emptyTitle: 'No activity yet',
     description: 'Project events will appear here after imports, snapshots, or runs.',
   },
+  'ai-quality': {
+    title: 'AI quality',
+    emptyTitle: 'No AI quality reports yet',
+    description: 'Groundedness scores for each AI-inferred spec ingest. Run `carbon ingest` to generate a quality report.',
+  },
+  usage: {
+    title: 'Usage',
+    emptyTitle: 'No usage recorded',
+    description: 'Metered events (ingests, AI calls, emulator runs) will appear here once you start using the API.',
+  },
 } as const;
 
 export type SectionSlug = keyof typeof sections;
