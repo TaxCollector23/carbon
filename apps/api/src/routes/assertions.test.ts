@@ -108,6 +108,14 @@ async function build(store: Store): Promise<FastifyInstance> {
       reply.status(400).send({ error: { code: 'CARBON_INVALID_INPUT', message: err.message } });
       return;
     }
+    // Route now attaches a Zod-derived JSON Schema as `body`; AJV rejects
+    // malformed payloads with a FastifyError before the handler runs. Surface
+    // those as 400s too so tests that assert "bad enum → 400" still hold.
+    if ((err as { validation?: unknown }).validation) {
+      const message = err instanceof Error ? err.message : String(err);
+      reply.status(400).send({ error: { code: 'CARBON_INVALID_INPUT', message } });
+      return;
+    }
     if (isCarbonError(err)) {
       const status =
         err.code === 'CARBON_NOT_FOUND' ? 404 : err.code === 'CARBON_FORBIDDEN' ? 403 : 500;
