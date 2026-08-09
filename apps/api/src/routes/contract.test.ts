@@ -8,16 +8,18 @@ import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import { registerContractRoutes } from './contract.js';
 
-const project = { id: 'proj_1', name: 'demo' };
+const project = { id: 'proj_1', name: 'demo', orgId: 'org_1', slug: 'demo' };
 
 function makeCtx(): AppContext {
   const db = {
     select: () => ({
-      from: (t: unknown) => ({
-        where: () => ({
+      from: (t: unknown) => {
+        const chain: any = {
+          where: () => chain,
           limit: async () => (t === schema.projects ? [project] : []),
-        }),
-      }),
+        };
+        return chain;
+      },
     }),
   } as unknown as AppContext['db'];
   return {

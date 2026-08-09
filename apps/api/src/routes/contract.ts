@@ -6,6 +6,7 @@ import { schema } from '@carbon/database';
 import { validateAgainstSpec, type JsonSchemaLike } from '@carbon/parser';
 import type { AppContext } from '../context.js';
 import { requireScope } from '../plugins/scopes.js';
+import { requireProjectAccessById } from './project-access.js';
 
 const SampleRequest = z.object({
   method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD']).default('GET'),
@@ -44,6 +45,9 @@ export async function registerContractRoutes(
     { preHandler: requireScope('write') },
     async (req) => {
       const body = CheckBody.parse(req.body);
+      // ACL: caller's org must own this project, and if project_members
+      // narrows access the session user must be listed.
+      await requireProjectAccessById(ctx, req, req.params.id);
       const [project] = await ctx.db
         .select({ id: schema.projects.id, name: schema.projects.name })
         .from(schema.projects)

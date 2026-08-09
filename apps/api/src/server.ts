@@ -25,6 +25,9 @@ import { registerAssertionRoutes } from './routes/assertions.js';
 import { registerGraphRoutes } from './routes/graphs.js';
 import { registerCliAuthRoutes, CLI_AUTH_PUBLIC_PATHS } from './routes/cli-auth.js';
 import { registerMeRoutes } from './routes/me.js';
+import { registerAiQualityRoutes } from './routes/ai-quality.js';
+import { registerUsageRoutes } from './routes/usage.js';
+import { registerSsoRoutes } from './routes/sso.js';
 import { registerApiKeyAuth, type ApiKeyPluginOptions } from './plugins/api-key.js';
 import { registerSessionAuth } from './plugins/session-auth.js';
 import { registerIdempotency } from './plugins/idempotency.js';
@@ -330,6 +333,9 @@ export async function buildServer(
   await registerGraphRoutes(app, ctx);
   await registerCliAuthRoutes(app, ctx);
   await registerMeRoutes(app, ctx);
+  await registerAiQualityRoutes(app, ctx);
+  await registerUsageRoutes(app, ctx);
+  await registerSsoRoutes(app, ctx);
 
   return app;
 }

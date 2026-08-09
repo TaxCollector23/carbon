@@ -1,8 +1,12 @@
 import type { FastifyInstance } from 'fastify';
+import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { schema } from '@carbon/database';
+import { StorageKeys } from '@carbon/storage';
 import type { AppContext } from '../context.js';
 import { requireScope } from '../plugins/scopes.js';
 import { getActor, recordEvent } from '../services/events.js';
+import { recordAiQualityReport } from '../services/ai-quality.js';
 import { ProjectSlug, resolveProjectAccess } from './project-access.js';
 
 const IngestBody = z.object({
@@ -97,6 +101,38 @@ export async function registerIngestRoutes(app: FastifyInstance, ctx: AppContext
             origin: body.origin ?? null,
           },
         });
+      }
+      // Persist the judge verdicts to Postgres so the AI-quality view can
+      // query historical scores without dereferencing storage blobs. Never
+      // fails the ingest — a broken metrics pipeline must not turn a 201
+      // into a 500.
+      if (result.judge && project.orgId) {
+        try {
+          const [projectRow] = await ctx.db
+            .select({ id: schema.projects.id })
+            .from(schema.projects)
+            .where(
+              and(
+                eq(schema.projects.orgId, project.orgId),
+                eq(schema.projects.slug, project.slug),
+              ),
+            )
+            .limit(1);
+          if (projectRow) {
+            await recordAiQualityReport(ctx, {
+              projectId: projectRow.id,
+              irKey: StorageKeys.ir(project.storageSlug, result.irId),
+              verdicts: result.judge,
+              threshold: ctx.judgeThreshold ?? 0.75,
+            });
+          }
+        } catch (err) {
+          ctx.logger.warn('ai_quality.persist_failed', {
+            projectSlug: project.slug,
+            irId: result.irId,
+            message: err instanceof Error ? err.message : String(err),
+          });
+        }
       }
       reply.status(201);
       return {

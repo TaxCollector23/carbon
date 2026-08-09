@@ -34,4 +34,10 @@ export interface AppContext {
    * `CARBON_EMULATOR_ALLOWED_HOSTS`.
    */
   readonly emulatorAllowedHosts?: readonly string[];
+  /**
+   * Minimum acceptable judge score. Used by the ingest route when persisting
+   * AI-quality reports to Postgres — anything below this trips `needsReview`.
+   * Defaults to 0.75 when unset (matches `AiJudge`'s own default).
+   */
+  readonly judgeThreshold?: number;
 }

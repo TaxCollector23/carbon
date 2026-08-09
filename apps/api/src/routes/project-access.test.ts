@@ -4,7 +4,13 @@ import { MemoryStorage } from '@carbon/storage';
 import type { FastifyRequest } from 'fastify';
 import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
-import { filterStoredProjectRecords, resolveProjectAccess } from './project-access.js';
+import { schema } from '@carbon/database';
+import type { SessionAuthenticatedRequest } from '../plugins/session-auth.js';
+import {
+  filterStoredProjectRecords,
+  requireProjectAccessById,
+  resolveProjectAccess,
+} from './project-access.js';
 
 /**
  * `resolveProjectAccess` terminates with `.limit()`, while
@@ -22,6 +28,51 @@ function makeCtx(projects: Array<{ orgId: string; slug: string }>): AppContext {
   return {
     logger: NoopLogger,
     db: { select: () => chain } as unknown as AppContext['db'],
+    storage: new MemoryStorage(),
+    ingestion: { ingest: async () => ({}) } as unknown as AppContext['ingestion'],
+    emulators: {} as AppContext['emulators'],
+  };
+}
+
+interface TableFixture {
+  projects: Array<{ id: string; orgId: string; slug: string }>;
+  projectMembers: Array<{ projectId: string; userId: string }>;
+  projectMembersForUser: Array<{ userId: string }>;
+}
+
+/**
+ * A minimal table-aware fake. Two select() sites we care about:
+ *   1. `select({id,orgId,slug}).from(projects).where(...).limit(1)` — must
+ *      return the project row.
+ *   2. Two `.from(projectMembers)` selects — first probes for ANY row, second
+ *      probes for the session user's row.
+ * We route on `from(table)` and then intercept `.limit(1)` to hand back the
+ * appropriate fixture. Call count discriminates the two projectMembers reads.
+ */
+function makeTableAwareCtx(fx: TableFixture): AppContext {
+  let membersCalls = 0;
+  const chain = (): any => {
+    let table: unknown = null;
+    const c: any = {
+      from: (t: unknown) => {
+        table = t;
+        return c;
+      },
+      where: () => c,
+      limit: async () => {
+        if (table === schema.projects) return fx.projects;
+        if (table === schema.projectMembers) {
+          membersCalls += 1;
+          return membersCalls === 1 ? fx.projectMembers : fx.projectMembersForUser;
+        }
+        return [];
+      },
+    };
+    return c;
+  };
+  return {
+    logger: NoopLogger,
+    db: { select: () => chain() } as unknown as AppContext['db'],
     storage: new MemoryStorage(),
     ingestion: { ingest: async () => ({}) } as unknown as AppContext['ingestion'],
     emulators: {} as AppContext['emulators'],
@@ -74,6 +125,54 @@ describe('project access helpers', () => {
     ]);
 
     expect(records).toEqual([]);
+  });
+
+  it('requireProjectAccessById returns 404 across orgs', async () => {
+    const ctx = makeCtx([{ orgId: 'org_other', slug: 'acme' }]);
+    await expect(
+      requireProjectAccessById(ctx, req('org_1'), 'proj_x'),
+    ).rejects.toMatchObject({ code: 'CARBON_NOT_FOUND' });
+  });
+
+  it('requireProjectAccessById forbids a session user with no project_members row', async () => {
+    // Fresh table-aware fake so the two select() calls (projects, then
+    // project_members) return the right rows for the ACL branch under test.
+    const ctx = makeTableAwareCtx({
+      projects: [{ id: 'proj_1', orgId: 'org_1', slug: 'acme' }],
+      // Any row present at all narrows access to just members.
+      projectMembers: [{ projectId: 'proj_1', userId: 'user_owner' }],
+      projectMembersForUser: [],
+    });
+    const sessionReq = {
+      sessionUser: {
+        id: 'user_outsider',
+        email: 'x@example.com',
+        orgId: 'org_1',
+        role: 'member' as const,
+      },
+    } as unknown as SessionAuthenticatedRequest;
+    await expect(
+      requireProjectAccessById(ctx, sessionReq as never, 'proj_1'),
+    ).rejects.toMatchObject({ code: 'CARBON_FORBIDDEN' });
+  });
+
+  it('requireProjectAccessById lets a session user through when their project_members row exists', async () => {
+    const ctx = makeTableAwareCtx({
+      projects: [{ id: 'proj_1', orgId: 'org_1', slug: 'acme' }],
+      projectMembers: [{ projectId: 'proj_1', userId: 'user_a' }],
+      projectMembersForUser: [{ userId: 'user_a' }],
+    });
+    const sessionReq = {
+      sessionUser: {
+        id: 'user_a',
+        email: 'a@example.com',
+        orgId: 'org_1',
+        role: 'member' as const,
+      },
+    } as unknown as SessionAuthenticatedRequest;
+    const access = await requireProjectAccessById(ctx, sessionReq as never, 'proj_1');
+    expect(access.id).toBe('proj_1');
+    expect(access.slug).toBe('acme');
   });
 
   it('does not query the database when nothing is in the org', async () => {

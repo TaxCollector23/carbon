@@ -9,6 +9,7 @@ import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import { requireScope } from '../plugins/scopes.js';
 import { compileRules, type ChaosRule } from '../services/chaos.js';
 import { getActor, recordEvent } from '../services/events.js';
+import { recordUsage } from '../services/usage.js';
 import {
   filterStoredProjectRecords,
   ProjectSlug,
@@ -86,6 +87,12 @@ export async function registerEmulatorRoutes(app: FastifyInstance, ctx: AppConte
         action: 'emulator.started',
         metadata: { emulatorId: record.id, projectSlug: project.slug, irId: body.irId },
       });
+      await recordUsage(ctx, {
+        orgId: project.orgId,
+        kind: 'emulator_started',
+        amount: 1,
+        metadata: { emulatorId: record.id, projectSlug: project.slug },
+      });
     }
     reply.status(201);
     return { ...record, projectSlug: project.slug };
@@ -115,6 +122,12 @@ export async function registerEmulatorRoutes(app: FastifyInstance, ctx: AppConte
           actorType: actor.actorType,
           actorId: actor.actorId,
           action: 'emulator.stopped',
+          metadata: { emulatorId: req.params.id, projectSlug: project.slug },
+        });
+        await recordUsage(ctx, {
+          orgId: project.orgId,
+          kind: 'emulator_stopped',
+          amount: 1,
           metadata: { emulatorId: req.params.id, projectSlug: project.slug },
         });
       }

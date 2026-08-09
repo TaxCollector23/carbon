@@ -14,6 +14,7 @@ import { resolvePlan } from './services/billing.js';
 import { startEmbeddedWorkers } from './workers.js';
 import { createLifecycle } from './lifecycle.js';
 import { createIngestMetrics } from './plugins/metrics.js';
+import { recordUsage } from './services/usage.js';
 
 async function main(): Promise<void> {
   const env = loadEnv();
@@ -79,14 +80,16 @@ async function main(): Promise<void> {
   }
   const parsers = createDefaultParserRegistry();
 
+  // Late-bound so `onUsage` (fired from inside the ingestion pipeline) can
+  // reach the fully constructed AppContext without a circular dependency at
+  // construction time. Emits `usage.ai.call` log lines for humans and
+  // persists a metered row into `usage_events` for the /v1/usage aggregate.
+  let ctxRef: AppContext | undefined;
   const aiProvider = env.CARBON_AI_API_KEY
     ? new OpenRouterProvider({
         apiKey: env.CARBON_AI_API_KEY,
         defaultModel: env.CARBON_AI_MODEL,
         logger,
-        // Structured usage record for billing / cost-attribution. Emitted as
-        // a `usage.ai.call` log line for now; a log-shipping pipeline picks
-        // it up and rolls it into the org's usage bucket.
         onUsage: (evt) => {
           logger.info('usage.ai.call', {
             provider: evt.provider,
@@ -96,6 +99,25 @@ async function main(): Promise<void> {
             totalTokens: evt.usage.totalTokens,
             latencyMs: evt.latencyMs,
           });
+          // AI calls aren't yet org-tagged inside the provider — until the
+          // ingestion pipeline threads org through to the call site we can
+          // only meter when a caller pinned the process with CARBON_ORG_ID.
+          // Skipped otherwise so we never mis-attribute to another tenant.
+          const orgId = process.env.CARBON_METER_ORG_ID;
+          if (ctxRef && orgId) {
+            void recordUsage(ctxRef, {
+              orgId,
+              kind: 'ai_call',
+              amount: evt.usage.totalTokens || 1,
+              metadata: {
+                provider: evt.provider,
+                model: evt.model,
+                promptTokens: evt.usage.promptTokens,
+                completionTokens: evt.usage.completionTokens,
+                latencyMs: evt.latencyMs,
+              },
+            });
+          }
         },
       })
     : undefined;
@@ -149,7 +171,9 @@ async function main(): Promise<void> {
     ingestionQueue,
     redis,
     emulatorAllowedHosts: env.CARBON_EMULATOR_ALLOWED_HOSTS,
+    judgeThreshold: env.CARBON_AI_JUDGE_THRESHOLD,
   };
+  ctxRef = ctx;
   const server = await buildServer(ctx, logger, {
     auth: { mode: env.CARBON_AUTH_MODE },
     allowedOrigins: env.ALLOWED_ORIGINS,

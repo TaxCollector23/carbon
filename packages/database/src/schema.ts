@@ -399,6 +399,60 @@ export const cliAuthSessions = pgTable(
   }),
 );
 
+/**
+ * Persistent record of an AI judge pass. IR/graph inference is judged for
+ * groundedness; a row is written per project ingest so scores + issues become
+ * queryable (for the dashboard's AI-quality view + the enterprise export)
+ * without dereferencing storage blobs.
+ */
+export const aiQualityReports = pgTable(
+  'ai_quality_reports',
+  {
+    id: text('id').primaryKey(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    irKey: text('ir_key'),
+    resourcesScore: text('resources_score'),
+    relationshipsScore: text('relationships_score'),
+    minScore: text('min_score'),
+    issues: jsonb('issues').notNull().default([]),
+    needsReview: boolean('needs_review').notNull().default(false),
+    model: text('model'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    projectCreatedIdx: index('ai_quality_reports_project_created_idx').on(t.projectId, t.createdAt),
+    needsReviewIdx: index('ai_quality_reports_needs_review_idx').on(t.needsReview),
+  }),
+);
+
+/**
+ * Metered usage events feeding the future usage-based add-ons (per-AI-call,
+ * per-emulator-minute, per-ingest). Rolled up nightly into a per-org bucket;
+ * this table is the raw stream.
+ */
+export const usageEvents = pgTable(
+  'usage_events',
+  {
+    id: text('id').primaryKey(),
+    orgId: text('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    amount: integer('amount').notNull().default(1),
+    metadata: jsonb('metadata').notNull().default({}),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    orgKindOccurredIdx: index('usage_events_org_kind_occurred_idx').on(
+      t.orgId,
+      t.kind,
+      t.occurredAt,
+    ),
+  }),
+);
+
 /** Short-lived, read-only shareable replica links. */
 export const shareLinks = pgTable(
   'share_links',

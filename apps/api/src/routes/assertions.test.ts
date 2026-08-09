@@ -34,7 +34,16 @@ function makeDb(store: Store): AppContext['db'] {
       where: () => chain,
       orderBy: () => chain,
       $dynamic: () => chain,
-      limit: async () => (lastTable === schema.assertionRules ? [...store.rows] : []),
+      limit: async () => {
+        if (lastTable === schema.assertionRules) return [...store.rows];
+        if (lastTable === schema.projects) {
+          // ACL preflight: requireProjectAccessById expects the target project
+          // to belong to the caller's org. Return a matching row so the write
+          // path proceeds.
+          return [{ id: 'proj_1', orgId: 'org_1', slug: 'demo' }];
+        }
+        return [];
+      },
       then: (onFulfilled: any, onRejected: any) => {
         const rows = lastTable === schema.assertionRules ? [...store.rows] : [];
         return Promise.resolve(rows).then(onFulfilled, onRejected);

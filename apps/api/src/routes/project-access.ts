@@ -102,6 +102,37 @@ export async function resolveProjectAccess(
   };
 }
 
+/**
+ * Same ACL as `resolveProjectAccess`, but keyed by the internal project id
+ * (from a `:id` path param) rather than the public slug. Reuses the slug
+ * resolver so `project_members` gating stays in one place — routes that key
+ * by id must never re-implement the check locally.
+ */
+export async function requireProjectAccessById(
+  ctx: AppContext,
+  req: FastifyRequest,
+  projectId: string,
+): Promise<ProjectAccess & { id: string }> {
+  const [row] = await ctx.db
+    .select({
+      id: schema.projects.id,
+      orgId: schema.projects.orgId,
+      slug: schema.projects.slug,
+    })
+    .from(schema.projects)
+    .where(eq(schema.projects.id, projectId))
+    .limit(1);
+  if (!row) throw new NotFoundError('project', projectId);
+
+  const orgId = callerOrgId(req);
+  // Cross-org: hide the row's existence behind a 404 rather than 403 so a
+  // caller cannot enumerate other orgs' project ids.
+  if (orgId && row.orgId !== orgId) throw new NotFoundError('project', projectId);
+
+  const access = await resolveProjectAccess(ctx, req, row.slug);
+  return { ...access, id: row.id };
+}
+
 export async function resolveStoredProjectAccess(
   ctx: AppContext,
   req: FastifyRequest,

@@ -7,6 +7,7 @@ import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import { requireScope } from '../plugins/scopes.js';
 import { getActor, recordEvent } from '../services/events.js';
+import { requireProjectAccessById } from './project-access.js';
 
 const AssertionKind = z.enum(['latency', 'field', 'status']);
 
@@ -39,6 +40,9 @@ export async function registerAssertionRoutes(
 
   app.post('/v1/assertions', { preHandler: requireScope('write') }, async (req, reply) => {
     const body = CreateBody.parse(req.body);
+    // Assertions target a specific project — confirm the caller can act on
+    // it before we spend a write on their behalf.
+    await requireProjectAccessById(ctx, req, body.projectId);
     const id = makeId('asrt');
     await ctx.db.insert(schema.assertionRules).values({
       id,
