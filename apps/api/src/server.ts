@@ -14,6 +14,7 @@ import { registerEmulatorRoutes } from './routes/emulators.js';
 import { registerSnapshotRoutes } from './routes/snapshots.js';
 import { registerApiKeyRoutes } from './routes/api-keys.js';
 import { registerArtifactRoutes } from './routes/artifacts.js';
+import { registerRecordingRoutes } from './routes/recordings.js';
 import { registerJobRoutes } from './routes/jobs.js';
 import { registerEventRoutes } from './routes/events.js';
 import { registerOrganizationRoutes } from './routes/organizations.js';
@@ -32,6 +33,7 @@ import { registerExportRoutes } from './routes/export.js';
 import { registerSearchRoutes } from './routes/search.js';
 import { registerFeatureFlagRoutes } from './routes/feature-flags.js';
 import { registerLeadsRoutes, LEADS_PUBLIC_PATHS } from './routes/leads.js';
+import { registerSampleRoutes } from './routes/samples.js';
 import { registerApiKeyAuth, type ApiKeyPluginOptions } from './plugins/api-key.js';
 import { registerSessionAuth } from './plugins/session-auth.js';
 import { registerIdempotency } from './plugins/idempotency.js';
@@ -327,6 +329,7 @@ export async function buildServer(
   await registerSnapshotRoutes(app, ctx);
   await registerApiKeyRoutes(app, ctx);
   await registerArtifactRoutes(app, ctx);
+  await registerRecordingRoutes(app, ctx);
   await registerJobRoutes(app, ctx);
   await registerEventRoutes(app, ctx);
   await registerOrganizationRoutes(app, ctx);
@@ -345,6 +348,7 @@ export async function buildServer(
   await registerSearchRoutes(app, ctx);
   await registerFeatureFlagRoutes(app, ctx);
   await registerLeadsRoutes(app, ctx);
+  await registerSampleRoutes(app, ctx);
 
   return app;
 }

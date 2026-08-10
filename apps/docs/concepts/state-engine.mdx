@@ -62,6 +62,40 @@ state instead of empty stores.
 await carbon.emulate({ from: './spec.yaml', fixture: './fixtures/seed.json' });
 ```
 
+## Record & replay
+
+Recordings are the traffic-side counterpart to snapshots: instead of
+freezing state, they freeze *the requests that produced state*. The
+proxy in `@carbon/proxy` captures every exchange (method, URL, request
+and response bodies, redacted headers) and writes it to
+`projects/{slug}/recordings/{id}.jsonl` in the control-plane storage.
+
+```bash
+# Capture traffic while pointing your app at the proxy
+carbon record https://api.example.com --port 8788
+```
+
+The dashboard's **Recordings** section reads that storage prefix and
+surfaces one row per capture — request count, first/last timestamp,
+upstream origin, and size — computed by parsing each stored recording.
+Clicking a row expands its exchanges inline; clicking **Replay** runs
+each captured request against a URL you supply and shows per-exchange
+diff results (status mismatch, body shape mismatch, or connectivity
+error).
+
+Under the hood:
+
+- `GET /v1/projects/:slug/recordings` — list recordings.
+- `GET /v1/projects/:slug/recordings/:id/exchanges` — dump the
+  captured exchanges.
+- `POST /v1/projects/:slug/recordings/:id/replay` — replay against
+  a target and persist a `recording_replays` row so the history
+  survives page reloads.
+
+The `carbon replay <recording> --target <url>` CLI runs the same
+comparison locally when you don't want to go through the control
+plane.
+
 ## Runtime endpoints
 
 The state engine is reachable over HTTP too, so anything that speaks

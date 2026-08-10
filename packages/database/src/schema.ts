@@ -531,6 +531,86 @@ export const leads = pgTable(
   }),
 );
 
+/**
+ * Persisted results of a dashboard-initiated recording replay. `results` is
+ * a JSON list of per-exchange outcomes ({exchangeId, status, expectedStatus,
+ * diff, latencyMs, error?}). Rows are append-only so a per-recording run
+ * history is queryable without re-hydrating storage.
+ */
+export const recordingReplays = pgTable(
+  'recording_replays',
+  {
+    id: text('id').primaryKey(),
+    recordingId: text('recording_id').notNull(),
+    projectId: text('project_id').references(() => projects.id, { onDelete: 'cascade' }),
+    targetUrl: text('target_url').notNull(),
+    status: text('status').notNull().default('ok'),
+    results: jsonb('results').notNull().default([]),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    recordingIdx: index('recording_replays_recording_idx').on(t.recordingId, t.createdAt),
+    projectIdx: index('recording_replays_project_idx').on(t.projectId, t.createdAt),
+  }),
+);
+
+/**
+ * Real Slack-app installations. One row per (org, workspace) pair. The
+ * `accessToken` column stores an AES-256-GCM ciphertext produced by
+ * apps/api/src/services/slack.ts — never a raw Slack token. Written by the
+ * `/v1/slack/oauth-callback` route.
+ */
+export const slackInstallations = pgTable(
+  'slack_installations',
+  {
+    id: text('id').primaryKey(),
+    orgId: text('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    teamId: text('team_id').notNull(),
+    teamName: text('team_name').notNull(),
+    /** AES-256-GCM ciphertext of the Slack bot token — never the raw token. */
+    accessToken: text('access_token').notNull(),
+    botUserId: text('bot_user_id'),
+    appId: text('app_id'),
+    installedBy: text('installed_by').references(() => users.id, { onDelete: 'set null' }),
+    installedAt: timestamp('installed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    orgTeamUnique: uniqueIndex('slack_installations_org_team_unique').on(t.orgId, t.teamId),
+    orgIdx: index('slack_installations_org_idx').on(t.orgId),
+  }),
+);
+
+/**
+ * Per-channel subscription attached to a `slack_installations` row. `events`
+ * is the set of event actions (e.g. `snapshot.overwritten`,
+ * `drift.detected`) that should be forwarded to `channelId`.
+ */
+export const slackChannelSubscriptions = pgTable(
+  'slack_channel_subscriptions',
+  {
+    id: text('id').primaryKey(),
+    installationId: text('installation_id')
+      .notNull()
+      .references(() => slackInstallations.id, { onDelete: 'cascade' }),
+    channelId: text('channel_id').notNull(),
+    channelName: text('channel_name').notNull(),
+    events: text('events')
+      .array()
+      .notNull()
+      .default(sql`ARRAY[]::text[]`),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    installChannelUnique: uniqueIndex('slack_channel_subscriptions_install_channel_unique').on(
+      t.installationId,
+      t.channelId,
+    ),
+    installIdx: index('slack_channel_subscriptions_install_idx').on(t.installationId),
+  }),
+);
+
 /** Short-lived, read-only shareable replica links. */
 export const shareLinks = pgTable(
   'share_links',

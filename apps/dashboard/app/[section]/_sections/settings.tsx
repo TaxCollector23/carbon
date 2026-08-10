@@ -9,6 +9,8 @@ import {
   ApiError,
   type MemberRole,
   type Organization,
+  type SlackInstallation,
+  type SlackSubscription,
   type SsoProvider,
   type SsoProviderInput,
 } from '@/lib/api-client';
@@ -436,6 +438,8 @@ function IntegrationsPanel({ org, onSaved }: { org: Organization; onSaved: () =>
         </Button>
       </form>
 
+      <SlackAppPanel />
+
       {org.isEnterprise ? (
         <SsoPanel />
       ) : (
@@ -658,5 +662,254 @@ function AddSsoModal({
         {err ? <p className="text-destructive text-xs">{err}</p> : null}
       </form>
     </Modal>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Slack app (round 13): real OAuth-installed workspace integration.
+// Coexists with the Slack Incoming Webhook URL under Webhooks above — a workspace
+// installation is per-org and can subscribe any channel to any subset of events.
+// -----------------------------------------------------------------------------
+
+const KNOWN_SLACK_EVENTS: readonly string[] = [
+  'snapshot.overwritten',
+  'drift.detected',
+  'emulator.crashed',
+  'sso_provider.created',
+  'sso_provider.deleted',
+  'slack_installation.created',
+];
+
+function SlackAppPanel() {
+  const installs = useAsync(async () => {
+    try {
+      return await api.listSlackInstallations();
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 404 || err.status === 501)) return null;
+      throw err;
+    }
+  }, []);
+  const subs = useAsync(async () => {
+    try {
+      return await api.listSlackSubscriptions();
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 404 || err.status === 501)) return null;
+      throw err;
+    }
+  }, []);
+  const [rowError, setRowError] = useState<string | null>(null);
+
+  const apiBase =
+    (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_CARBON_API_URL) ||
+    'http://localhost:4000';
+  const installUrl = `${String(apiBase).replace(/\/$/, '')}/v1/slack/install`;
+
+  async function removeInstall(id: string) {
+    if (!confirm('Uninstall this Slack workspace? All channel subscriptions will be removed.')) return;
+    setRowError(null);
+    try {
+      await api.deleteSlackInstallation(id);
+      await installs.refetch();
+      await subs.refetch();
+    } catch (e) {
+      setRowError(e instanceof ApiError ? e.message : String(e));
+    }
+  }
+  async function removeSub(id: string) {
+    setRowError(null);
+    try {
+      await api.deleteSlackSubscription(id);
+      await subs.refetch();
+    } catch (e) {
+      setRowError(e instanceof ApiError ? e.message : String(e));
+    }
+  }
+
+  const notDeployed = installs.data === null && !installs.loading && !installs.error;
+  const rows = installs.data?.data ?? [];
+  const subRows = subs.data?.data ?? [];
+
+  return (
+    <div className="border-border max-w-3xl space-y-4 rounded-md border p-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h4 className="text-sm font-medium">Slack app</h4>
+          <p className="text-muted-foreground mt-1 text-xs">
+            Install Carbon into a Slack workspace via OAuth and subscribe any channel to org
+            events. Requires <code>SLACK_CLIENT_ID</code> to be configured on the API.
+          </p>
+        </div>
+        {!notDeployed ? (
+          <a
+            href={installUrl}
+            className="border-border rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30"
+          >
+            Connect Slack
+          </a>
+        ) : null}
+      </div>
+
+      {rowError ? <ErrorBanner error={rowError} /> : null}
+
+      {notDeployed ? (
+        <EmptyState
+          badge="Not available yet"
+          title="Slack integration is not deployed"
+          description="Once /v1/slack/* is wired up on this API, connected workspaces will show here."
+        />
+      ) : installs.loading ? (
+        <Skeleton className="h-16" />
+      ) : installs.error ? (
+        <ErrorBanner error={installs.error} onRetry={installs.refetch} />
+      ) : rows.length === 0 ? (
+        <p className="text-muted-foreground text-sm">
+          No workspaces connected yet. Click <strong>Connect Slack</strong> to install.
+        </p>
+      ) : (
+        <div className="space-y-6">
+          {rows.map((inst: SlackInstallation) => {
+            const forInstall = subRows.filter((s) => s.installationId === inst.id);
+            return (
+              <div key={inst.id} className="border-border rounded-md border p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-medium">{inst.teamName}</div>
+                    <div className="text-muted-foreground text-xs">
+                      team {inst.teamId} · installed {inst.installedAt.slice(0, 10)}
+                    </div>
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => removeInstall(inst.id)}>
+                    Uninstall
+                  </Button>
+                </div>
+                <div className="mt-3">
+                  <SlackSubscriptionEditor
+                    installationId={inst.id}
+                    subs={forInstall}
+                    onChanged={async () => {
+                      await subs.refetch();
+                    }}
+                    onRemove={removeSub}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SlackSubscriptionEditor({
+  installationId,
+  subs,
+  onChanged,
+  onRemove,
+}: {
+  installationId: string;
+  subs: SlackSubscription[];
+  onChanged: () => Promise<void>;
+  onRemove: (id: string) => Promise<void>;
+}) {
+  const [channelId, setChannelId] = useState('');
+  const [channelName, setChannelName] = useState('');
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  function toggle(evt: string) {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(evt)) next.delete(evt);
+      else next.add(evt);
+      return next;
+    });
+  }
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setErr(null);
+    try {
+      await api.createSlackSubscription({
+        installationId,
+        channelId: channelId.trim(),
+        channelName: channelName.trim(),
+        events: [...picked],
+      });
+      setChannelId('');
+      setChannelName('');
+      setPicked(new Set());
+      await onChanged();
+    } catch (e2) {
+      setErr(e2 instanceof ApiError ? e2.message : String(e2));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      {subs.length > 0 ? (
+        <ul className="space-y-2">
+          {subs.map((s) => (
+            <li
+              key={s.id}
+              className="flex items-center justify-between rounded-md bg-muted/30 px-2 py-1.5 text-xs"
+            >
+              <div>
+                <span className="font-medium">#{s.channelName}</span>{' '}
+                <span className="text-muted-foreground">→ {s.events.join(', ')}</span>
+              </div>
+              <Button size="sm" variant="ghost" onClick={() => void onRemove(s.id)}>
+                Remove
+              </Button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-muted-foreground text-xs">No channel subscriptions yet.</p>
+      )}
+      <form onSubmit={submit} className="space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <Input
+            value={channelId}
+            onChange={(e) => setChannelId(e.target.value)}
+            placeholder="C0123456789"
+            required
+          />
+          <Input
+            value={channelName}
+            onChange={(e) => setChannelName(e.target.value)}
+            placeholder="eng-alerts"
+            required
+          />
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {KNOWN_SLACK_EVENTS.map((evt) => {
+            const on = picked.has(evt);
+            return (
+              <button
+                key={evt}
+                type="button"
+                onClick={() => toggle(evt)}
+                className={
+                  'rounded-full border px-2 py-0.5 text-xs ' +
+                  (on
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border text-muted-foreground hover:bg-muted/30')
+                }
+              >
+                {evt}
+              </button>
+            );
+          })}
+        </div>
+        {err ? <p className="text-destructive text-xs">{err}</p> : null}
+        <Button size="sm" type="submit" disabled={busy || picked.size === 0}>
+          {busy ? 'Adding…' : 'Add subscription'}
+        </Button>
+      </form>
+    </div>
   );
 }

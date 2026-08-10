@@ -1,0 +1,104 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Twilio Messaging (curated subset)",
+    "version": "2010-04-01",
+    "description": "Curated slice of Twilio's Messaging API for the Carbon sample gallery. Covers messages, media, phone numbers, and messaging services."
+  },
+  "servers": [{ "url": "https://api.twilio.com/2010-04-01" }],
+  "paths": {
+    "/Accounts/{AccountSid}/Messages.json": {
+      "parameters": [{ "name": "AccountSid", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "get": { "tags": ["messages"], "summary": "List messages", "responses": { "200": { "description": "ok" } } },
+      "post": { "tags": ["messages"], "summary": "Send a message", "responses": { "201": { "description": "created" } } }
+    },
+    "/Accounts/{AccountSid}/Messages/{Sid}.json": {
+      "parameters": [
+        { "name": "AccountSid", "in": "path", "required": true, "schema": { "type": "string" } },
+        { "name": "Sid", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": { "tags": ["messages"], "summary": "Retrieve a message", "responses": { "200": { "description": "ok" } } },
+      "post": { "tags": ["messages"], "summary": "Update a message", "responses": { "200": { "description": "ok" } } },
+      "delete": { "tags": ["messages"], "summary": "Delete a message", "responses": { "204": { "description": "deleted" } } }
+    },
+    "/Accounts/{AccountSid}/Messages/{MessageSid}/Media.json": {
+      "parameters": [
+        { "name": "AccountSid", "in": "path", "required": true, "schema": { "type": "string" } },
+        { "name": "MessageSid", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": { "tags": ["media"], "summary": "List message media", "responses": { "200": { "description": "ok" } } }
+    },
+    "/Accounts/{AccountSid}/Messages/{MessageSid}/Media/{Sid}.json": {
+      "parameters": [
+        { "name": "AccountSid", "in": "path", "required": true, "schema": { "type": "string" } },
+        { "name": "MessageSid", "in": "path", "required": true, "schema": { "type": "string" } },
+        { "name": "Sid", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": { "tags": ["media"], "summary": "Retrieve message media", "responses": { "200": { "description": "ok" } } },
+      "delete": { "tags": ["media"], "summary": "Delete message media", "responses": { "204": { "description": "deleted" } } }
+    },
+    "/Accounts/{AccountSid}/IncomingPhoneNumbers.json": {
+      "parameters": [{ "name": "AccountSid", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "get": { "tags": ["phone_numbers"], "summary": "List incoming phone numbers", "responses": { "200": { "description": "ok" } } },
+      "post": { "tags": ["phone_numbers"], "summary": "Purchase a phone number", "responses": { "201": { "description": "created" } } }
+    },
+    "/Accounts/{AccountSid}/IncomingPhoneNumbers/{Sid}.json": {
+      "parameters": [
+        { "name": "AccountSid", "in": "path", "required": true, "schema": { "type": "string" } },
+        { "name": "Sid", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": { "tags": ["phone_numbers"], "summary": "Retrieve a phone number", "responses": { "200": { "description": "ok" } } },
+      "post": { "tags": ["phone_numbers"], "summary": "Update a phone number", "responses": { "200": { "description": "ok" } } },
+      "delete": { "tags": ["phone_numbers"], "summary": "Release a phone number", "responses": { "204": { "description": "deleted" } } }
+    },
+    "/Accounts/{AccountSid}/AvailablePhoneNumbers/{IsoCountry}/Local.json": {
+      "parameters": [
+        { "name": "AccountSid", "in": "path", "required": true, "schema": { "type": "string" } },
+        { "name": "IsoCountry", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": { "tags": ["phone_numbers"], "summary": "Search local phone numbers", "responses": { "200": { "description": "ok" } } }
+    },
+    "/v1/Services": {
+      "get": { "tags": ["services"], "summary": "List messaging services", "responses": { "200": { "description": "ok" } } },
+      "post": { "tags": ["services"], "summary": "Create a messaging service", "responses": { "201": { "description": "created" } } }
+    },
+    "/v1/Services/{Sid}": {
+      "parameters": [{ "name": "Sid", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "get": { "tags": ["services"], "summary": "Retrieve a messaging service", "responses": { "200": { "description": "ok" } } },
+      "post": { "tags": ["services"], "summary": "Update a messaging service", "responses": { "200": { "description": "ok" } } },
+      "delete": { "tags": ["services"], "summary": "Delete a messaging service", "responses": { "204": { "description": "deleted" } } }
+    },
+    "/v1/Services/{ServiceSid}/PhoneNumbers": {
+      "parameters": [{ "name": "ServiceSid", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "get": { "tags": ["services"], "summary": "List service phone numbers", "responses": { "200": { "description": "ok" } } },
+      "post": { "tags": ["services"], "summary": "Add phone number to service", "responses": { "201": { "description": "created" } } }
+    },
+    "/v1/Services/{ServiceSid}/PhoneNumbers/{Sid}": {
+      "parameters": [
+        { "name": "ServiceSid", "in": "path", "required": true, "schema": { "type": "string" } },
+        { "name": "Sid", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": { "tags": ["services"], "summary": "Retrieve service phone number", "responses": { "200": { "description": "ok" } } },
+      "delete": { "tags": ["services"], "summary": "Remove phone number from service", "responses": { "204": { "description": "deleted" } } }
+    },
+    "/Accounts/{AccountSid}/Notifications.json": {
+      "parameters": [{ "name": "AccountSid", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "get": { "tags": ["notifications"], "summary": "List notifications", "responses": { "200": { "description": "ok" } } }
+    },
+    "/Accounts/{AccountSid}/Notifications/{Sid}.json": {
+      "parameters": [
+        { "name": "AccountSid", "in": "path", "required": true, "schema": { "type": "string" } },
+        { "name": "Sid", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": { "tags": ["notifications"], "summary": "Retrieve a notification", "responses": { "200": { "description": "ok" } } }
+    },
+    "/v1/BrandRegistrations": {
+      "get": { "tags": ["compliance"], "summary": "List brand registrations", "responses": { "200": { "description": "ok" } } },
+      "post": { "tags": ["compliance"], "summary": "Create a brand registration", "responses": { "201": { "description": "created" } } }
+    },
+    "/v1/BrandRegistrations/{Sid}": {
+      "parameters": [{ "name": "Sid", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "get": { "tags": ["compliance"], "summary": "Retrieve a brand registration", "responses": { "200": { "description": "ok" } } }
+    }
+  }
+}

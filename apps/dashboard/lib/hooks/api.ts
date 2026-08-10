@@ -180,6 +180,13 @@ export function useUsageEvents(params: { limit?: number; kind?: string } = {}) {
   return useAsync(() => api.listUsageEvents(params), [params.limit, params.kind]);
 }
 
+export function useRecordings(projectSlug: string | null | undefined, limit = 50) {
+  return useAsync(async () => {
+    if (!projectSlug) return { data: [] };
+    return api.listRecordings(projectSlug, { limit });
+  }, [projectSlug, limit]);
+}
+
 export function useChaosPresets() {
   return useAsync(() => api.listChaosPresets(), []);
 }

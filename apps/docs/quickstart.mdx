@@ -3,6 +3,32 @@ title: 'Quickstart'
 description: 'From npm install to a stateful replica in under five minutes.'
 ---
 
+## Or start from a sample
+
+Not ready to point Carbon at your own spec yet? Every install ships with a
+curated set of real API subsets you can spin up in one click.
+
+**From the dashboard** — open the workspace overview and hit **Try a sample**.
+Pick one, and Carbon creates a fresh project, ingests the bundled OpenAPI
+spec, and drops you on the projects list.
+
+**From the CLI**:
+
+```bash
+carbon samples list
+carbon samples instantiate stripe
+```
+
+Available sample ids: `petstore`, `stripe`, `github`, `shopify`, `openai`,
+`twilio`. Each is a 30–50 endpoint subset of the real API — small enough to
+ingest instantly, large enough to feel like the real thing.
+
+**From the public gallery** — [carbon.dev/gallery](https://carbon.dev/gallery)
+links each entry into the dashboard via `?sample=<id>`, which triggers the
+same one-click flow while signed in.
+
+---
+
 ## 1. Install
 
 The CLI publishes to npm as **`carbon-dev`** and installs a `carbon`

@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { Box, KeyRound, Layers, Server } from 'lucide-react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { Button } from '@carbon/ui';
 import { Topbar } from '@/components/topbar';
 import { ErrorBanner, Skeleton } from '@/components/ui';
@@ -10,6 +12,7 @@ import { useSelectedProjectSlug } from '@/lib/hooks/use-project-slug';
 import { useSnapshots } from '@/lib/hooks/api';
 import { getSectionCopy } from '@/lib/empty-data';
 import { HealthPill } from '@/components/health-pill';
+import { TrySampleButton } from './[section]/_actions/try-sample';
 
 /**
  * Overview page. Fetches counts+recent items for the four resources that
@@ -23,6 +26,19 @@ export default function DashboardHome() {
   const projects = useProjects();
   const emulators = useEmulators();
   const keys = useApiKeys();
+  const searchParams = useSearchParams();
+  const sampleParam = searchParams?.get('sample') ?? null;
+  const router = useRouter();
+
+  // Drop the query param once we've kicked off the auto-instantiate so a
+  // page reload doesn't fire the mutation a second time.
+  useEffect(() => {
+    if (sampleParam) {
+      const t = setTimeout(() => router.replace('/'), 250);
+      return () => clearTimeout(t);
+    }
+    return undefined;
+  }, [sampleParam, router]);
 
   const availableSlugs = projects.data?.data?.map((p) => p.slug) ?? [];
   const { slug: projectSlug } = useSelectedProjectSlug(availableSlugs);
@@ -43,6 +59,10 @@ export default function DashboardHome() {
             </div>
             <div className="flex items-center gap-3">
               <HealthPill />
+              <TrySampleButton
+                autoInstantiate={sampleParam}
+                onDone={() => void projects.refetch()}
+              />
               <Link href="/#cli" className="text-muted-foreground hover:text-foreground text-sm">
                 Install CLI →
               </Link>

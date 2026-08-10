@@ -3,13 +3,17 @@
 import { useState, type FormEvent } from 'react';
 import { Button, Input } from '@carbon/ui';
 import { EmptyState, ErrorBanner, Modal, Skeleton, Table, Td, Th } from '@/components/ui';
+import { useSearchParams } from 'next/navigation';
 import { api, useProjects } from '@/lib/hooks/api';
 import { ApiError } from '@/lib/api-client';
 import { getSectionCopy } from '@/lib/empty-data';
+import { TrySampleButton } from '../_actions/try-sample';
 
 export default function ProjectsSection() {
   const projects = useProjects({ includeTotal: true } as { limit?: number; orgId?: string });
   const [open, setOpen] = useState(false);
+  const searchParams = useSearchParams();
+  const sampleParam = searchParams?.get('sample') ?? null;
 
   return (
     <>
@@ -21,9 +25,16 @@ export default function ProjectsSection() {
               ? `${projects.data.data.length} shown`
               : ''}
         </p>
-        <Button size="sm" onClick={() => setOpen(true)} data-testid="new-project-button">
-          New project
-        </Button>
+        <div className="flex items-center gap-2">
+          {sampleParam ? (
+            <TrySampleButton autoInstantiate={sampleParam} onDone={() => void projects.refetch()} />
+          ) : (
+            <TrySampleButton onDone={() => void projects.refetch()} />
+          )}
+          <Button size="sm" onClick={() => setOpen(true)} data-testid="new-project-button">
+            New project
+          </Button>
+        </div>
       </header>
 
       {projects.loading ? (

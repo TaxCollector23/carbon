@@ -6,6 +6,7 @@ import { isCarbonError, NoopLogger } from '@carbon/core';
 import { MemoryStorage, type Storage, type StorageStream } from '@carbon/storage';
 import type { AppContext } from '../context.js';
 import { registerArtifactRoutes } from './artifacts.js';
+import { registerRecordingRoutes } from './recordings.js';
 
 function makeCtx(storage: Storage): AppContext {
   return {
@@ -39,6 +40,7 @@ async function build(storage: Storage) {
   // Unauthenticated route: resolveProjectAccess short-circuits when there
   // is no apiKey on the request, so we skip the api-key hook entirely.
   await registerArtifactRoutes(app, makeCtx(storage));
+  await registerRecordingRoutes(app, makeCtx(storage));
   await app.ready();
   return app;
 }
@@ -115,6 +117,64 @@ describe('artifact routes', () => {
     const app = await build(storage);
     const res = await app.inject('/v1/projects/acme/ir/missing');
     expect(res.statusCode).toBe(404);
+  });
+
+  it('lists recordings with per-recording metadata pulled from the body', async () => {
+    const storage = new StreamingMemoryStorage();
+    const recording = {
+      id: 'rec_test1',
+      source: 'proxy',
+      startedAt: 1_700_000_000_000,
+      endedAt: 1_700_000_000_500,
+      exchanges: [
+        {
+          id: 'xch_a',
+          request: {
+            method: 'GET',
+            url: 'https://api.example.com/things/1',
+            headers: {},
+            body: null,
+            receivedAt: 1_700_000_000_100,
+          },
+          response: { status: 200, headers: {}, body: '{"ok":true}', sentAt: 1_700_000_000_150 },
+          latencyMs: 50,
+          redactions: [],
+        },
+        {
+          id: 'xch_b',
+          request: {
+            method: 'POST',
+            url: 'https://api.example.com/things',
+            headers: {},
+            body: '{}',
+            receivedAt: 1_700_000_000_400,
+          },
+          response: { status: 201, headers: {}, body: '{"id":"x"}', sentAt: 1_700_000_000_450 },
+          latencyMs: 50,
+          redactions: [],
+        },
+      ],
+    };
+    await storage.put('projects/acme/recordings/rec_test1.jsonl', JSON.stringify(recording));
+
+    const app = await build(storage);
+    const res = await app.inject('/v1/projects/acme/recordings');
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as {
+      data: Array<{
+        id: string;
+        requestCount: number;
+        firstAt: number;
+        lastAt: number;
+        upstreamUrl: string;
+      }>;
+    };
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0]!.id).toBe('rec_test1');
+    expect(body.data[0]!.requestCount).toBe(2);
+    expect(body.data[0]!.firstAt).toBe(1_700_000_000_100);
+    expect(body.data[0]!.lastAt).toBe(1_700_000_000_400);
+    expect(body.data[0]!.upstreamUrl).toBe('https://api.example.com');
   });
 });
 

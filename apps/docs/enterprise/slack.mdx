@@ -1,0 +1,120 @@
+---
+title: 'Slack'
+description: 'Install Carbon as a real Slack app and route events to any channel.'
+---
+
+Carbon has two Slack integration modes:
+
+1. **Legacy webhook URL** (round 1) — paste an Incoming Webhook URL into
+   Settings → Integrations. One channel per URL, no OAuth. Still works.
+2. **Real Slack app** (round 13) — install Carbon into a Slack workspace via
+   OAuth, then subscribe any channel to any subset of Carbon events. This
+   page covers the real app.
+
+<Note>
+  The real Slack app requires you to create your own Slack app at
+  <a href="https://api.slack.com/apps">api.slack.com/apps</a>. Carbon does
+  not ship with a Slack app id / secret baked in — self-hosted deployments
+  own their own app and users, and Carbon Cloud runs a distinct production
+  app.
+</Note>
+
+## One-time server setup
+
+1. Go to [api.slack.com/apps](https://api.slack.com/apps) → **Create New App**
+   → **From scratch**. Name it "Carbon" (or whatever you like).
+2. **OAuth & Permissions** → add these bot token scopes:
+   - `channels:read`
+   - `chat:write`
+   - `incoming-webhook`
+3. **OAuth & Permissions** → **Redirect URLs** → add
+   `https://api.your-carbon-host/v1/slack/oauth-callback` (use your API's
+   public origin; `http://localhost:4000/v1/slack/oauth-callback` for local
+   dev).
+4. **Basic Information** → copy the **Client ID** and **Client Secret**.
+5. Set the following env vars on the Carbon API and workers processes:
+
+   ```bash
+   SLACK_CLIENT_ID=...
+   SLACK_CLIENT_SECRET=...
+   # 32+ char random string — encrypts stored bot tokens at rest.
+   SLACK_TOKEN_ENC_KEY=$(openssl rand -hex 32)
+   # Only needed if the callback URL differs from the default.
+   SLACK_REDIRECT_URI=https://api.your-carbon-host/v1/slack/oauth-callback
+   DASHBOARD_URL=https://app.your-carbon-host
+   ```
+
+6. Run the `0011_slack_integrations` migration:
+
+   ```bash
+   pnpm --filter @carbon/database migrate
+   ```
+
+## Install into a workspace
+
+1. In the Carbon dashboard, go to **Settings → Integrations → Slack**.
+2. Click **Connect Slack**. You'll be sent to Slack's approval screen and
+   bounced back to `/settings?slack=installed`.
+3. The workspace now appears under **Slack installations**.
+
+## Subscribe a channel to events
+
+For each installation you can add per-channel subscriptions. Each
+subscription selects the event actions that should be forwarded — e.g.
+`snapshot.overwritten`, `drift.detected`, `emulator.crashed`.
+
+```bash
+curl -X POST https://api.your-carbon-host/v1/slack/subscriptions \
+  -H "x-carbon-key: ck_live_admin_…" \
+  -H "content-type: application/json" \
+  -d '{
+    "installationId": "slkinst_...",
+    "channelId": "C0123456789",
+    "channelName": "eng-alerts",
+    "events": ["snapshot.overwritten", "drift.detected", "emulator.crashed"]
+  }'
+```
+
+Deliveries are handled by the `startSlackNotifier` worker in
+`apps/workers/src/slack-notifier.ts`. It polls the `events` table every 10s
+and sends a Block Kit message via `chat.postMessage` for every matching
+subscription.
+
+## Uninstall
+
+```bash
+curl -X DELETE https://api.your-carbon-host/v1/slack/installations/slkinst_... \
+  -H "x-carbon-key: ck_live_admin_…"
+```
+
+The server calls Slack's `auth.revoke` (best-effort) and hard-deletes the
+installation + all its channel subscriptions.
+
+## Routes
+
+| Method | Path                                | Purpose                                      |
+| ------ | ----------------------------------- | -------------------------------------------- |
+| GET    | `/v1/slack/install`                 | 302 → Slack OAuth authorize (public)         |
+| GET    | `/v1/slack/oauth-callback`          | OAuth callback → dashboard (public)          |
+| GET    | `/v1/slack/installations`           | List installations for the caller's org      |
+| GET    | `/v1/slack/subscriptions`           | List channel subscriptions                   |
+| POST   | `/v1/slack/subscriptions`           | Create a channel subscription                |
+| DELETE | `/v1/slack/subscriptions/:id`       | Remove a channel subscription                |
+| DELETE | `/v1/slack/installations/:id`       | Uninstall the workspace integration          |
+
+All management routes require an **admin**-scoped API key or a session user
+with the **owner**/**admin** role on the caller's org.
+
+## Security notes
+
+- Bot tokens are encrypted at rest with AES-256-GCM. Losing
+  `SLACK_TOKEN_ENC_KEY` renders every stored token undecryptable — rotate
+  by re-installing each workspace, not by editing rows.
+- The OAuth state parameter carries the org id. A production deployment
+  should additionally check a signed cookie against the state before
+  trusting the redirect — the current implementation trusts the state's
+  org fragment (fine for admin-authenticated dashboards, not for open
+  public installers).
+- `chat.postMessage` requires the bot to be in the target channel. Invite
+  `@Carbon` to the channel before subscribing it, or the send returns
+  `not_in_channel` and the notifier logs a warning.

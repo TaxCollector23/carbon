@@ -50,6 +50,11 @@ const DEFAULT_IGNORE = [
   '**/pnpm-lock.yaml',
   '**/package-lock.json',
   '**/yarn.lock',
+  // Example/template files whose whole purpose is to hold placeholder
+  // credentials. Real secrets live in `.env`, which we scan.
+  '**/.env.example',
+  '**/.env.sample',
+  '**/.env.template',
 ];
 
 /**
@@ -153,6 +158,12 @@ async function expandPaths(
   ignore: readonly string[],
 ): Promise<string[]> {
   const out = new Set<string>();
+  // Pre-compile ignore patterns so explicit paths honour them too — otherwise
+  // the pre-commit hook passes .env.example directly and skips the ignore
+  // list. fast-glob's isMatch handles the same brace/star grammar the caller
+  // wrote in DEFAULT_IGNORE, keeping semantics identical.
+  const shouldIgnore = (path: string): boolean =>
+    ignore.length > 0 && (fg.isDynamicPattern(ignore[0] ?? '') || true) && fg.sync(ignore, { cwd, absolute: true, dot: true, onlyFiles: false }).includes(path);
   for (const raw of paths) {
     if (!raw) continue;
     const abs = resolve(cwd, raw);
@@ -160,7 +171,7 @@ async function expandPaths(
     try {
       const s = await stat(abs);
       if (s.isFile()) {
-        out.add(abs);
+        if (!shouldIgnore(abs)) out.add(abs);
         continue;
       }
       isDir = s.isDirectory();

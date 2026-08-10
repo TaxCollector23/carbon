@@ -61,6 +61,28 @@ export interface Project {
   createdAt?: string | number | null;
 }
 
+export interface SampleSummary {
+  id: string;
+  name: string;
+  description: string;
+  tag: string;
+  annotations: { highlight: string; tryThis: string[] };
+}
+
+export interface SampleInstantiateResult {
+  projectSlug: string;
+  projectId: string;
+  orgId: string;
+  sample: SampleSummary;
+  sampleAnnotations: { highlight: string; tryThis: string[] };
+  ingestResult: {
+    irId: string;
+    graphId: string;
+    endpoints: number;
+    resources: number;
+  };
+}
+
 export interface ListResponse<T> {
   data: T[];
   nextCursor?: string | null;
@@ -99,6 +121,52 @@ export interface SnapshotDiff {
   a: { name: string; takenAt: number; recordCount: number };
   b: { name: string; takenAt: number; recordCount: number };
   resources: Record<string, SnapshotDiffResourceEntry>;
+}
+
+export interface RecordingSummary {
+  id: string;
+  size: number;
+  modifiedAt: number;
+  requestCount: number;
+  firstAt: number | null;
+  lastAt: number | null;
+  upstreamUrl: string | null;
+}
+
+export interface RecordingExchange {
+  id: string;
+  method: string;
+  url: string;
+  requestBody: string | null;
+  status: number;
+  responseBody: string | null;
+  at: number;
+  latencyMs: number;
+}
+
+export interface RecordingExchangesResponse {
+  id: string;
+  exchanges: RecordingExchange[];
+}
+
+export interface RecordingReplayResultRow {
+  exchangeId: string;
+  method: string;
+  url: string;
+  status: number | null;
+  expectedStatus: number;
+  diff: string[];
+  latencyMs: number;
+  error?: string;
+}
+
+export interface RecordingReplayResult {
+  id: string;
+  recordingId: string;
+  targetUrl: string;
+  status: 'ok' | 'drift' | 'error';
+  results: RecordingReplayResultRow[];
+  createdAt: string;
 }
 
 export interface ArtifactSummary {
@@ -324,6 +392,31 @@ export interface ChaosPresetInput {
   rules: ChaosRule[];
 }
 
+export interface SlackInstallation {
+  id: string;
+  orgId: string;
+  teamId: string;
+  teamName: string;
+  botUserId?: string | null;
+  appId?: string | null;
+  installedBy?: string | null;
+  installedAt: string;
+}
+export interface SlackSubscription {
+  id: string;
+  installationId: string;
+  channelId: string;
+  channelName: string;
+  events: string[];
+  createdAt: string;
+}
+export interface SlackSubscriptionInput {
+  installationId: string;
+  channelId: string;
+  channelName: string;
+  events: string[];
+}
+
 export type SearchScope = 'events' | 'projects' | 'artifacts' | 'all';
 
 export interface SearchResult {
@@ -355,6 +448,37 @@ export interface Job {
   createdAt?: string | number | null;
   updatedAt?: string | number | null;
   [key: string]: unknown;
+}
+
+export type DriftStatus = 'pending' | 'running' | 'ok' | 'drift' | 'error';
+
+export interface DriftCheckRow {
+  id: string;
+  projectId: string;
+  status: DriftStatus;
+  ranAt: string | null;
+  result: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface DriftConfig {
+  upstreamUrl: string | null;
+  intervalMinutes: number | null;
+  enabled: boolean;
+  configuredAt: string | null;
+}
+
+export interface DriftConfigInput {
+  upstreamUrl?: string | null;
+  intervalMinutes?: number | null;
+  enabled?: boolean;
+}
+
+export interface DriftRunResponse {
+  id: string;
+  projectId: string;
+  status: DriftStatus;
+  createdAt: string;
 }
 
 export interface LoadTestResult {
@@ -520,6 +644,16 @@ export function createApiClient(options: ApiClientOptions = {}) {
       return request<Project>('GET', `/v1/projects/${encodeURIComponent(id)}`);
     },
 
+    // ------------------------------- samples --------------------------------
+    listSamples() {
+      return request<{ data: SampleSummary[] }>('GET', '/v1/samples');
+    },
+    instantiateSample(sampleId: string) {
+      return request<SampleInstantiateResult>('POST', '/v1/samples/instantiate', {
+        sampleId,
+      });
+    },
+
     // ------------------------------- snapshots ------------------------------
     listSnapshots(projectSlug: string, params: { limit?: number } = {}) {
       const q = toQuery(params);
@@ -548,6 +682,34 @@ export function createApiClient(options: ApiClientOptions = {}) {
       return request<ListResponse<ArtifactSummary>>(
         'GET',
         `/v1/projects/${encodeURIComponent(projectSlug)}/artifacts${q}`,
+      );
+    },
+
+    // ------------------------------ recordings ------------------------------
+    listRecordings(projectSlug: string, params: { limit?: number } = {}) {
+      const q = toQuery(params);
+      return request<ListResponse<RecordingSummary>>(
+        'GET',
+        `/v1/projects/${encodeURIComponent(projectSlug)}/recordings${q}`,
+      );
+    },
+    getRecordingExchanges(projectSlug: string, id: string) {
+      return request<RecordingExchangesResponse>(
+        'GET',
+        `/v1/projects/${encodeURIComponent(projectSlug)}/recordings/${encodeURIComponent(id)}/exchanges`,
+      );
+    },
+    replayRecording(projectSlug: string, id: string, body: { targetUrl: string }) {
+      return request<RecordingReplayResult>(
+        'POST',
+        `/v1/projects/${encodeURIComponent(projectSlug)}/recordings/${encodeURIComponent(id)}/replay`,
+        body,
+      );
+    },
+    listRecordingReplays(projectSlug: string, id: string) {
+      return request<ListResponse<RecordingReplayResult>>(
+        'GET',
+        `/v1/projects/${encodeURIComponent(projectSlug)}/recordings/${encodeURIComponent(id)}/replays`,
       );
     },
 
@@ -740,6 +902,51 @@ export function createApiClient(options: ApiClientOptions = {}) {
     },
     retryJob(id: string) {
       return request<Job>('POST', `/v1/jobs/${encodeURIComponent(id)}/retry`);
+    },
+
+    // -------------------------------- slack ---------------------------------
+    listSlackInstallations() {
+      return request<ListResponse<SlackInstallation>>('GET', '/v1/slack/installations');
+    },
+    listSlackSubscriptions() {
+      return request<ListResponse<SlackSubscription>>('GET', '/v1/slack/subscriptions');
+    },
+    createSlackSubscription(input: SlackSubscriptionInput) {
+      return request<SlackSubscription>('POST', '/v1/slack/subscriptions', input);
+    },
+    deleteSlackSubscription(id: string) {
+      return request<void>('DELETE', `/v1/slack/subscriptions/${encodeURIComponent(id)}`);
+    },
+    deleteSlackInstallation(id: string) {
+      return request<void>('DELETE', `/v1/slack/installations/${encodeURIComponent(id)}`);
+    },
+
+    // --------------------------------- drift --------------------------------
+    listDriftChecks(projectId: string, params: { limit?: number; cursor?: string } = {}) {
+      const q = toQuery(params);
+      return request<ListResponse<DriftCheckRow>>(
+        'GET',
+        `/v1/projects/${encodeURIComponent(projectId)}/drift${q}`,
+      );
+    },
+    getDriftConfig(projectId: string) {
+      return request<DriftConfig>(
+        'GET',
+        `/v1/projects/${encodeURIComponent(projectId)}/drift/config`,
+      );
+    },
+    updateDriftConfig(projectId: string, body: DriftConfigInput) {
+      return request<DriftConfig>(
+        'PATCH',
+        `/v1/projects/${encodeURIComponent(projectId)}/drift/config`,
+        body,
+      );
+    },
+    runDriftCheck(projectId: string) {
+      return request<DriftRunResponse>(
+        'POST',
+        `/v1/projects/${encodeURIComponent(projectId)}/drift/run`,
+      );
     },
 
     loadTestEmulator(

@@ -67,9 +67,27 @@ const ENTRIES: readonly GalleryEntry[] = [
   },
 ];
 
+// Curated sample IDs served by `GET /v1/samples` — a click on one of these
+// deep-links into the dashboard, which auto-instantiates the sample into a
+// fresh project via `POST /v1/samples/instantiate` (see apps/api/src/routes/
+// samples.ts). Entries not in this set fall back to the legacy /projects/new
+// prefill flow so gallery items without a bundled fixture still work.
+const BUNDLED_SAMPLE_IDS: ReadonlySet<string> = new Set([
+  'petstore',
+  'stripe',
+  'github',
+  'shopify',
+  'openai',
+  'twilio',
+]);
+
 function openInCarbon(entry: GalleryEntry): string {
+  const base = dashboardUrl.replace(/\/$/, '');
+  if (BUNDLED_SAMPLE_IDS.has(entry.slug)) {
+    return `${base}/?sample=${encodeURIComponent(entry.slug)}`;
+  }
   const params = new URLSearchParams({ spec: entry.specUrl, name: entry.name });
-  return `${dashboardUrl.replace(/\/$/, '')}/projects/new?${params.toString()}`;
+  return `${base}/projects/new?${params.toString()}`;
 }
 
 export default function GalleryPage() {
