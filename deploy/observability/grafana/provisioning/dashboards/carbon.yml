@@ -1,0 +1,17 @@
+# Grafana dashboard provider — points at the mounted dashboard JSON files.
+# The docker-compose bind-mounts deploy/observability/grafana/ →
+# /var/lib/grafana/dashboards, so any *.json alongside this provisioning
+# folder is auto-loaded.
+apiVersion: 1
+
+providers:
+  - name: carbon
+    orgId: 1
+    folder: Carbon
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

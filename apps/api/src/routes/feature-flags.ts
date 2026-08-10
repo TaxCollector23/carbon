@@ -2,10 +2,10 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { CarbonError } from '@carbon/core';
 import type { AppContext } from '../context.js';
-import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import type { SessionAuthenticatedRequest } from '../plugins/session-auth.js';
+import { resolveCallerOrg } from '../plugins/caller-org.js';
 import { requireScope } from '../plugins/scopes.js';
-import { zodBody, zodResponse } from '../plugins/schema-helpers.js';
+import { zodBody, zodResponse, zodResponseWithExample } from '../plugins/schema-helpers.js';
 import { resolvePlan, type PlanTier } from '../services/billing.js';
 import {
   listFlags,
@@ -40,9 +40,8 @@ async function resolveCallerScope(
   ctx: AppContext,
   req: FastifyRequest,
 ): Promise<FlagResolutionContext> {
-  const apiKey = (req as AuthenticatedRequest).apiKey;
   const session = (req as SessionAuthenticatedRequest).sessionUser;
-  const orgId = apiKey?.orgId ?? session?.orgId ?? null;
+  const orgId = resolveCallerOrg(req, { mode: 'optional' }) ?? null;
   const userId = session?.id ?? null;
   let plan: PlanTier | null = null;
   if (orgId) {
@@ -67,7 +66,28 @@ export async function registerFeatureFlagRoutes(
       description:
         'Return every flag definition plus the overrides that apply to the caller (org, user, plan). ' +
         'The `effective` field is pre-computed against the caller\'s scope so a UI row is one fetch.',
-      response: { 200: zodResponse(FlagListResponse) },
+      response: {
+        200: zodResponseWithExample(FlagListResponse, {
+          data: [
+            {
+              key: 'ai_quality_judge',
+              description: 'Run the LLM judge on every ingest to produce an AI-quality score.',
+              defaultValue: false,
+              effective: true,
+              overrides: [
+                { scope: 'org', scopeId: 'org_01HXK5H7Q9C0R3Q1S8V6M4WJZK', value: true },
+              ],
+            },
+            {
+              key: 'sse_events_stream',
+              description: 'Enable /v1/events/stream Server-Sent Events endpoint.',
+              defaultValue: true,
+              effective: true,
+              overrides: [],
+            },
+          ],
+        }),
+      },
     },
   }, async (req) => {
     // Lazy seed on first read so a fresh deploy has the built-in flag rows
@@ -94,9 +114,7 @@ export async function registerFeatureFlagRoutes(
     // For `org` scope, refuse to write for an org other than the caller's own
     // (session role + api-key scope are already checked, but an admin key on
     // org A must not be able to flip a flag for org B).
-    const apiKey = (req as AuthenticatedRequest).apiKey;
-    const session = (req as SessionAuthenticatedRequest).sessionUser;
-    const callerOrgId = apiKey?.orgId ?? session?.orgId ?? null;
+    const callerOrgId = resolveCallerOrg(req, { mode: 'optional' }) ?? null;
     if (body.scope === 'org' && callerOrgId && body.scopeId !== callerOrgId) {
       throw new CarbonError({
         code: 'CARBON_FORBIDDEN',

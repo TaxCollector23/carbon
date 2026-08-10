@@ -76,6 +76,31 @@ export interface SnapshotSummary {
   modifiedAt: number;
 }
 
+export interface SnapshotDiffRow {
+  id: string;
+  data: Record<string, unknown>;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface SnapshotDiffChange {
+  before: SnapshotDiffRow;
+  after: SnapshotDiffRow;
+  changedFields: string[];
+}
+
+export interface SnapshotDiffResourceEntry {
+  added: SnapshotDiffRow[];
+  removed: SnapshotDiffRow[];
+  changed: SnapshotDiffChange[];
+}
+
+export interface SnapshotDiff {
+  a: { name: string; takenAt: number; recordCount: number };
+  b: { name: string; takenAt: number; recordCount: number };
+  resources: Record<string, SnapshotDiffResourceEntry>;
+}
+
 export interface ArtifactSummary {
   kind: 'ir' | 'graph';
   id: string;
@@ -478,6 +503,13 @@ export function createApiClient(options: ApiClientOptions = {}) {
       return request<ListResponse<SnapshotSummary>>(
         'GET',
         `/v1/projects/${encodeURIComponent(projectSlug)}/snapshots${q}`,
+      );
+    },
+    diffSnapshots(projectSlug: string, a: string, b: string) {
+      const q = toQuery({ a, b });
+      return request<SnapshotDiff>(
+        'GET',
+        `/v1/snapshots/${encodeURIComponent(projectSlug)}/diff${q}`,
       );
     },
     deleteSnapshot(projectSlug: string, name: string) {

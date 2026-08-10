@@ -8,7 +8,13 @@ import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import type { SessionAuthenticatedRequest } from '../plugins/session-auth.js';
 import { requireScope } from '../plugins/scopes.js';
-import { zodBody, zodQuery, zodResponse } from '../plugins/schema-helpers.js';
+import {
+  zodBody,
+  zodBodyWithExample,
+  zodQuery,
+  zodResponse,
+  zodResponseWithExample,
+} from '../plugins/schema-helpers.js';
 import { getActor, recordEvent } from '../services/events.js';
 import { ProjectSlug, requireProjectAccessById } from './project-access.js';
 import { registerShareLinkRoutes } from './share-links.js';
@@ -68,7 +74,23 @@ export async function registerProjectRoutes(app: FastifyInstance, ctx: AppContex
         'cursor pagination scheme; a stable `nextCursor` continues the scan on the next call. ' +
         '`total` is only computed when `includeTotal=true` and only on the first page.',
       querystring: zodQuery(ListQuery),
-      response: { 200: zodResponse(ProjectListResponse) },
+      response: {
+        200: zodResponseWithExample(ProjectListResponse, {
+          data: [
+            {
+              id: 'prj_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+              orgId: 'org_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+              slug: 'checkout-api',
+              name: 'Checkout API',
+              createdAt: '2025-11-14T18:22:41.000Z',
+              updatedAt: '2025-11-14T18:22:41.000Z',
+            },
+          ],
+          nextCursor: null,
+          hasMore: false,
+          total: 1,
+        }),
+      },
     },
   }, async (req) => {
     const { limit, cursor, orgId: queryOrgId, includeTotal } = ListQuery.parse(req.query);
@@ -107,8 +129,19 @@ export async function registerProjectRoutes(app: FastifyInstance, ctx: AppContex
       description:
         'Create a new project under the caller\'s organization. The slug must be unique per org and ' +
         'follow the same restricted grammar the path-param routes accept.',
-      body: zodBody(CreateProjectBody),
-      response: { 201: zodResponse(ProjectSchema) },
+      body: zodBodyWithExample(CreateProjectBody, {
+        slug: 'checkout-api',
+        name: 'Checkout API',
+      }),
+      response: {
+        201: zodResponseWithExample(ProjectSchema, {
+          id: 'prj_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+          orgId: 'org_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+          slug: 'checkout-api',
+          name: 'Checkout API',
+          createdAt: '2025-11-14T18:22:41.000Z',
+        }),
+      },
     },
   }, async (req, reply) => {
     const body = CreateProjectBody.parse(req.body);

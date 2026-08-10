@@ -5,7 +5,7 @@ import { InvalidInputError, NotFoundError } from '@carbon/core';
 import { schema } from '@carbon/database';
 import { runThroughput } from '@carbon/benchmarks/throughput-lib';
 import type { AppContext } from '../context.js';
-import type { AuthenticatedRequest } from '../plugins/api-key.js';
+import { resolveCallerOrg } from '../plugins/caller-org.js';
 import { requireScope } from '../plugins/scopes.js';
 import { zodBody, zodResponse } from '../plugins/schema-helpers.js';
 import { compileRules, type ChaosRule } from '../services/chaos.js';
@@ -288,7 +288,7 @@ export async function registerEmulatorRoutes(app: FastifyInstance, ctx: AppConte
       const body = ApplyPresetBody.parse(req.body);
       const record = ctx.emulators.get(req.params.id);
       const project = await resolveStoredProjectAccess(ctx, req, record.projectSlug);
-      const orgId = (req as AuthenticatedRequest).apiKey?.orgId ?? project.orgId;
+      const orgId = resolveCallerOrg(req, { mode: 'optional' }) ?? project.orgId;
       if (!orgId) {
         throw new InvalidInputError('presets are org-scoped — no org on this request');
       }

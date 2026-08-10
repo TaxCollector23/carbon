@@ -8,7 +8,7 @@ import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import type { SessionAuthenticatedRequest } from '../plugins/session-auth.js';
 import { requireScope } from '../plugins/scopes.js';
-import { zodBody, zodResponse } from '../plugins/schema-helpers.js';
+import { zodBody, zodResponse, zodResponseWithExample } from '../plugins/schema-helpers.js';
 
 const OrgSummary = z.object({
   id: z.string(),
@@ -276,7 +276,14 @@ export async function registerOrganizationRoutes(
       summary: 'Get the caller\'s current organization',
       description: 'Resolve the caller\'s "current" org — the API key\'s org, the session user\'s first membership, or an `orgId` query param when auth is disabled.',
       response: {
-        200: zodResponse(OrgFull),
+        200: zodResponseWithExample(OrgFull, {
+          id: 'org_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+          name: 'Acme Corp',
+          slug: 'acme-corp',
+          retentionDays: 90,
+          settings: { slackWebhook: 'https://hooks.slack.com/services/T000/B000/xxx' },
+          createdAt: '2025-09-01T12:00:00.000Z',
+        }),
         404: zodResponse(z.object({ error: z.object({ code: z.string(), message: z.string() }) })),
       },
     },
@@ -360,7 +367,26 @@ export async function registerOrganizationRoutes(
       schema: {
         summary: 'List organization members',
         description: 'Return every user with a membership row on this org, joined with the users table for display name/email.',
-        response: { 200: zodResponse(OrgMemberListResponse) },
+        response: {
+          200: zodResponseWithExample(OrgMemberListResponse, {
+            data: [
+              {
+                userId: 'usr_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+                role: 'owner',
+                createdAt: '2025-09-01T12:00:00.000Z',
+                email: 'alex@acme.example',
+                name: 'Alex Kim',
+              },
+              {
+                userId: 'usr_01HXK6P8T3H5C9D4F7G0J2K1L4',
+                role: 'member',
+                createdAt: '2025-10-11T09:14:22.000Z',
+                email: 'jordan@acme.example',
+                name: 'Jordan Rivera',
+              },
+            ],
+          }),
+        },
       },
     },
     async (req) => {

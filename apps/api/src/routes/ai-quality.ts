@@ -5,7 +5,7 @@ import { NotFoundError } from '@carbon/core';
 import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
 import { requireScope } from '../plugins/scopes.js';
-import { zodQuery, zodResponse } from '../plugins/schema-helpers.js';
+import { zodQuery, zodResponse, zodResponseWithExample } from '../plugins/schema-helpers.js';
 import { requireProjectAccessById } from './project-access.js';
 
 const ListQuery = z.object({
@@ -82,7 +82,19 @@ export async function registerAiQualityRoutes(
       schema: {
         summary: 'Get the latest AI-quality report for a project',
         description: 'Return the most recent AI-quality report row for the given project. 404 if no reports exist yet.',
-        response: { 200: zodResponse(AiQualityReport) },
+        response: {
+          200: zodResponseWithExample(AiQualityReport, {
+            id: 'aiq_01HXK5N9Q1B7C4D3E2F1G0H9J8',
+            projectId: 'prj_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+            irKey: 'projects/checkout-api/ir/01HXK5N9Q1.json',
+            score: 0.87,
+            verdicts: {
+              coverage: { score: 0.92, notes: 'All 34 operations covered.' },
+              consistency: { score: 0.82, notes: '2 response shapes drift between GET and POST.' },
+            },
+            createdAt: '2025-11-14T18:22:41.000Z',
+          }),
+        },
       },
     },
     async (req) => {

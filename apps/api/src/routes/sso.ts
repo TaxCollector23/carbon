@@ -1,11 +1,10 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { CarbonError, makeId, NotFoundError } from '@carbon/core';
 import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
-import type { AuthenticatedRequest } from '../plugins/api-key.js';
-import type { SessionAuthenticatedRequest } from '../plugins/session-auth.js';
+import { resolveCallerOrg } from '../plugins/caller-org.js';
 import { requireScope } from '../plugins/scopes.js';
 import { zodBody, zodResponse } from '../plugins/schema-helpers.js';
 import { getActor, recordEvent } from '../services/events.js';
@@ -73,7 +72,7 @@ export async function registerSsoRoutes(app: FastifyInstance, ctx: AppContext): 
       response: { 200: zodResponse(ProviderListResponse) },
     },
   }, async (req) => {
-    const orgId = requireCallerOrg(req);
+    const orgId = resolveCallerOrg(req);
     const org = await loadOrg(ctx, orgId);
     return { data: (org.settings.ssoProviders ?? []).map(publicView) };
   });
@@ -88,7 +87,7 @@ export async function registerSsoRoutes(app: FastifyInstance, ctx: AppContext): 
     },
   }, async (req, reply) => {
     const body = ProviderBody.parse(req.body);
-    const orgId = requireCallerOrg(req);
+    const orgId = resolveCallerOrg(req);
     const org = await loadOrg(ctx, orgId);
     if (!org.isEnterprise) {
       throw new CarbonError({
@@ -138,7 +137,7 @@ export async function registerSsoRoutes(app: FastifyInstance, ctx: AppContext): 
       },
     },
     async (req, reply) => {
-      const orgId = requireCallerOrg(req);
+      const orgId = resolveCallerOrg(req);
       const org = await loadOrg(ctx, orgId);
       const existing = org.settings.ssoProviders ?? [];
       const filtered = existing.filter((p) => p.id !== req.params.id);
@@ -209,16 +208,3 @@ async function loadOrg(
   };
 }
 
-function requireCallerOrg(req: FastifyRequest): string {
-  const apiKey = (req as AuthenticatedRequest).apiKey;
-  const session = (req as SessionAuthenticatedRequest).sessionUser;
-  const orgId = apiKey?.orgId ?? session?.orgId;
-  if (!orgId) {
-    throw new CarbonError({
-      code: 'CARBON_INVALID_INPUT',
-      message: 'orgId is required — attach an API key or authenticated session',
-      expose: true,
-    });
-  }
-  return orgId;
-}

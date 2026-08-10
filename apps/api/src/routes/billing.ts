@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
@@ -6,9 +6,9 @@ import type Stripe from 'stripe';
 import { CarbonError } from '@carbon/core';
 import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
-import type { AuthenticatedRequest } from '../plugins/api-key.js';
+import { resolveCallerOrg } from '../plugins/caller-org.js';
 import { requireScope } from '../plugins/scopes.js';
-import { zodBody, zodResponse } from '../plugins/schema-helpers.js';
+import { zodBody, zodResponse, zodResponseWithExample } from '../plugins/schema-helpers.js';
 import {
   billingEnabled,
   getStripe,
@@ -94,7 +94,7 @@ export async function registerBillingRoutes(
   }, async (req, reply) => {
     if (!enabled || !stripe) return disabledReply(reply);
     const body = CheckoutBody.parse(req.body);
-    const orgId = requireOrgId(req);
+    const orgId = resolveCallerOrg(req, { message: 'orgId is required — this route needs an authenticated API key.' });
 
     if (body.plan === 'enterprise') {
       // Enterprise plans are quoted, not self-serve; sending the caller to a
@@ -143,7 +143,7 @@ export async function registerBillingRoutes(
   }, async (req, reply) => {
     if (!enabled || !stripe) return disabledReply(reply);
     const body = PortalBody.parse(req.body);
-    const orgId = requireOrgId(req);
+    const orgId = resolveCallerOrg(req, { message: 'orgId is required — this route needs an authenticated API key.' });
 
     const plan = await resolvePlan(orgId, ctx.db);
     const customerId = await lookupCustomerId(ctx, orgId);
@@ -170,11 +170,20 @@ export async function registerBillingRoutes(
       schema: {
         summary: 'Get the caller\'s current subscription',
         description: 'Return the resolved plan tier, status, seat count, and current period end for the caller\'s org.',
-        response: { 200: zodResponse(SubscriptionResponse) },
+        response: {
+          200: zodResponseWithExample(SubscriptionResponse, {
+            plan: {
+              plan: 'team',
+              status: 'active',
+              seats: 5,
+              currentPeriodEnd: '2026-01-14T18:22:41.000Z',
+            },
+          }),
+        },
       },
     },
     async (req) => {
-      const orgId = requireOrgId(req);
+      const orgId = resolveCallerOrg(req, { message: 'orgId is required — this route needs an authenticated API key.' });
       const plan = await resolvePlan(orgId, ctx.db);
       return { plan };
     },
@@ -237,18 +246,6 @@ export async function registerBillingRoutes(
       return { received: true };
     });
   });
-}
-
-function requireOrgId(req: FastifyRequest): string {
-  const orgId = (req as AuthenticatedRequest).apiKey?.orgId;
-  if (!orgId) {
-    throw new CarbonError({
-      code: 'CARBON_INVALID_INPUT',
-      message: 'orgId is required — this route needs an authenticated API key.',
-      expose: true,
-    });
-  }
-  return orgId;
 }
 
 /**

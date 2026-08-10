@@ -1,11 +1,10 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { sql } from 'drizzle-orm';
 import type { AppContext } from '../context.js';
-import type { AuthenticatedRequest } from '../plugins/api-key.js';
-import type { SessionAuthenticatedRequest } from '../plugins/session-auth.js';
+import { resolveCallerOrg } from '../plugins/caller-org.js';
 import { requireScope } from '../plugins/scopes.js';
-import { zodQuery, zodResponse } from '../plugins/schema-helpers.js';
+import { zodQuery, zodResponse, zodResponseWithExample } from '../plugins/schema-helpers.js';
 
 /**
  * Full-text search over the caller's org history. Backed by the generated
@@ -56,11 +55,30 @@ export async function registerSearchRoutes(app: FastifyInstance, ctx: AppContext
         '`search_tsv` columns. `scope` narrows the search; the default `all` ' +
         'merges results across every kind sorted by ts_rank score, descending.',
       querystring: zodQuery(SearchQuery),
-      response: { 200: zodResponse(SearchResponse) },
+      response: {
+        200: zodResponseWithExample(SearchResponse, {
+          results: [
+            {
+              kind: 'project',
+              id: 'prj_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+              snippet: 'checkout-api — Checkout API',
+              score: 0.62,
+              createdAt: '2025-11-14T18:22:41.000Z',
+            },
+            {
+              kind: 'event',
+              id: 'evt_01HXK5N9Q1B7C4D3E2F1G0H9J8',
+              snippet: 'project.created by usr_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+              score: 0.41,
+              createdAt: '2025-11-14T18:22:41.000Z',
+            },
+          ],
+        }),
+      },
     },
   }, async (req) => {
     const query = SearchQuery.parse(req.query);
-    const orgId = requestOrgId(req, query.orgId);
+    const orgId = resolveCallerOrg(req, { queryOrg: query.orgId, mode: 'return-empty' });
     if (!orgId) return { results: [] };
 
     const scopes: Array<'events' | 'projects' | 'artifacts'> =
@@ -186,10 +204,3 @@ function toIso(v: Date | string): string {
   return String(v);
 }
 
-function requestOrgId(req: FastifyRequest, fallback?: string): string | undefined {
-  return (
-    (req as AuthenticatedRequest).apiKey?.orgId ??
-    (req as SessionAuthenticatedRequest).sessionUser?.orgId ??
-    fallback
-  );
-}

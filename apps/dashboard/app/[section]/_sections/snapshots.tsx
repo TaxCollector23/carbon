@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@carbon/ui';
-import { EmptyState, ErrorBanner, Skeleton, Table, Td, Th } from '@/components/ui';
+import { EmptyState, ErrorBanner, Modal, Skeleton, Table, Td, Th } from '@/components/ui';
 import { api, useProjects, useSnapshots } from '@/lib/hooks/api';
-import { ApiError } from '@/lib/api-client';
+import { ApiError, type SnapshotDiff } from '@/lib/api-client';
 import { useSelectedProjectSlug } from '@/lib/hooks/use-project-slug';
 import { getSectionCopy } from '@/lib/empty-data';
+import { SnapshotDiffView } from './snapshots-diff';
 
 export default function SnapshotsSection() {
   const projects = useProjects();
@@ -15,6 +16,14 @@ export default function SnapshotsSection() {
   const snapshots = useSnapshots(slug);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Compare-flow state: `compareFrom` is the row the user clicked Compare on;
+  // once they pick the second snapshot we fetch the diff.
+  const [compareFrom, setCompareFrom] = useState<string | null>(null);
+  const [compareTo, setCompareTo] = useState<string | null>(null);
+  const [diff, setDiff] = useState<SnapshotDiff | null>(null);
+  const [diffLoading, setDiffLoading] = useState(false);
+  const [diffError, setDiffError] = useState<Error | string | null>(null);
 
   async function onDelete(name: string) {
     if (!slug) return;
@@ -30,6 +39,43 @@ export default function SnapshotsSection() {
       setDeleting(null);
     }
   }
+
+  function openCompare(name: string) {
+    setCompareFrom(name);
+    setCompareTo(null);
+    setDiff(null);
+    setDiffError(null);
+  }
+
+  function closeCompare() {
+    setCompareFrom(null);
+    setCompareTo(null);
+    setDiff(null);
+    setDiffError(null);
+  }
+
+  useEffect(() => {
+    if (!slug || !compareFrom || !compareTo) return;
+    let cancelled = false;
+    setDiffLoading(true);
+    setDiffError(null);
+    api
+      .diffSnapshots(slug, compareFrom, compareTo)
+      .then((d) => {
+        if (!cancelled) setDiff(d);
+      })
+      .catch((err) => {
+        if (!cancelled) setDiffError(err instanceof ApiError ? err.message : String(err));
+      })
+      .finally(() => {
+        if (!cancelled) setDiffLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, compareFrom, compareTo]);
+
+  const otherSnapshots = (snapshots.data?.data ?? []).filter((s) => s.name !== compareFrom);
 
   return (
     <>
@@ -67,7 +113,7 @@ export default function SnapshotsSection() {
                 <Th>Name</Th>
                 <Th>Size</Th>
                 <Th>Modified</Th>
-                <Th className="w-32">Actions</Th>
+                <Th className="w-56">Actions</Th>
               </tr>
             </thead>
             <tbody>
@@ -77,14 +123,24 @@ export default function SnapshotsSection() {
                   <Td>{formatBytes(s.size)}</Td>
                   <Td>{new Date(s.modifiedAt).toLocaleString()}</Td>
                   <Td>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={deleting === s.name}
-                      onClick={() => onDelete(s.name)}
-                    >
-                      {deleting === s.name ? 'Deleting…' : 'Delete'}
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        data-testid={`compare-snapshot-${s.name}`}
+                        onClick={() => openCompare(s.name)}
+                      >
+                        Compare
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={deleting === s.name}
+                        onClick={() => onDelete(s.name)}
+                      >
+                        {deleting === s.name ? 'Deleting…' : 'Delete'}
+                      </Button>
+                    </div>
                   </Td>
                 </tr>
               ))}
@@ -92,6 +148,46 @@ export default function SnapshotsSection() {
           </Table>
         </>
       )}
+
+      <Modal
+        open={!!compareFrom}
+        onClose={closeCompare}
+        title={
+          compareTo
+            ? `Diff: ${compareFrom} → ${compareTo}`
+            : `Compare "${compareFrom ?? ''}" with…`
+        }
+      >
+        {!compareTo ? (
+          otherSnapshots.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              Need at least one other snapshot in this project to compare against.
+            </p>
+          ) : (
+            <ul className="divide-border divide-y">
+              {otherSnapshots.map((s) => (
+                <li key={s.name} className="flex items-center justify-between py-2">
+                  <div>
+                    <div className="font-mono text-xs">{s.name}</div>
+                    <div className="text-muted-foreground text-[11px]">
+                      {new Date(s.modifiedAt).toLocaleString()}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    data-testid={`compare-target-${s.name}`}
+                    onClick={() => setCompareTo(s.name)}
+                  >
+                    Diff
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : (
+          <SnapshotDiffView diff={diff} loading={diffLoading} error={diffError} />
+        )}
+      </Modal>
     </>
   );
 }

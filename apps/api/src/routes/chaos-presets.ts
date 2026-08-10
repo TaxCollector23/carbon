@@ -4,9 +4,9 @@ import { and, asc, eq } from 'drizzle-orm';
 import { CarbonError, makeId, NotFoundError } from '@carbon/core';
 import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
-import type { AuthenticatedRequest } from '../plugins/api-key.js';
+import { resolveCallerOrg } from '../plugins/caller-org.js';
 import { requireScope } from '../plugins/scopes.js';
-import { zodBody, zodResponse } from '../plugins/schema-helpers.js';
+import { zodBody, zodResponse, zodResponseWithExample } from '../plugins/schema-helpers.js';
 import { getActor, recordEvent } from '../services/events.js';
 
 const ChaosPresetSchema = z
@@ -56,10 +56,27 @@ export async function registerChaosPresetRoutes(
     schema: {
       summary: 'List chaos presets',
       description: 'Return every chaos preset visible to the caller\'s org, sorted by name.',
-      response: { 200: zodResponse(ChaosPresetListResponse) },
+      response: {
+        200: zodResponseWithExample(ChaosPresetListResponse, {
+          data: [
+            {
+              id: 'chaos_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+              orgId: 'org_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+              name: 'flaky-checkout',
+              description: '10% 500s and 200ms latency on POST /orders',
+              rules: [
+                { kind: 'error', match: { method: 'POST', path: '/orders' }, probability: 0.1, status: 500 },
+                { kind: 'latency', match: { path: '/orders' }, floorMs: 200, jitterMs: 50 },
+              ],
+              builtIn: false,
+              createdAt: '2025-11-14T18:22:41.000Z',
+            },
+          ],
+        }),
+      },
     },
   }, async (req) => {
-    const orgId = requireOrgId(req);
+    const orgId = resolveCallerOrg(req, { queryOrg: readQueryOrg(req), message: 'orgId is required — presets are org-scoped' });
     const rows = await ctx.db
       .select()
       .from(schema.chaosPresets)
@@ -78,7 +95,7 @@ export async function registerChaosPresetRoutes(
     },
   }, async (req, reply) => {
     const body = CreateBody.parse(req.body);
-    const orgId = requireOrgId(req);
+    const orgId = resolveCallerOrg(req, { queryOrg: readQueryOrg(req), message: 'orgId is required — presets are org-scoped' });
     const id = makeId('chaos');
     try {
       await ctx.db.insert(schema.chaosPresets).values({
@@ -122,7 +139,7 @@ export async function registerChaosPresetRoutes(
       },
     },
     async (req, reply) => {
-      const orgId = requireOrgId(req);
+      const orgId = resolveCallerOrg(req, { queryOrg: readQueryOrg(req), message: 'orgId is required — presets are org-scoped' });
       // Never let a caller delete another org's presets — a shared control
       // plane where every DELETE was global-scope would be a trivial escalation.
       const deleted = await ctx.db
@@ -144,16 +161,9 @@ export async function registerChaosPresetRoutes(
   );
 }
 
-function requireOrgId(req: unknown): string {
-  const fromKey = (req as AuthenticatedRequest).apiKey?.orgId;
-  if (fromKey) return fromKey;
-  // Dev/admin escape hatch — dashboard in auth-disabled mode passes
-  // ?orgId=… via the api-client's withOrgQuery helper.
-  const q = ((req as { query?: { orgId?: unknown } }).query?.orgId ?? null) as unknown;
-  if (typeof q === 'string' && q.length > 0) return q;
-  throw new CarbonError({
-    code: 'CARBON_INVALID_INPUT',
-    message: 'orgId is required — presets are org-scoped',
-    expose: true,
-  });
+// Dev/admin escape hatch — dashboard in auth-disabled mode passes
+// ?orgId=… via the api-client's withOrgQuery helper.
+function readQueryOrg(req: unknown): string | undefined {
+  const q = (req as { query?: { orgId?: unknown } }).query?.orgId;
+  return typeof q === 'string' && q.length > 0 ? q : undefined;
 }

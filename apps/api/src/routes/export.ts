@@ -1,13 +1,11 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { and, eq, gte, inArray, lt, type SQL } from 'drizzle-orm';
-import { CarbonError } from '@carbon/core';
 import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
-import type { AuthenticatedRequest } from '../plugins/api-key.js';
-import type { SessionAuthenticatedRequest } from '../plugins/session-auth.js';
+import { resolveCallerOrg } from '../plugins/caller-org.js';
 import { requireScope } from '../plugins/scopes.js';
-import { zodBody } from '../plugins/schema-helpers.js';
+import { zodBodyWithExample } from '../plugins/schema-helpers.js';
 
 /**
  * Compliance export — the Enterprise-tier "give me everything about my
@@ -59,11 +57,16 @@ export async function registerExportRoutes(app: FastifyInstance, ctx: AppContext
       summary: 'Export org data',
       description:
         'Admin-only compliance export. Emits a bundle across the requested include categories (`events`, `projects`, `snapshots`, `api_keys`, `members`, `ai_quality`, `usage`, `audit`). Returns JSON by default; pass `format: "zip"` for a downloadable archive (binary content-type `application/zip`; not covered by the response schema).',
-      body: zodBody(ExportBody),
+      body: zodBodyWithExample(ExportBody, {
+        include: ['projects', 'events', 'members', 'usage'],
+        since: '2025-10-01T00:00:00.000Z',
+        until: '2025-11-01T00:00:00.000Z',
+        format: 'zip',
+      }),
     },
   }, async (req, reply) => {
     const body = ExportBody.parse(req.body ?? {});
-    const orgId = requireCallerOrg(req);
+    const orgId = resolveCallerOrg(req, { message: 'export is org-scoped — attach an API key or authenticated session' });
     const until = body.until ? new Date(body.until) : new Date();
     const since = body.since ? new Date(body.since) : new Date(until.getTime() - DEFAULT_WINDOW_MS);
     const include: readonly Include[] = body.include && body.include.length > 0
@@ -235,20 +238,6 @@ async function collect(
         );
     }
   }
-}
-
-function requireCallerOrg(req: FastifyRequest): string {
-  const apiKey = (req as AuthenticatedRequest).apiKey;
-  const session = (req as SessionAuthenticatedRequest).sessionUser;
-  const orgId = apiKey?.orgId ?? session?.orgId;
-  if (!orgId) {
-    throw new CarbonError({
-      code: 'CARBON_INVALID_INPUT',
-      message: 'export is org-scoped — attach an API key or authenticated session',
-      expose: true,
-    });
-  }
-  return orgId;
 }
 
 // ---------------------------------------------------------------------------

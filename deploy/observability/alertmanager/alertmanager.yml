@@ -1,0 +1,21 @@
+# Minimal Alertmanager config: a single "log" receiver so alerts land in the
+# container's stdout for local dev. Wire real receivers (Slack, PagerDuty,
+# email) in production by overriding this file via a compose override or by
+# swapping the bind-mount source.
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: default
+  group_by: ["alertname"]
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 1h
+
+receivers:
+  - name: default
+    # No integrations by default — Alertmanager will still emit "notify"
+    # entries for each fired alert to its own logs, which is what we want
+    # for local smoke testing. Override this whole file to add real routes.
+
+inhibit_rules: []

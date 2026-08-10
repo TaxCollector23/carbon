@@ -5,7 +5,7 @@ import { diffSnapshots, parseSnapshot, serializeSnapshot, type StateSnapshot } f
 import { StorageKeys } from '@carbon/storage';
 import type { AppContext } from '../context.js';
 import { requireScope } from '../plugins/scopes.js';
-import { zodBody, zodQuery, zodResponse } from '../plugins/schema-helpers.js';
+import { zodBody, zodQuery, zodResponse, zodResponseWithExample } from '../plugins/schema-helpers.js';
 import { getActor, recordEvent } from '../services/events.js';
 import { recordUsage } from '../services/usage.js';
 import { ProjectSlug, resolveProjectAccess } from './project-access.js';
@@ -68,7 +68,24 @@ export async function registerSnapshotRoutes(app: FastifyInstance, ctx: AppConte
           'Enumerate saved snapshots for a project. Bounded scan — pass `limit` (max 500) to stop early; ' +
           '`truncated: true` means more snapshots exist beyond the limit.',
         querystring: zodQuery(SnapshotListQuery),
-        response: { 200: zodResponse(SnapshotListResponse) },
+        response: {
+          200: zodResponseWithExample(SnapshotListResponse, {
+            data: [
+              {
+                name: 'seed-cart-full',
+                size: 4212,
+                modifiedAt: 1731601361000,
+              },
+              {
+                name: 'post-checkout',
+                size: 5893,
+                modifiedAt: 1731597811000,
+              },
+            ],
+            limit: 100,
+            truncated: false,
+          }),
+        },
       },
     },
     async (req) => {
@@ -167,7 +184,14 @@ export async function registerSnapshotRoutes(app: FastifyInstance, ctx: AppConte
 
       const a = parseSnapshot(new TextDecoder().decode(aBytes));
       const b = parseSnapshot(new TextDecoder().decode(bBytes));
-      return diffSnapshots(a, b);
+      const diff = diffSnapshots(a, b);
+      // Attach the requested names so the dashboard can label the two sides
+      // without threading them through as separate props.
+      return {
+        ...diff,
+        a: { ...diff.a, name: query.a },
+        b: { ...diff.b, name: query.b },
+      };
     },
   );
 

@@ -6,7 +6,7 @@ import { schema } from '@carbon/database';
 import { validateAgainstSpec, type JsonSchemaLike } from '@carbon/parser';
 import type { AppContext } from '../context.js';
 import { requireScope } from '../plugins/scopes.js';
-import { zodBody, zodResponse } from '../plugins/schema-helpers.js';
+import { zodBodyWithExample, zodResponse } from '../plugins/schema-helpers.js';
 import { recordUsage } from '../services/usage.js';
 import { requireProjectAccessById } from './project-access.js';
 
@@ -74,7 +74,26 @@ export async function registerContractRoutes(
         summary: 'Run contract checks against a live URL',
         description:
           'Send each sample request in the body to the target URL and report status, latency, and (optionally) schema mismatches. Counts as one contract_check usage event per sample.',
-        body: zodBody(CheckBody),
+        body: zodBodyWithExample(CheckBody, {
+          url: 'https://staging.api.acme.example',
+          timeoutMs: 5000,
+          sampleRequests: [
+            { method: 'GET', path: '/health' },
+            {
+              method: 'POST',
+              path: '/orders',
+              body: { sku: 'sku_widget', qty: 1 },
+              expectedSchema: {
+                type: 'object',
+                required: ['id', 'status'],
+                properties: {
+                  id: { type: 'string' },
+                  status: { type: 'string', enum: ['pending', 'confirmed'] },
+                },
+              },
+            },
+          ],
+        }),
         response: { 200: zodResponse(ContractCheckResponse) },
       },
     },

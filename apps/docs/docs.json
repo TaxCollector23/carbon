@@ -68,7 +68,7 @@
     },
     {
       "group": "SDK",
-      "pages": ["sdk/overview", "sdk/emulate", "sdk/state", "sdk/snapshots"]
+      "pages": ["sdk/overview", "sdk/emulate", "sdk/state", "sdk/snapshots", "sdk/generated"]
     },
     {
       "group": "Guides",

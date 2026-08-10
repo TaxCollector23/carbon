@@ -4,9 +4,9 @@ import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { CarbonError, NotFoundError } from '@carbon/core';
 import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
-import type { AuthenticatedRequest } from '../plugins/api-key.js';
+import { resolveCallerOrg } from '../plugins/caller-org.js';
 import { requireScope } from '../plugins/scopes.js';
-import { zodBody, zodQuery, zodResponse } from '../plugins/schema-helpers.js';
+import { zodBody, zodQuery, zodResponse, zodResponseWithExample } from '../plugins/schema-helpers.js';
 
 const ApiKeySummary = z.object({
   id: z.string(),
@@ -99,7 +99,7 @@ export async function registerApiKeyRoutes(app: FastifyInstance, ctx: AppContext
     },
   }, async (req) => {
     const { limit } = ListQuery.parse(req.query);
-    const orgId = requestOrgId(req);
+    const orgId = resolveCallerOrg(req, { mode: 'optional' });
     const where = orgId
       ? and(eq(schema.apiKeys.orgId, orgId), isNull(schema.apiKeys.revokedAt))
       : isNull(schema.apiKeys.revokedAt);
@@ -133,11 +133,24 @@ export async function registerApiKeyRoutes(app: FastifyInstance, ctx: AppContext
         'Mint a new API key. The presented secret is returned exactly once — store it immediately. ' +
         'Only the hashed form is persisted server-side.',
       body: zodBody(CreateBody),
-      response: { 201: zodResponse(MintedApiKey) },
+      response: {
+        201: zodResponseWithExample(MintedApiKey, {
+          id: 'akid_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+          // Presented exactly once — copy immediately, only a bcrypt hash is
+          // retained server-side.
+          secret: 'ck_live_abcdef0123456789abcdef0123456789abcdef0123456789ab',
+          presented: 'ck_live_abcdef0123456789abcdef0123456789abcdef0123456789ab',
+          prefix: 'ck_live_abcdef01',
+          scopes: ['read', 'write'],
+          projectIds: null,
+          expiresAt: null,
+          rotatedFromId: null,
+        }),
+      },
     },
   }, async (req, reply) => {
     const body = CreateBody.parse(req.body);
-    const orgId = requestOrgId(req, body.orgId);
+    const orgId = resolveCallerOrg(req, { queryOrg: body.orgId, mode: 'optional' });
     if (!orgId) {
       throw new CarbonError({
         code: 'CARBON_INVALID_INPUT',
@@ -210,7 +223,7 @@ export async function registerApiKeyRoutes(app: FastifyInstance, ctx: AppContext
     },
     async (req, reply) => {
       const body = RotateBody.parse(req.body ?? {});
-      const orgId = requestOrgId(req);
+      const orgId = resolveCallerOrg(req, { mode: 'optional' });
       if (!orgId) {
         throw new CarbonError({
           code: 'CARBON_INVALID_INPUT',
@@ -277,7 +290,7 @@ export async function registerApiKeyRoutes(app: FastifyInstance, ctx: AppContext
     '/v1/api-keys/:id',
     { preHandler: requireScope('admin') },
     async (req, reply) => {
-      const orgId = requestOrgId(req);
+      const orgId = resolveCallerOrg(req, { mode: 'optional' });
       const scope = [eq(schema.apiKeys.id, req.params.id)];
       if (orgId) scope.push(eq(schema.apiKeys.orgId, orgId));
       // Skipping already-revoked rows keeps revokedAt as the moment of the first
@@ -309,6 +322,3 @@ export async function registerApiKeyRoutes(app: FastifyInstance, ctx: AppContext
   );
 }
 
-function requestOrgId(req: unknown, fallback?: string): string | undefined {
-  return (req as AuthenticatedRequest).apiKey?.orgId ?? fallback;
-}

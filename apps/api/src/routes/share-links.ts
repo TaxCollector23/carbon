@@ -8,7 +8,7 @@ import type { AppContext } from '../context.js';
 import type { SessionAuthenticatedRequest } from '../plugins/session-auth.js';
 import { recordShareLinkCreated, recordShareLinkHit } from '../plugins/metrics.js';
 import { requireScope } from '../plugins/scopes.js';
-import { zodBody, zodResponse } from '../plugins/schema-helpers.js';
+import { zodBody, zodResponse, zodResponseWithExample } from '../plugins/schema-helpers.js';
 import { getActor, recordEvent } from '../services/events.js';
 
 const ShareLinkResponse = z.object({
@@ -59,6 +59,14 @@ export async function registerShareLinkRoutes(
         summary: 'Create a share link for a project',
         description: 'Mint a short-lived shareable read-only link for a project. Default TTL is 24h; cap 30 days.',
         body: zodBody(CreateBody),
+        response: {
+          201: zodResponseWithExample(ShareLinkResponse, {
+            id: 'shl_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+            token: 'k9x2K7-QpU3wR6mF8vN4yZ1aB5cD0eGh',
+            expiresAt: '2025-11-15T18:22:41.000Z',
+            url: 'http://localhost:3000/shared/k9x2K7-QpU3wR6mF8vN4yZ1aB5cD0eGh',
+          }),
+        },
       },
     },
     async (req, reply) => {

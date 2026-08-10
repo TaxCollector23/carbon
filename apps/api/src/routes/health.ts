@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { CarbonError } from '@carbon/core';
 import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
-import { zodResponse } from '../plugins/schema-helpers.js';
+import { zodResponse, zodResponseWithExample } from '../plugins/schema-helpers.js';
 import { AlwaysReady, type Lifecycle } from '../lifecycle.js';
 
 const LivenessResponse = z.object({
@@ -124,7 +124,19 @@ export async function registerHealthRoutes(
     schema: {
       summary: 'Server version and feature flags',
       description: 'Return the running server version, git SHA (if stamped by CI), uptime, and per-deployment feature toggles.',
-      response: { 200: zodResponse(VersionResponse) },
+      response: {
+        200: zodResponseWithExample(VersionResponse, {
+          version: '0.1.0',
+          release: '2026.01.14-abcdef1',
+          node: 'v22.5.1',
+          startedAt: '2026-01-14T18:22:41.000Z',
+          uptimeSec: 3600,
+          gitSha: 'abcdef1234567890abcdef1234567890abcdef12',
+          buildTime: '2026-01-14T18:00:00.000Z',
+          plans: ['developer', 'team', 'enterprise'],
+          features: { billing: true, sso: true, scim: true },
+        }),
+      },
     },
   }, async () => ({
     version: '0.1.0',
@@ -214,7 +226,34 @@ export async function registerHealthRoutes(
   // help an attacker fingerprint the deployment (Postgres version, S3
   // vs R2 latency, redis distance). Requires an admin-scoped API key.
   // ------------------------------------------------------------------
-  app.get('/v1/health/deep', async (req, reply) => {
+  const DeepResponse = z.object({
+    ok: z.boolean(),
+    dependencies: z.record(
+      z.object({
+        status: z.enum(['ok', 'slow', 'down']),
+        latencyMs: z.number(),
+        message: z.string().optional(),
+      }),
+    ),
+  });
+  app.get('/v1/health/deep', {
+    schema: {
+      summary: 'Deep dependency health probe',
+      description:
+        'Admin-only. Runs a live probe against every backing dependency (Postgres, Redis, object storage) and reports per-dep status, latency, and error message. Returns 503 if any dependency is `down`.',
+      response: {
+        200: zodResponseWithExample(DeepResponse, {
+          ok: true,
+          dependencies: {
+            db: { status: 'ok', latencyMs: 3.24 },
+            redis: { status: 'ok', latencyMs: 1.08 },
+            storage: { status: 'slow', latencyMs: 312.4 },
+          },
+        }),
+        503: zodResponse(DeepResponse),
+      },
+    },
+  }, async (req, reply) => {
     const apiKey = (req as AuthenticatedRequest).apiKey;
     if (apiKey && !apiKey.scopes.includes('admin')) {
       throw new CarbonError({

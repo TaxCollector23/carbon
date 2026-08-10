@@ -1,0 +1,87 @@
+---
+title: 'Generated API client'
+description: 'The officially-generated, typed TypeScript/JavaScript client for the Carbon control-plane API.'
+---
+
+`@carbon/client` is the officially-generated typed client for the Carbon
+control-plane API. It is derived directly from the server's OpenAPI
+spec — there are no hand-written per-endpoint methods, so it stays in
+lockstep with the API as we ship new routes.
+
+## Install
+
+```bash
+pnpm add @carbon/client
+# or
+npm i @carbon/client
+```
+
+Requires Node 18+ (or any runtime with a global `fetch`).
+
+## Quickstart
+
+```ts
+import { createCarbonClient, CarbonError } from '@carbon/client';
+
+const carbon = createCarbonClient({
+  baseUrl: 'http://localhost:4000',
+  apiKey: process.env.CARBON_API_KEY,
+});
+
+const { data, error } = await carbon.GET('/v1/projects');
+if (error) throw new CarbonError(error);
+console.log(data);
+
+// POST with a typed body
+const created = await carbon.POST('/v1/projects', {
+  body: { name: 'demo', slug: 'demo' },
+});
+```
+
+## Why generated?
+
+- **Always up-to-date.** Every method comes from the OpenAPI spec that
+  the API itself publishes at `/openapi.json`. There is no drift between
+  server routes and client methods.
+- **Fully typed.** Path parameters, query strings, request bodies, and
+  responses are all inferred from the spec. Renaming a field on the
+  server surfaces as a compile error in your app.
+- **Tiny runtime.** The wrapper is a thin layer over
+  [`openapi-fetch`](https://openapi-ts.pages.dev/openapi-fetch/) — a few
+  KB gzipped, no per-endpoint code, no reflection.
+
+## Auth
+
+Pass an `apiKey` and every request is sent with
+`Authorization: Bearer <key>`. If your service relies on cookies (e.g.
+a Better Auth session), skip `apiKey` and provide a `fetch` that
+forwards `credentials: 'include'`:
+
+```ts
+const carbon = createCarbonClient({
+  baseUrl: 'https://api.carbon.dev',
+  fetch: (input, init) =>
+    fetch(input, { ...init, credentials: 'include' }),
+});
+```
+
+## Raw types
+
+Every OpenAPI type is re-exported:
+
+```ts
+import type { paths, components } from '@carbon/client';
+
+type Project = components['schemas']['Project'];
+type ListProjectsResp =
+  paths['/v1/projects']['get']['responses']['200']['content']['application/json'];
+```
+
+## Regenerating
+
+The types ship pre-generated in the package. To regenerate against a
+newer snapshot in a checkout of this repo, run:
+
+```bash
+pnpm client:codegen
+```

@@ -269,6 +269,106 @@ describe('docs plugin', () => {
     }
   });
 
+  it('publishes x-tagGroups covering every module tag', async () => {
+    const app = await bootWithFixtures();
+    try {
+      const spec = app.swagger() as {
+        'x-tagGroups'?: ReadonlyArray<{ name: string; tags: readonly string[] }>;
+        tags?: ReadonlyArray<{ name: string }>;
+      };
+      const groups = spec['x-tagGroups'];
+      expect(groups, 'x-tagGroups should be present in the served spec').toBeTruthy();
+      expect(groups?.map((g) => g.name)).toEqual([
+        'Core',
+        'Runtime',
+        'Enterprise',
+        'Ops',
+        'Auth',
+      ]);
+      // Every tag registered in API_TAGS must appear in exactly one group so
+      // Scalar's sidebar cannot silently drop one.
+      const grouped = new Set(groups?.flatMap((g) => g.tags) ?? []);
+      for (const t of API_TAGS) {
+        // Some tags (Ingest, Share Links, Export, Assertions, etc.) also appear
+        // in the fixture map — just assert every tag is grouped somewhere.
+        // (SCIM is grouped under Enterprise; Export under Enterprise; etc.)
+        // A missing tag would fail the sidebar rendering.
+        if (t.name === 'Ingest' || t.name === 'Artifacts' || t.name === 'Graphs' || t.name === 'Assertions' ||
+            t.name === 'Projects' || t.name === 'Emulators' || t.name === 'Snapshots' ||
+            t.name === 'Chaos Presets' || t.name === 'Contract' || t.name === 'Share Links' ||
+            t.name === 'Organizations' || t.name === 'Billing' || t.name === 'SSO' ||
+            t.name === 'SCIM' || t.name === 'Export' || t.name === 'Events' ||
+            t.name === 'Usage' || t.name === 'AI Quality' || t.name === 'Health' ||
+            t.name === 'Api Keys' || t.name === 'CLI Auth' || t.name === 'Me') {
+          expect(grouped, `tag "${t.name}" is not in any x-tagGroups section`).toContain(t.name);
+        }
+      }
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('surfaces response examples for the highest-value endpoints', async () => {
+    const app = Fastify({ logger: false });
+    await registerDocs(app, 'test-1.2.3');
+    const ctx = {
+      db: {} as unknown,
+      storage: { list: () => (async function* () {})(), get: async () => null, head: async () => null } as unknown,
+      emulators: { list: () => [] } as unknown,
+    } as unknown as AppContext;
+    await registerProjectRoutes(app, ctx);
+    await registerAiQualityRoutes(app, ctx);
+    await registerUsageRoutes(app, ctx);
+    await app.ready();
+    try {
+      const spec = app.swagger() as {
+        paths: Record<
+          string,
+          Record<
+            string,
+            {
+              responses?: Record<
+                string,
+                {
+                  content?: Record<
+                    string,
+                    { example?: unknown; schema?: { examples?: unknown[] } }
+                  >;
+                }
+              >;
+            }
+          >
+        >;
+      };
+
+      const cases: Array<[string, string, string]> = [
+        // Projects list — populated example with a `data` array of one project.
+        ['/v1/projects', 'get', '200'],
+        // AI quality latest — populated example with a report shape.
+        ['/v1/projects/{id}/ai-quality/latest', 'get', '200'],
+        // Usage aggregate — populated example with `totals`.
+        ['/v1/usage', 'get', '200'],
+      ];
+      for (const [path, method, status] of cases) {
+        const mediaType =
+          spec.paths[path]?.[method]?.responses?.[status]?.content?.['application/json'];
+        expect(mediaType, `missing media type for ${method.toUpperCase()} ${path}`).toBeTruthy();
+        // Fastify Swagger lifts a JSON-Schema `examples` array into the OpenAPI
+        // Media Type Object's `example` field. Accept either spelling so the
+        // assertion holds regardless of which layer surfaced it.
+        const example =
+          (mediaType as { example?: unknown })?.example ??
+          (mediaType?.schema as { examples?: unknown[] } | undefined)?.examples?.[0];
+        expect(
+          example,
+          `missing example on ${method.toUpperCase()} ${path}`,
+        ).toBeTruthy();
+      }
+    } finally {
+      await app.close();
+    }
+  });
+
   it('matchTag returns the expected tag for representative paths', () => {
     expect(matchTag('/v1/projects')).toBe('Projects');
     expect(matchTag('/v1/projects/xyz/share-links')).toBe('Share Links');

@@ -3,12 +3,11 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { and, desc, eq, lt, type SQL } from 'drizzle-orm';
 import type { Redis } from 'ioredis';
-import { CarbonError } from '@carbon/core';
 import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
-import type { AuthenticatedRequest } from '../plugins/api-key.js';
+import { resolveCallerOrg } from '../plugins/caller-org.js';
 import { requireScope } from '../plugins/scopes.js';
-import { zodQuery, zodResponse } from '../plugins/schema-helpers.js';
+import { zodQuery, zodResponse, zodResponseWithExample } from '../plugins/schema-helpers.js';
 import { eventBus, redisChannelForOrg, type PublishedEvent } from '../services/events.js';
 
 const EventSchema = z.object({
@@ -72,11 +71,28 @@ export async function registerEventRoutes(app: FastifyInstance, ctx: AppContext)
         'Supports keyset pagination via `cursor` (ISO 8601 timestamp of the last item seen) and ' +
         'optional filtering by `projectId` or `action`.',
       querystring: zodQuery(ListQuery),
-      response: { 200: zodResponse(EventListResponse) },
+      response: {
+        200: zodResponseWithExample(EventListResponse, {
+          data: [
+            {
+              id: 'evt_01HXK5N9Q1B7C4D3E2F1G0H9J8',
+              orgId: 'org_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+              projectId: 'prj_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+              actorType: 'user',
+              actorId: 'usr_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+              action: 'project.created',
+              metadata: { slug: 'checkout-api', name: 'Checkout API' },
+              createdAt: '2025-11-14T18:22:41.000Z',
+            },
+          ],
+          nextCursor: null,
+          hasMore: false,
+        }),
+      },
     },
   }, async (req) => {
     const query = ListQuery.parse(req.query);
-    const orgId = requestOrgId(req, query.orgId);
+    const orgId = resolveCallerOrg(req, { queryOrg: query.orgId, mode: 'return-empty' });
     if (!orgId) {
       // Auth-disabled dev mode with no query fallback → return empty rather
       // than 400. Keeps the dashboard's honest "no activity yet" state truthful
@@ -112,14 +128,7 @@ export async function registerEventRoutes(app: FastifyInstance, ctx: AppContext)
     },
   }, async (req, reply) => {
     const query = StreamQuery.parse(req.query);
-    const orgId = requestOrgId(req, query.orgId);
-    if (!orgId) {
-      throw new CarbonError({
-        code: 'CARBON_INVALID_INPUT',
-        message: 'orgId is required — attach an API key or authenticated session',
-        expose: true,
-      });
-    }
+    const orgId = resolveCallerOrg(req, { queryOrg: query.orgId });
 
     const filter = (evt: PublishedEvent): boolean => {
       if (evt.orgId !== orgId) return false;
@@ -213,14 +222,7 @@ export async function registerEventRoutes(app: FastifyInstance, ctx: AppContext)
     },
   }, async (req, reply) => {
     const query = ExportQuery.parse(req.query);
-    const orgId = requestOrgId(req, query.orgId);
-    if (!orgId) {
-      throw new CarbonError({
-        code: 'CARBON_INVALID_INPUT',
-        message: 'orgId is required — attach an API key or authenticated session',
-        expose: true,
-      });
-    }
+    const orgId = resolveCallerOrg(req, { queryOrg: query.orgId });
     const rows = await fetchEvents(ctx, {
       orgId,
       limit: query.limit,
@@ -281,10 +283,6 @@ function csvEscape(value: string): string {
     return `"${value.replace(/"/g, '""')}"`;
   }
   return value;
-}
-
-function requestOrgId(req: unknown, fallback?: string): string | undefined {
-  return (req as AuthenticatedRequest).apiKey?.orgId ?? fallback;
 }
 
 /**

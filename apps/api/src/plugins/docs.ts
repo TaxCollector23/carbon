@@ -123,8 +123,41 @@ function deriveSummary(method: string, url: string): string {
   return `${label} ${url}`;
 }
 
+/**
+ * Scalar-specific `x-tagGroups` extension. Groups the flat `tags` list into
+ * five top-level sidebar sections so `/docs` browses like a real reference
+ * (Core / Runtime / Enterprise / Ops / Auth) instead of one long list.
+ * Every tag in {@link API_TAGS} appears in exactly one group — the test in
+ * `docs.test.ts` asserts that stays true.
+ */
+export const TAG_GROUPS = [
+  { name: 'Core', tags: ['Projects', 'Ingest', 'Artifacts', 'Graphs', 'Assertions'] },
+  { name: 'Runtime', tags: ['Emulators', 'Snapshots', 'Chaos Presets', 'Contract', 'Share Links'] },
+  { name: 'Enterprise', tags: ['Organizations', 'Billing', 'SSO', 'SCIM', 'Export'] },
+  { name: 'Ops', tags: ['Events', 'Usage', 'AI Quality', 'Health'] },
+  { name: 'Auth', tags: ['Api Keys', 'CLI Auth', 'Me'] },
+] as const;
+
 export async function registerDocs(app: FastifyInstance, release: string): Promise<void> {
   await app.register(swagger, {
+    // Fastify Swagger's `openapi` config only forwards a fixed list of
+    // top-level keys, so `x-tagGroups` gets injected here after the base
+    // document is built. The union covers both the 2.0 legacy shape and the
+    // 3.x shape — this deployment publishes 3.1 but the runtime is happy to
+    // stamp the extension on either.
+    transformObject: (documentObject) => {
+      const target =
+        ('openapiObject' in documentObject
+          ? documentObject.openapiObject
+          : documentObject.swaggerObject) as Record<string, unknown>;
+      target['x-tagGroups'] = TAG_GROUPS;
+      // The @fastify/swagger `SwaggerOptions` public type omits transformObject
+      // even though `FastifyDynamicSwaggerOptions` declares it; cast the
+      // return through `unknown` so the assignment satisfies both shapes.
+      return target as unknown as ReturnType<
+        NonNullable<import('@fastify/swagger').SwaggerTransformObject>
+      >;
+    },
     openapi: {
       openapi: '3.1.0',
       info: {

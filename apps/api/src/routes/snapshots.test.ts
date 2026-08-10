@@ -74,4 +74,49 @@ describe('snapshot routes', () => {
     expect(res.statusCode).toBe(404);
     expect(res.json().error.code).toBe('CARBON_NOT_FOUND');
   });
+
+  it('diff returns 404 when a snapshot is missing', async () => {
+    const app = await build();
+    const res = await app.inject('/v1/snapshots/acme/diff?a=one&b=two');
+    expect(res.statusCode).toBe(404);
+    expect(res.json().error.code).toBe('CARBON_NOT_FOUND');
+  });
+
+  it('diff of two saved snapshots yields added/removed/changed per resource', async () => {
+    const app = await build();
+    const snapA = {
+      version: 1,
+      takenAt: 1,
+      records: [
+        { resource: 'user', id: 'u1', data: { name: 'a' }, createdAt: 0, updatedAt: 0 },
+        { resource: 'user', id: 'u2', data: { name: 'b' }, createdAt: 0, updatedAt: 0 },
+      ],
+    };
+    const snapB = {
+      version: 1,
+      takenAt: 2,
+      records: [
+        { resource: 'user', id: 'u1', data: { name: 'A' }, createdAt: 0, updatedAt: 1 },
+        { resource: 'user', id: 'u3', data: { name: 'c' }, createdAt: 1, updatedAt: 1 },
+      ],
+    };
+    for (const [name, snap] of [['a', snapA], ['b', snapB]] as const) {
+      const r = await app.inject({
+        method: 'POST',
+        url: '/v1/snapshots',
+        payload: { projectSlug: 'acme', name, snapshot: snap },
+      });
+      expect(r.statusCode).toBe(201);
+    }
+    const res = await app.inject('/v1/snapshots/acme/diff?a=a&b=b');
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.a.name).toBe('a');
+    expect(body.b.name).toBe('b');
+    const user = body.resources.user;
+    expect(user.added.map((r: { id: string }) => r.id)).toEqual(['u3']);
+    expect(user.removed.map((r: { id: string }) => r.id)).toEqual(['u2']);
+    expect(user.changed).toHaveLength(1);
+    expect(user.changed[0].changedFields).toEqual(['name']);
+  });
 });

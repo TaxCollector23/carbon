@@ -18,6 +18,7 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,md,json}\"",
     "test": "vitest run",
     "docs:sdk": "pnpm --filter @carbon/sdk docs",
+    "client:codegen": "pnpm --filter @carbon/client codegen",
     "examples:basic": "pnpm --filter @carbon/example-sdk-basic dev",
     "examples:ai": "pnpm --filter @carbon/example-sdk-with-ai dev",
     "examples:vitest": "pnpm --filter @carbon/example-sdk-vitest test",
