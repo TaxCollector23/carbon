@@ -4,6 +4,7 @@ import { createLogger } from '@carbon/core';
 import { createDefaultParserRegistry, createParserContext, type ParserInput } from '@carbon/parser';
 import { ui } from '../ui.js';
 import { resolveApiKey } from '../lib/credentials.js';
+import { checkIngestQuota, printQuotaAdvisory, printQuotaExceeded } from '../lib/quota.js';
 
 export const ingestCommand = defineCommand({
   meta: {
@@ -31,6 +32,19 @@ export const ingestCommand = defineCommand({
       ui.error('No API credentials found. Run `carbon login` first, or pass --api-key.');
       process.exitCode = 1;
       return;
+    }
+
+    // Free-tier paywall — surface an upsell at the exact moment of friction
+    // rather than only on the marketing site. Fails open on any error so a
+    // control-plane outage never breaks the CLI.
+    if (resolved) {
+      const quota = await checkIngestQuota({ apiUrl: resolved.apiUrl, apiKey: resolved.key });
+      if (quota.blocked) {
+        printQuotaExceeded(quota);
+        process.exitCode = 2;
+        return;
+      }
+      printQuotaAdvisory(quota);
     }
 
     const input = await load(args.source, resolved?.key);

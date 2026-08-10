@@ -59,7 +59,8 @@
         "plans",
         "enterprise/sso",
         "enterprise/scim",
-        "security/compliance-export"
+        "security/compliance-export",
+        "security/secret-scanning"
       ]
     },
     {

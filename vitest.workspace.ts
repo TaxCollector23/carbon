@@ -8,5 +8,6 @@ export default defineWorkspace([
   'packages/proxy',
   'packages/runtime',
   'packages/ingestion',
+  'packages/secret-scan',
   'apps/api',
 ]);

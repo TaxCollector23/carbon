@@ -6,21 +6,29 @@ import { buttonVariants, cn } from '@carbon/ui';
 import { Wordmark } from './logo';
 
 /**
- * Cross-app dashboard entry point.
+ * Cross-app dashboard entry points.
  *
- * `NEXT_PUBLIC_DASHBOARD_URL` is baked at build time by Next.js. Fall
- * back to the local dev origin so `pnpm dev` works out of the box. The
- * `?next=/` param is honoured by apps/dashboard's /sign-in page.
+ * `NEXT_PUBLIC_DASHBOARD_URL` is baked at build time by Next.js. Fall back to
+ * the local dev origin so `pnpm dev` works out of the box. The `?next=/`
+ * param is honoured by apps/dashboard's /sign-in and /sign-up pages.
  */
-function dashboardSignInUrl(): string {
+function dashboardUrl(): string {
   const raw = process.env.NEXT_PUBLIC_DASHBOARD_URL;
-  const base = raw && raw.trim() !== '' ? raw.replace(/\/+$/, '') : 'http://localhost:3001';
-  return `${base}/sign-in?next=/`;
+  return raw && raw.trim() !== '' ? raw.replace(/\/+$/, '') : 'http://localhost:3001';
+}
+
+function dashboardSignInUrl(): string {
+  return `${dashboardUrl()}/sign-in?next=/`;
+}
+
+function dashboardSignUpUrl(): string {
+  return `${dashboardUrl()}/sign-up?next=/`;
 }
 
 export function Nav() {
   const [scrolled, setScrolled] = useState(false);
-  const dashUrl = dashboardSignInUrl();
+  const signIn = dashboardSignInUrl();
+  const signUp = dashboardSignUpUrl();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -43,21 +51,30 @@ export function Nav() {
           <Wordmark />
         </Link>
         <div className="flex items-center gap-2">
-          <Link href="/#cli" className={cn(buttonVariants({ size: 'sm' }))}>
-            Install CLI
+          <Link
+            href="/#pricing"
+            className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'hidden sm:inline-flex')}
+          >
+            Pricing
+          </Link>
+          <Link
+            href="/contact"
+            className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'hidden sm:inline-flex')}
+          >
+            Talk to us
           </Link>
           <a
-            href={dashUrl}
+            href={signIn}
             className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}
           >
-            Enter Dashboard
+            Sign in
           </a>
-          <Link
-            href="/#benchmarks"
-            className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}
+          <a
+            href={signUp}
+            className={cn(buttonVariants({ size: 'sm' }))}
           >
-            Benchmarks
-          </Link>
+            Sign up
+          </a>
         </div>
       </div>
     </header>

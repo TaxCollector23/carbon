@@ -334,6 +334,29 @@ export interface SearchResult {
   createdAt: string;
 }
 
+export type JobStatus =
+  | 'queued'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'needs_review'
+  | (string & {});
+
+export interface Job {
+  id: string;
+  kind: string;
+  status: JobStatus;
+  attempts?: number;
+  maxAttempts?: number;
+  nextAttemptAt?: number | null;
+  deadLetter?: boolean;
+  error?: string | null;
+  result?: unknown;
+  createdAt?: string | number | null;
+  updatedAt?: string | number | null;
+  [key: string]: unknown;
+}
+
 export interface LoadTestResult {
   emulatorId: string;
   target: string;
@@ -707,6 +730,18 @@ export function createApiClient(options: ApiClientOptions = {}) {
         { presetId },
       );
     },
+    // --------------------------------- jobs ---------------------------------
+    listJobs(params: { limit?: number; cursor?: string; status?: string } = {}) {
+      const q = toQuery(params);
+      return request<ListResponse<Job>>('GET', `/v1/jobs${q}`);
+    },
+    getJob(id: string) {
+      return request<Job>('GET', `/v1/jobs/${encodeURIComponent(id)}`);
+    },
+    retryJob(id: string) {
+      return request<Job>('POST', `/v1/jobs/${encodeURIComponent(id)}/retry`);
+    },
+
     loadTestEmulator(
       emulatorId: string,
       body: { concurrency: number; durationMs: number; path?: string; method?: string },

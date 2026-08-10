@@ -13,6 +13,7 @@ import {
   History,
   KeyRound,
   Layers,
+  ListChecks,
   ShieldCheck,
   Waypoints,
 } from 'lucide-react';
@@ -28,6 +29,7 @@ const items = [
   { href: '/chaos-presets', label: 'Chaos presets', icon: FlaskConical },
   { href: '/ai-quality', label: 'AI quality', icon: ShieldCheck },
   { href: '/usage', label: 'Usage', icon: Activity },
+  { href: '/jobs', label: 'Jobs', icon: ListChecks },
   { href: '/keys', label: 'API keys', icon: KeyRound },
   { href: '/feature-flags', label: 'Feature flags', icon: Flag },
   { href: '/settings', label: 'Settings', icon: Cog },

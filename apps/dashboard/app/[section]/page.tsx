@@ -14,6 +14,7 @@ import AiQualitySection from './_sections/ai-quality';
 import UsageSection from './_sections/usage';
 import ChaosPresetsSection from './_sections/chaos-presets';
 import FeatureFlagsSection from './_sections/feature-flags';
+import JobsSection from './_sections/jobs';
 
 export function generateStaticParams() {
   return Object.keys(sections).map((section) => ({ section }));
@@ -70,6 +71,8 @@ function renderSection(slug: string) {
       return <ChaosPresetsSection />;
     case 'feature-flags':
       return <FeatureFlagsSection />;
+    case 'jobs':
+      return <JobsSection />;
     default:
       return null;
   }

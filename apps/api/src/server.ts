@@ -31,6 +31,7 @@ import { registerSsoRoutes } from './routes/sso.js';
 import { registerExportRoutes } from './routes/export.js';
 import { registerSearchRoutes } from './routes/search.js';
 import { registerFeatureFlagRoutes } from './routes/feature-flags.js';
+import { registerLeadsRoutes, LEADS_PUBLIC_PATHS } from './routes/leads.js';
 import { registerApiKeyAuth, type ApiKeyPluginOptions } from './plugins/api-key.js';
 import { registerSessionAuth } from './plugins/session-auth.js';
 import { registerIdempotency } from './plugins/idempotency.js';
@@ -80,7 +81,7 @@ const DOCS_PUBLIC_PATHS: readonly string[] = ['/openapi.json', '/docs', '/docs/*
  * so they require the same API key as every other route.
  */
 export function buildPublicPaths(publicDocs: boolean): readonly string[] {
-  const base = [...OPERATIONAL_PUBLIC_PATHS, ...CLI_AUTH_PUBLIC_PATHS];
+  const base = [...OPERATIONAL_PUBLIC_PATHS, ...CLI_AUTH_PUBLIC_PATHS, ...LEADS_PUBLIC_PATHS];
   return publicDocs ? [...base, ...DOCS_PUBLIC_PATHS] : base;
 }
 
@@ -343,6 +344,7 @@ export async function buildServer(
   await registerExportRoutes(app, ctx);
   await registerSearchRoutes(app, ctx);
   await registerFeatureFlagRoutes(app, ctx);
+  await registerLeadsRoutes(app, ctx);
 
   return app;
 }

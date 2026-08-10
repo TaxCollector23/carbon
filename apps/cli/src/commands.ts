@@ -1,5 +1,6 @@
 import type { CommandDef } from 'citty';
 import { activityCommand } from './commands/activity.js';
+import { auditSecretsCommand } from './commands/audit-secrets.js';
 import { completionCommand } from './commands/completion.js';
 import { doctorCommand } from './commands/doctor.js';
 import { emulateCommand } from './commands/emulate.js';
@@ -15,6 +16,7 @@ import { recordCommand } from './commands/record.js';
 import { replayCommand } from './commands/replay.js';
 import { snapshotCommand } from './commands/snapshot.js';
 import { usageCommand } from './commands/usage.js';
+import { watchCommand } from './commands/watch.js';
 import { whoamiCommand } from './commands/whoami.js';
 
 export interface CliCommandInfo {
@@ -38,10 +40,12 @@ export const cliSubCommands = {
   doctor: doctorCommand,
   'generate-tests': generateTestsCommand,
   usage: usageCommand,
+  watch: watchCommand,
   activity: activityCommand,
   quality: qualityCommand,
   export: exportCommand,
   completion: completionCommand,
+  'audit-secrets': auditSecretsCommand,
 } satisfies Record<string, AnyCommand>;
 
 export const cliCommandCatalog: readonly CliCommandInfo[] = [
@@ -64,10 +68,12 @@ export const cliCommandCatalog: readonly CliCommandInfo[] = [
   commandInfo('doctor', doctorCommand),
   commandInfo('generate-tests', generateTestsCommand),
   commandInfo('usage', usageCommand),
+  commandInfo('watch', watchCommand),
   commandInfo('activity', activityCommand),
   commandInfo('quality', qualityCommand),
   commandInfo('export', exportCommand),
   commandInfo('completion', completionCommand),
+  commandInfo('audit-secrets', auditSecretsCommand),
 ];
 
 function commandInfo(command: string, def: AnyCommand): CliCommandInfo {

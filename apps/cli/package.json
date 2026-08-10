@@ -32,13 +32,16 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@types/ws": "^8.18.1",
     "chokidar": "^4.0.3",
     "citty": "^0.1.6",
     "consola": "^3.3.3",
+    "fast-glob": "^3.3.2",
     "open": "^10.1.0",
     "picocolors": "^1.1.1",
     "pino": "^9.5.0",
-    "pino-pretty": "^13.0.0"
+    "pino-pretty": "^13.0.0",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "@carbon/config": "workspace:*",
@@ -46,6 +49,7 @@
     "@carbon/parser": "workspace:*",
     "@carbon/proxy": "workspace:*",
     "@carbon/sdk": "workspace:*",
+    "@carbon/secret-scan": "workspace:*",
     "@carbon/types": "workspace:*",
     "@types/node": "^22.10.0",
     "tsup": "^8.3.5",

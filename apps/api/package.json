@@ -22,6 +22,7 @@
     "@carbon/ingestion": "workspace:*",
     "@carbon/parser": "workspace:*",
     "@carbon/runtime": "workspace:*",
+    "@carbon/secret-scan": "workspace:*",
     "@carbon/state": "workspace:*",
     "@carbon/storage": "workspace:*",
     "@carbon/types": "workspace:*",

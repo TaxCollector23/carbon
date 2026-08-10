@@ -56,6 +56,21 @@ export interface JobService {
    * nextAttemptAt <= now). Bounded scan so this stays cheap on large keyspaces.
    */
   listRetryable(limit?: number): Promise<JobRecord[]>;
+  /**
+   * Enumerate recent jobs, optionally filtered by orgId or status. Returned
+   * newest-first (by createdAt). This is a SCAN — bounded but not indexed;
+   * we ship for the dashboard's operator queue where the working set is
+   * capped by the 24h TTL.
+   *
+   * Pagination is offset-based via `cursor` (opaque numeric string). Callers
+   * should treat the cursor as a black box.
+   */
+  list(opts?: {
+    orgId?: string;
+    status?: JobStatus | 'deadLetter';
+    limit?: number;
+    cursor?: string;
+  }): Promise<{ data: JobRecord[]; nextCursor: string | null; hasMore: boolean }>;
 }
 
 const TTL_SEC = 60 * 60 * 24;
@@ -229,6 +244,46 @@ export function createJobService(deps: {
         updatedAt: now,
         nextAttemptAt: null,
         error: undefined,
+      };
+    },
+
+    async list(opts = {}) {
+      const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
+      const offset = opts.cursor ? Math.max(0, Number(opts.cursor) || 0) : 0;
+      const collected: JobRecord[] = [];
+      let cursor = '0';
+      // Full SCAN because we need to sort newest-first. TTL keeps the set
+      // bounded; if this ever hurts we'll add a `carbon:job:index:by-org`
+      // sorted set.
+      do {
+        const [next, keys] = await deps.redis.scan(
+          cursor,
+          'MATCH',
+          `${PREFIX}:*`,
+          'COUNT',
+          200,
+        );
+        cursor = next;
+        for (const key of keys) {
+          const row = await deps.redis.hgetall(key);
+          if (!row?.id) continue;
+          const rec = hydrate(row);
+          if (opts.orgId && rec.orgId !== opts.orgId) continue;
+          if (opts.status === 'deadLetter') {
+            if (!rec.deadLetter) continue;
+          } else if (opts.status) {
+            if (rec.status !== opts.status) continue;
+          }
+          collected.push(rec);
+        }
+      } while (cursor !== '0');
+      collected.sort((a, b) => b.createdAt - a.createdAt);
+      const slice = collected.slice(offset, offset + limit);
+      const hasMore = collected.length > offset + limit;
+      return {
+        data: slice,
+        nextCursor: hasMore ? String(offset + limit) : null,
+        hasMore,
       };
     },
 

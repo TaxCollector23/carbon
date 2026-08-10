@@ -3,9 +3,11 @@ import type { ResourceId } from '@carbon/types';
 import type {
   ListQuery,
   ListResult,
+  MutationListener,
   StateEngine,
   StateRecord,
   StateSnapshot,
+  Unsubscribe,
 } from './engine.js';
 import { MutationJournal, type JournalEntry, type JournalRow } from './journal.js';
 
@@ -33,6 +35,7 @@ type Store = Map<ResourceId, Map<string, TableRow>>;
 export class InMemoryStateEngine implements StateEngine {
   private store: Store = new Map();
   private readonly journal: MutationJournal | null;
+  private readonly listeners = new Set<MutationListener>();
 
   constructor(
     private readonly clock: () => number = () => Date.now(),
@@ -50,6 +53,27 @@ export class InMemoryStateEngine implements StateEngine {
   private snapshotRow(resource: ResourceId, id: string): JournalRow | null {
     const existing = this.store.get(resource)?.get(id);
     return existing ? this.toJournalRow(existing) : null;
+  }
+
+  private recordAndPublish(entry: Omit<JournalEntry, 'seq'>): void {
+    if (!this.journal) return;
+    const stamped = this.journal.record(entry);
+    if (this.listeners.size === 0) return;
+    for (const listener of this.listeners) {
+      // Listener errors must not break the mutating request path.
+      try {
+        listener(stamped);
+      } catch {
+        // Swallow — WS transport / callers are expected to guard.
+      }
+    }
+  }
+
+  subscribe(listener: MutationListener): Unsubscribe {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
   }
 
   async read(resource: ResourceId, id: string): Promise<StateRecord | null> {
@@ -91,7 +115,7 @@ export class InMemoryStateEngine implements StateEngine {
     }
     const row: TableRow = { data: { ...data, id }, createdAt: now, updatedAt: now };
     table.set(id, row);
-    this.journal?.record({
+    this.recordAndPublish({
       at: now,
       op: 'create',
       resource,
@@ -114,7 +138,7 @@ export class InMemoryStateEngine implements StateEngine {
       updatedAt: now,
     };
     table!.set(id, updated);
-    this.journal?.record({
+    this.recordAndPublish({
       at: now,
       op: 'update',
       resource,
@@ -137,7 +161,7 @@ export class InMemoryStateEngine implements StateEngine {
       updatedAt: now,
     };
     table!.set(id, next);
-    this.journal?.record({
+    this.recordAndPublish({
       at: now,
       op: 'replace',
       resource,
@@ -152,7 +176,7 @@ export class InMemoryStateEngine implements StateEngine {
     const table = this.store.get(resource);
     const existing = table?.get(id);
     if (!existing || !table?.delete(id)) throw new NotFoundError(String(resource), id);
-    this.journal?.record({
+    this.recordAndPublish({
       at: this.clock(),
       op: 'delete',
       resource,

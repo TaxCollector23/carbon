@@ -81,6 +81,12 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile=false
       - run: pnpm test
+      - name: Secret scan
+        # Belt-to-Pino's-suspenders: even if a secret slipped past the
+        # pre-commit hook (someone disabled it, someone force-pushed), CI
+        # refuses to move it any further. Blocks `deploy` because that job
+        # `needs: [test, ...]`.
+        run: pnpm --filter carbon-dev exec carbon audit-secrets
       - name: Dashboard OpenAPI codegen drift check
         run: |
           pnpm --filter @carbon/dashboard codegen:api:from-file

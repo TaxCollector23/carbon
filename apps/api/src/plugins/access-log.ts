@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { SECRET_VALUE_PATTERNS as SHARED_SECRET_VALUE_PATTERNS } from '@carbon/secret-scan/patterns';
 import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from './api-key.js';
 
@@ -34,27 +35,10 @@ const DEFAULT_IGNORED = ['/health', '/ready', '/metrics'];
  * blob — a request body, a URL, an error message. This is the belt to Pino's
  * suspenders.
  */
-export const SECRET_VALUE_PATTERNS: readonly RegExp[] = [
-  // Carbon API keys (prefix + secret).
-  /ck_live_[a-f0-9]{6,}(?:\.[A-Za-z0-9_-]{6,})?/gi,
-  // Stripe live/test secret keys.
-  /sk_(?:live|test)_[A-Za-z0-9]{16,}/gi,
-  // OpenAI/Anthropic-style bearer tokens.
-  /sk-[A-Za-z0-9_-]{16,}/g,
-  // Slack tokens.
-  /xox[abpsr]-[A-Za-z0-9-]{10,}/g,
-  // GitHub personal access + fine-grained tokens.
-  /gh[pousr]_[A-Za-z0-9]{20,}/g,
-  // AWS access key ids. We deliberately do NOT try to shape-match secret
-  // access keys — the 40-char base64 pattern collides with too many
-  // legitimate opaque ids in request bodies (S3 keys, IR hashes).
-  /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g,
-  // Private key PEM headers — enough context that a false positive is
-  // effectively impossible.
-  /-----BEGIN (?:RSA |EC |DSA |PGP |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END/gi,
-  // Postgres/Redis URIs with inline credentials (`user:pw@host`).
-  /\b(?:postgres|postgresql|redis|rediss|mysql|mongodb):\/\/[^\s"'`]+:[^\s"'`@]+@[^\s"'`]+/gi,
-];
+// Re-exported from @carbon/secret-scan so the API scrubber and the offline
+// `carbon audit-secrets` tool never drift apart. See packages/secret-scan for
+// the pattern list and the design rules for adding to it.
+export const SECRET_VALUE_PATTERNS: readonly RegExp[] = SHARED_SECRET_VALUE_PATTERNS;
 
 /**
  * Field names whose *entire* value we redact regardless of shape. Extends

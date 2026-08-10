@@ -31,7 +31,20 @@ export interface StateEngine {
   history?(): readonly JournalEntry[];
   rewindTo?(seq: number): Promise<void>;
   forwardTo?(seq: number): Promise<void>;
+
+  /**
+   * Live mutation feed. Implementations that expose a journal MAY also
+   * publish each recorded entry to subscribers. Returns an unsubscribe fn.
+   *
+   * The callback fires synchronously after the mutation has been persisted
+   * to the store and appended to the journal — so `history()` already
+   * contains the same entry when the callback runs.
+   */
+  subscribe?(listener: MutationListener): Unsubscribe;
 }
+
+export type MutationListener = (entry: JournalEntry) => void;
+export type Unsubscribe = () => void;
 
 export interface StateRecord {
   readonly resource: ResourceId;

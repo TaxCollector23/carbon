@@ -11,6 +11,7 @@ const columns = [
       ['CLI', '/#cli'],
       ['SDK', '/#sdk'],
       ['Pricing', '/#pricing'],
+      ['Talk to us', '/contact'],
       ['Inputs', '/#integrations'],
     ],
   },

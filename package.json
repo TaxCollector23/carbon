@@ -23,7 +23,8 @@
     "examples:ai": "pnpm --filter @carbon/example-sdk-with-ai dev",
     "examples:vitest": "pnpm --filter @carbon/example-sdk-vitest test",
     "examples:typecheck": "pnpm --filter \"@carbon/example-*\" typecheck",
-    "clean": "turbo run clean && rm -rf node_modules"
+    "clean": "turbo run clean && rm -rf node_modules",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

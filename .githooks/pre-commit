@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Carbon pre-commit: block a commit that would introduce a well-known
+# secret shape (Stripe key, GitHub PAT, PEM private key, Postgres URL with
+# password, ...). Installed by `pnpm install`'s prepare step, which points
+# core.hooksPath at .githooks/.
+#
+# The scanner itself lives in packages/secret-scan and is invoked via the
+# published `carbon audit-secrets` CLI so the exact same rules that gate
+# CI also gate the commit — no drift between local and remote.
+set -euo pipefail
+
+# Staged files, added or modified. Deleted files and pure renames without
+# content changes have nothing to scan. `mapfile` is bash-4+; macOS ships
+# bash-3.2, so read line-by-line for portability.
+staged=()
+while IFS= read -r line; do
+  [ -n "$line" ] && staged+=("$line")
+done < <(git diff --cached --name-only --diff-filter=ACMR)
+
+if [ "${#staged[@]}" -eq 0 ]; then
+  exit 0
+fi
+
+# Prefer the workspace CLI's freshly-built dist directly — `pnpm exec
+# carbon` may resolve to a globally-installed older version that predates
+# the audit-secrets subcommand. Fall back to the pnpm path only when the
+# dist is missing (fresh clone without a build yet).
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLI_DIST="$REPO_ROOT/apps/cli/dist/index.cjs"
+if [ -f "$CLI_DIST" ]; then
+  exec node "$CLI_DIST" audit-secrets "${staged[@]}"
+fi
+if command -v pnpm >/dev/null 2>&1; then
+  exec pnpm --silent --filter carbon-dev exec carbon audit-secrets "${staged[@]}"
+fi
+
+echo "pre-commit: no carbon CLI available — build with 'pnpm --filter carbon-dev build' first." >&2
+exit 1

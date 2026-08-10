@@ -82,6 +82,11 @@ export const sections: Record<string, SectionCopy> = {
     emptyTitle: 'No feature flags yet',
     description: 'Feature flags gate experimental behaviour across the dashboard, emulator, and CLI. Override values per org here.',
   },
+  jobs: {
+    title: 'Jobs',
+    emptyTitle: 'No jobs in the last 24h',
+    description: 'Async work (ingest, exports, etc.) shows up here while it runs. Records expire after 24h.',
+  },
 } as const;
 
 export type SectionSlug = keyof typeof sections;

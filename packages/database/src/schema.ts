@@ -506,6 +506,31 @@ export const featureFlagOverrides = pgTable(
   }),
 );
 
+/**
+ * Marketing / Enterprise lead-capture rows written by the unauthenticated
+ * `POST /v1/leads` endpoint. Deliberately narrow — enrichment and CRM sync
+ * happen downstream. `ip`/`userAgent` are stored for abuse triage only.
+ */
+export const leads = pgTable(
+  'leads',
+  {
+    id: text('id').primaryKey(),
+    email: text('email').notNull(),
+    name: text('name').notNull(),
+    company: text('company').notNull(),
+    seats: integer('seats'),
+    useCase: text('use_case'),
+    source: text('source'),
+    ip: text('ip'),
+    userAgent: text('user_agent'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    createdIdx: index('leads_created_idx').on(t.createdAt),
+    emailIdx: index('leads_email_idx').on(t.email),
+  }),
+);
+
 /** Short-lived, read-only shareable replica links. */
 export const shareLinks = pgTable(
   'share_links',

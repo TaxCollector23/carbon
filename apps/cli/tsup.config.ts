@@ -14,6 +14,7 @@ export default defineConfig({
     '@carbon/proxy',
     '@carbon/runtime',
     '@carbon/sdk',
+    '@carbon/secret-scan',
     '@carbon/state',
     '@carbon/types',
   ],
