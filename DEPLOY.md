@@ -253,38 +253,35 @@ packages are loaded and no spans are exported.
 
 ### Alerting
 
-The Prometheus rules below cover the failure modes that have actually paged us.
-They assume the `carbon_*` metrics from `/metrics` are being scraped every 15s.
+Prometheus recording rules and alerts live in `deploy/observability/prometheus/`
+so they can be dropped straight into a `rule_files:` glob rather than pasted
+from this doc. They assume the `carbon_*` metrics from `/metrics` are being
+scraped every 15s.
 
-```yaml
-groups:
-  - name: carbon-api.rules
-    rules:
-      - alert: CarbonApi5xxSurge
-        expr: sum(rate(carbon_http_requests_total{status_class="5xx"}[5m])) > 0.5
-        for: 5m
-        labels: { severity: page }
-        annotations:
-          summary: "carbon-api 5xx > 0.5/s for 5m"
-          runbook: "https://carbon.dev/runbooks/api-5xx"
+```
+deploy/observability/prometheus/
+├── carbon.rules.yml   # recording rules (RPS by route, p95/p99, ingest success…)
+└── carbon.alerts.yml  # alerts: 5xx surge, p99 slow, queue backlog, event-loop, AI judge
+```
 
-      - alert: CarbonApiP99Slow
-        expr: |
-          histogram_quantile(
-            0.99,
-            sum by (le) (rate(carbon_http_request_duration_seconds_bucket[10m]))
-          ) > 2
-        for: 10m
-        labels: { severity: warn }
-        annotations:
-          summary: "carbon-api p99 latency > 2s for 10m"
+See `deploy/observability/README.md` for the scrape-config and reload snippet.
 
-      - alert: CarbonIngestQueueBacklog
-        expr: carbon_ingest_queue_depth > 100
-        for: 15m
-        labels: { severity: warn }
-        annotations:
-          summary: "ingest queue depth > 100 for 15m — workers may be stuck"
+### Grafana
+
+Two hand-crafted dashboards ship under `deploy/observability/grafana/`:
+
+- `carbon-api-overview.json` — RPS, latency percentiles, 5xx rate, ingest queue
+  depth + success rate, event-loop lag, RSS, error codes, and the new domain
+  counters (events, usage, AI judge, share links).
+- `carbon-tracing.json` — a lightweight hub with links to Jaeger/Tempo plus a
+  reference for the manual OTel span names (`ingest.pipeline`, `ingest.parse`,
+  `ai.complete`, …).
+
+Both take a `${DS_PROMETHEUS}` datasource variable. Import via the Grafana UI
+(Dashboards → Import) or the batch script:
+
+```bash
+GRAFANA_TOKEN=<api-key> scripts/observability/import-grafana.sh https://grafana.example.com
 ```
 
 ### Health endpoints

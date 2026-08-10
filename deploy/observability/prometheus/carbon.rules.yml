@@ -1,0 +1,47 @@
+# Carbon-API Prometheus recording rules.
+#
+# These pre-aggregate the hot series that dashboards and alerts read so a
+# heavy dashboard query does not repeat the same rate/histogram_quantile
+# computation on every refresh. Evaluated by prometheus alongside the
+# alert rules in carbon.alerts.yml — point prometheus.yml `rule_files:` at
+# both.
+#
+# NOTE on naming: the API emits latency in milliseconds
+# (`carbon_http_request_duration_ms_bucket`). The recording rule name uses
+# the vendor-neutral `_p99_5m` suffix; consumers should treat the value as
+# milliseconds.
+groups:
+  - name: carbon-api.recording
+    interval: 30s
+    rules:
+      - record: job:carbon_http_requests_rate5m
+        expr: sum by (route, status_class) (rate(carbon_http_requests_total[5m]))
+
+      - record: job:carbon_http_p99_5m
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum by (route, le) (rate(carbon_http_request_duration_ms_bucket[5m]))
+          )
+
+      - record: job:carbon_http_p95_5m
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (route, le) (rate(carbon_http_request_duration_ms_bucket[5m]))
+          )
+
+      - record: job:carbon_ingest_queue_depth_avg5m
+        expr: avg_over_time(carbon_ingest_queue_depth[5m])
+
+      - record: job:carbon_ingest_success_rate5m
+        expr: |
+          sum(rate(carbon_ingest_job_result_total{outcome="succeeded"}[5m]))
+          /
+          clamp_min(sum(rate(carbon_ingest_job_result_total[5m])), 1)
+
+      - record: job:carbon_http_5xx_rate5m
+        expr: sum(rate(carbon_http_requests_total{status_class="5xx"}[5m]))
+
+      - record: job:carbon_ai_judge_below_threshold_rate5m
+        expr: rate(carbon_ai_judge_below_threshold_total[5m])

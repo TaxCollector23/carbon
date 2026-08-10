@@ -1,6 +1,7 @@
 import { makeId } from '@carbon/core';
 import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
+import { recordUsageCounter } from '../plugins/metrics.js';
 
 export interface RecordUsageInput {
   readonly orgId: string;
@@ -25,6 +26,7 @@ export async function recordUsage(ctx: AppContext, input: RecordUsageInput): Pro
       amount: input.amount ?? 1,
       metadata: input.metadata ?? {},
     });
+    recordUsageCounter(input.kind);
   } catch (err) {
     ctx.logger.warn('usage.record_failed', {
       kind: input.kind,

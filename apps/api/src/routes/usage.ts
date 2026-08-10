@@ -39,12 +39,16 @@ const AggregateQuery = z.object({
   kind: z.string().min(1).max(120).optional(),
   since: z.string().datetime().optional(),
   until: z.string().datetime().optional(),
+  // Dev/admin escape hatch. Only honored when the caller has no
+  // authenticated org — an authenticated caller cannot cross-org via query.
+  orgId: z.string().min(1).optional(),
 });
 
 const EventsQuery = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(100),
   cursor: z.string().datetime().optional(),
   kind: z.string().min(1).max(120).optional(),
+  orgId: z.string().min(1).optional(),
 });
 
 /**
@@ -64,7 +68,7 @@ export async function registerUsageRoutes(app: FastifyInstance, ctx: AppContext)
     },
   }, async (req) => {
     const query = AggregateQuery.parse(req.query);
-    const orgId = requireCallerOrg(req);
+    const orgId = requireCallerOrg(req, query.orgId);
     const until = query.until ? new Date(query.until) : new Date();
     const since = query.since ? new Date(query.since) : new Date(until.getTime() - DEFAULT_WINDOW_MS);
 
@@ -100,7 +104,7 @@ export async function registerUsageRoutes(app: FastifyInstance, ctx: AppContext)
     },
   }, async (req) => {
     const query = EventsQuery.parse(req.query);
-    const orgId = requireCallerOrg(req);
+    const orgId = requireCallerOrg(req, query.orgId);
     const conditions: SQL[] = [eq(schema.usageEvents.orgId, orgId)];
     if (query.cursor) conditions.push(lt(schema.usageEvents.occurredAt, new Date(query.cursor)));
     if (query.kind) conditions.push(eq(schema.usageEvents.kind, query.kind));
@@ -120,14 +124,14 @@ export async function registerUsageRoutes(app: FastifyInstance, ctx: AppContext)
   });
 }
 
-function requireCallerOrg(req: FastifyRequest): string {
+function requireCallerOrg(req: FastifyRequest, fallback?: string): string {
   const apiKey = (req as AuthenticatedRequest).apiKey;
   const session = (req as SessionAuthenticatedRequest).sessionUser;
-  const orgId = apiKey?.orgId ?? session?.orgId;
+  const orgId = apiKey?.orgId ?? session?.orgId ?? fallback;
   if (!orgId) {
     throw new CarbonError({
       code: 'CARBON_INVALID_INPUT',
-      message: 'usage is org-scoped — attach an API key or authenticated session',
+      message: 'usage is org-scoped — attach an API key or authenticated session (or pass ?orgId= in dev)',
       expose: true,
     });
   }

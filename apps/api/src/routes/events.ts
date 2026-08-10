@@ -1,12 +1,15 @@
+import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { and, desc, eq, lt, type SQL } from 'drizzle-orm';
+import type { Redis } from 'ioredis';
 import { CarbonError } from '@carbon/core';
 import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import { requireScope } from '../plugins/scopes.js';
 import { zodQuery, zodResponse } from '../plugins/schema-helpers.js';
+import { eventBus, redisChannelForOrg, type PublishedEvent } from '../services/events.js';
 
 const EventSchema = z.object({
   id: z.string(),
@@ -32,6 +35,12 @@ const ListQuery = z.object({
   // Optional dev/admin escape hatch. Only honored when the caller has no
   // authenticated org — an authenticated caller cannot cross-org via query.
   orgId: z.string().min(1).optional(),
+});
+
+const StreamQuery = z.object({
+  orgId: z.string().min(1).optional(),
+  projectId: z.string().min(1).optional(),
+  action: z.string().min(1).max(120).optional(),
 });
 
 const ExportQuery = z.object({
@@ -86,6 +95,111 @@ export async function registerEventRoutes(app: FastifyInstance, ctx: AppContext)
     const last = items[items.length - 1];
     const nextCursor = hasMore && last ? last.createdAt.toISOString() : null;
     return { data: items, nextCursor, hasMore };
+  });
+
+  app.get('/v1/events/stream', {
+    preHandler: requireScope('read'),
+    // No response schema: this is a text/event-stream long-lived response and
+    // Fastify's serializer would otherwise try to shape the reply. We manage
+    // the wire format by writing directly to `reply.raw`.
+    schema: {
+      summary: 'Server-Sent Events stream of audit events',
+      description:
+        'Long-lived text/event-stream connection. Emits `hello` on open, ' +
+        '`ping` heartbeats every ~15s, and `new-event` frames as events land ' +
+        'for the caller\'s org.',
+      querystring: zodQuery(StreamQuery),
+    },
+  }, async (req, reply) => {
+    const query = StreamQuery.parse(req.query);
+    const orgId = requestOrgId(req, query.orgId);
+    if (!orgId) {
+      throw new CarbonError({
+        code: 'CARBON_INVALID_INPUT',
+        message: 'orgId is required — attach an API key or authenticated session',
+        expose: true,
+      });
+    }
+
+    const filter = (evt: PublishedEvent): boolean => {
+      if (evt.orgId !== orgId) return false;
+      if (query.projectId && evt.projectId !== query.projectId) return false;
+      if (query.action && evt.action !== query.action) return false;
+      return true;
+    };
+
+    const raw = reply.raw;
+    // Detach Fastify from the socket so we own the write path. Without this,
+    // the send() at the end of the handler would try to serialize.
+    reply.hijack();
+
+    raw.writeHead(200, {
+      'content-type': 'text/event-stream; charset=utf-8',
+      'cache-control': 'no-cache, no-transform',
+      connection: 'keep-alive',
+      // Some proxies (nginx) buffer text/event-stream by default; disable that.
+      'x-accel-buffering': 'no',
+    });
+
+    const connectionId = randomUUID();
+    writeSseFrame(raw, 'hello', { connectionId, orgId });
+
+    const onLocal = (evt: PublishedEvent): void => {
+      if (!filter(evt)) return;
+      writeSseFrame(raw, 'new-event', evt);
+    };
+    eventBus.on('new-event', onLocal);
+
+    // Cross-instance fanout via Redis pub/sub when available. ioredis requires
+    // a dedicated connection for subscribe mode, so we duplicate the shared
+    // client and clean it up when the socket closes.
+    let subscriber: Redis | undefined;
+    if (ctx.redis) {
+      try {
+        subscriber = ctx.redis.duplicate();
+        const channel = redisChannelForOrg(orgId);
+        await subscriber.subscribe(channel);
+        subscriber.on('message', (_ch, message) => {
+          try {
+            const evt = JSON.parse(message) as PublishedEvent;
+            if (filter(evt)) writeSseFrame(raw, 'new-event', evt);
+          } catch {
+            // Ignore malformed messages — a stray publish must not tear the
+            // stream down for well-behaved subscribers.
+          }
+        });
+      } catch (err) {
+        ctx.logger.warn('events.stream.redis_subscribe_failed', {
+          message: err instanceof Error ? err.message : String(err),
+        });
+        subscriber = undefined;
+      }
+    }
+
+    const heartbeatMs = heartbeatIntervalMs();
+    const heartbeat = setInterval(() => {
+      writeSseFrame(raw, 'ping', { at: new Date().toISOString() });
+    }, heartbeatMs);
+    // Timers keeping the process alive would block graceful shutdown when the
+    // only remaining work is an idle SSE loop.
+    heartbeat.unref?.();
+
+    const cleanup = (): void => {
+      clearInterval(heartbeat);
+      eventBus.off('new-event', onLocal);
+      if (subscriber) {
+        subscriber.disconnect();
+        subscriber = undefined;
+      }
+      try {
+        raw.end();
+      } catch {
+        // Socket already gone; nothing to do.
+      }
+    };
+
+    req.raw.on('close', cleanup);
+    req.raw.on('error', cleanup);
   });
 
   app.get('/v1/events/export', {
@@ -171,4 +285,36 @@ function csvEscape(value: string): string {
 
 function requestOrgId(req: unknown, fallback?: string): string | undefined {
   return (req as AuthenticatedRequest).apiKey?.orgId ?? fallback;
+}
+
+/**
+ * Serialize an SSE frame. Each frame is `event: <name>\ndata: <json>\n\n`
+ * — `data` MUST be a single line for `EventSource` to fire the message, so we
+ * JSON-stringify without pretty-printing.
+ */
+function writeSseFrame(
+  raw: import('node:http').ServerResponse,
+  event: string,
+  data: unknown,
+): void {
+  if (raw.writableEnded || raw.destroyed) return;
+  try {
+    raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  } catch {
+    // A socket write can race a client-initiated close; the `close` handler
+    // will do the cleanup, so swallow here rather than crashing the process.
+  }
+}
+
+/**
+ * Heartbeat interval in ms. Tunable via `CARBON_SSE_HEARTBEAT_MS` primarily
+ * so tests can shrink it — production behaviour is a 15s keepalive that
+ * clears most reverse-proxy idle timeouts (nginx defaults to 60s).
+ */
+function heartbeatIntervalMs(): number {
+  const raw = process.env.CARBON_SSE_HEARTBEAT_MS;
+  if (!raw) return 15_000;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 15_000;
+  return parsed;
 }

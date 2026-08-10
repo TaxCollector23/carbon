@@ -13,6 +13,7 @@ import SettingsSection from './_sections/settings';
 import AiQualitySection from './_sections/ai-quality';
 import UsageSection from './_sections/usage';
 import ChaosPresetsSection from './_sections/chaos-presets';
+import FeatureFlagsSection from './_sections/feature-flags';
 
 export function generateStaticParams() {
   return Object.keys(sections).map((section) => ({ section }));
@@ -67,6 +68,8 @@ function renderSection(slug: string) {
       return <UsageSection />;
     case 'chaos-presets':
       return <ChaosPresetsSection />;
+    case 'feature-flags':
+      return <FeatureFlagsSection />;
     default:
       return null;
   }

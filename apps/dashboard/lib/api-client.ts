@@ -258,6 +258,22 @@ export type SsoProviderInput =
       emailDomain?: string;
     };
 
+export type FeatureFlagScope = 'org' | 'user' | 'plan';
+
+export interface FeatureFlagOverrideView {
+  scope: FeatureFlagScope;
+  scopeId: string;
+  value: boolean;
+}
+
+export interface FeatureFlag {
+  key: string;
+  description: string | null;
+  defaultValue: boolean;
+  effective: boolean;
+  overrides: FeatureFlagOverrideView[];
+}
+
 export interface ChaosRule {
   kind: 'error' | 'latency';
   match?: { method?: string; path?: string };
@@ -281,6 +297,16 @@ export interface ChaosPresetInput {
   name: string;
   description?: string;
   rules: ChaosRule[];
+}
+
+export type SearchScope = 'events' | 'projects' | 'artifacts' | 'all';
+
+export interface SearchResult {
+  kind: 'event' | 'project' | 'artifact';
+  id: string;
+  snippet: string;
+  score: number;
+  createdAt: string;
 }
 
 export interface LoadTestResult {
@@ -310,6 +336,7 @@ const DEFAULT_BASE_URL =
   'http://localhost:3000';
 
 const API_KEY_STORAGE_KEY = 'carbon.apiKey';
+const ORG_ID_STORAGE_KEY = 'carbon.orgId';
 
 function readStoredApiKey(): string | null {
   if (typeof window === 'undefined') return null;
@@ -318,6 +345,31 @@ function readStoredApiKey(): string | null {
   } catch {
     return null;
   }
+}
+
+function readStoredOrgId(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage.getItem(ORG_ID_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * When a dev-mode auth-disabled dashboard has an `carbon.orgId` in
+ * localStorage, thread it as a query param so org-scoped API routes can
+ * resolve the caller's org without a real API key or session cookie. In
+ * production this is a no-op — the api key or session cookie already
+ * carries orgId and the query is ignored.
+ */
+function withOrgQuery(path: string): string {
+  const orgId = readStoredOrgId();
+  if (!orgId) return path;
+  // Never overwrite an explicit orgId already in the path.
+  if (/[?&]orgId=/.test(path)) return path;
+  const sep = path.includes('?') ? '&' : '?';
+  return `${path}${sep}orgId=${encodeURIComponent(orgId)}`;
 }
 
 export function createApiClient(options: ApiClientOptions = {}) {
@@ -344,8 +396,9 @@ export function createApiClient(options: ApiClientOptions = {}) {
     }
 
     let response: Response;
+    const finalPath = withOrgQuery(path);
     try {
-      response = await fetch(`${baseUrl}${path}`, {
+      response = await fetch(`${baseUrl}${finalPath}`, {
         method,
         credentials: 'include',
         headers,
@@ -478,6 +531,16 @@ export function createApiClient(options: ApiClientOptions = {}) {
       return request<ListResponse<EventRow>>('GET', `/v1/events${q}`);
     },
 
+    // ------------------------------- search ---------------------------------
+    search(
+      q: string,
+      scope: SearchScope = 'all',
+      params: { limit?: number; cursor?: string } = {},
+    ) {
+      const query = toQuery({ q, scope, ...params });
+      return request<{ results: SearchResult[] }>('GET', `/v1/search${query}`);
+    },
+
     // ---------------------------- organizations -----------------------------
     getOrganization(id: string) {
       return request<Organization>('GET', `/v1/organizations/${encodeURIComponent(id)}`);
@@ -578,6 +641,21 @@ export function createApiClient(options: ApiClientOptions = {}) {
     },
     deleteSsoProvider(id: string) {
       return request<void>('DELETE', `/v1/sso/providers/${encodeURIComponent(id)}`);
+    },
+
+    // ---------------------------- feature flags -----------------------------
+    listFeatureFlags() {
+      return request<ListResponse<FeatureFlag>>('GET', '/v1/feature-flags');
+    },
+    setFeatureFlag(
+      key: string,
+      body: { scope: FeatureFlagScope; scopeId: string; value: boolean },
+    ) {
+      return request<FeatureFlagOverrideView>(
+        'PATCH',
+        `/v1/feature-flags/${encodeURIComponent(key)}`,
+        body,
+      );
     },
 
     // ------------------------------ chaos presets ---------------------------

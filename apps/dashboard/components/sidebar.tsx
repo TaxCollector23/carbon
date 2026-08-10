@@ -8,6 +8,7 @@ import {
   Cog,
   Database,
   FlaskConical,
+  Flag,
   GaugeCircle,
   History,
   KeyRound,
@@ -28,6 +29,7 @@ const items = [
   { href: '/ai-quality', label: 'AI quality', icon: ShieldCheck },
   { href: '/usage', label: 'Usage', icon: Activity },
   { href: '/keys', label: 'API keys', icon: KeyRound },
+  { href: '/feature-flags', label: 'Feature flags', icon: Flag },
   { href: '/settings', label: 'Settings', icon: Cog },
 ];
 

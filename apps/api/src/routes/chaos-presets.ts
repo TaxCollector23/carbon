@@ -145,13 +145,15 @@ export async function registerChaosPresetRoutes(
 }
 
 function requireOrgId(req: unknown): string {
-  const orgId = (req as AuthenticatedRequest).apiKey?.orgId;
-  if (!orgId) {
-    throw new CarbonError({
-      code: 'CARBON_INVALID_INPUT',
-      message: 'orgId is required — presets are org-scoped',
-      expose: true,
-    });
-  }
-  return orgId;
+  const fromKey = (req as AuthenticatedRequest).apiKey?.orgId;
+  if (fromKey) return fromKey;
+  // Dev/admin escape hatch — dashboard in auth-disabled mode passes
+  // ?orgId=… via the api-client's withOrgQuery helper.
+  const q = ((req as { query?: { orgId?: unknown } }).query?.orgId ?? null) as unknown;
+  if (typeof q === 'string' && q.length > 0) return q;
+  throw new CarbonError({
+    code: 'CARBON_INVALID_INPUT',
+    message: 'orgId is required — presets are org-scoped',
+    expose: true,
+  });
 }

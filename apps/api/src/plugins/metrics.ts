@@ -147,6 +147,85 @@ export function errorResultCountForTest(code: string): number {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Domain counters
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Business-level counters exposed alongside HTTP metrics. All label values
+ * come from bounded enums or short opaque strings we control, so the series
+ * cardinality stays sane. Kept module-scoped for the same reason the
+ * idempotency + error counters are: the metrics registry is itself a
+ * module-level singleton.
+ */
+const eventsRecordedCounters = new Map<string, number>();
+const usageRecordedCounters = new Map<string, number>();
+let aiJudgeBelowThreshold = 0;
+let shareLinkCreated = 0;
+let shareLinkHit = 0;
+
+export function recordEventCounter(action: string): void {
+  eventsRecordedCounters.set(action, (eventsRecordedCounters.get(action) ?? 0) + 1);
+}
+
+export function recordUsageCounter(kind: string): void {
+  usageRecordedCounters.set(kind, (usageRecordedCounters.get(kind) ?? 0) + 1);
+}
+
+export function recordAiJudgeBelowThreshold(): void {
+  aiJudgeBelowThreshold += 1;
+}
+
+export function recordShareLinkCreated(): void {
+  shareLinkCreated += 1;
+}
+
+export function recordShareLinkHit(): void {
+  shareLinkHit += 1;
+}
+
+/** Test-only: reset domain counters. */
+export function resetDomainCountersForTest(): void {
+  eventsRecordedCounters.clear();
+  usageRecordedCounters.clear();
+  aiJudgeBelowThreshold = 0;
+  shareLinkCreated = 0;
+  shareLinkHit = 0;
+}
+
+function renderDomainCounters(lines: string[]): void {
+  lines.push('');
+  lines.push('# HELP carbon_events_recorded_total Audit events written via recordEvent.');
+  lines.push('# TYPE carbon_events_recorded_total counter');
+  for (const [action, value] of eventsRecordedCounters) {
+    lines.push(`carbon_events_recorded_total{action="${escapeLabel(action)}"} ${value}`);
+  }
+
+  lines.push('');
+  lines.push('# HELP carbon_usage_recorded_total Metered usage events written via recordUsage.');
+  lines.push('# TYPE carbon_usage_recorded_total counter');
+  for (const [kind, value] of usageRecordedCounters) {
+    lines.push(`carbon_usage_recorded_total{kind="${escapeLabel(kind)}"} ${value}`);
+  }
+
+  lines.push('');
+  lines.push(
+    '# HELP carbon_ai_judge_below_threshold_total AI-quality reports whose min score fell below the review threshold.',
+  );
+  lines.push('# TYPE carbon_ai_judge_below_threshold_total counter');
+  lines.push(`carbon_ai_judge_below_threshold_total ${aiJudgeBelowThreshold}`);
+
+  lines.push('');
+  lines.push('# HELP carbon_share_link_created_total Share links minted.');
+  lines.push('# TYPE carbon_share_link_created_total counter');
+  lines.push(`carbon_share_link_created_total ${shareLinkCreated}`);
+
+  lines.push('');
+  lines.push('# HELP carbon_share_link_hit_total Successful reads of a share link state endpoint.');
+  lines.push('# TYPE carbon_share_link_hit_total counter');
+  lines.push(`carbon_share_link_hit_total ${shareLinkHit}`);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // Request timing
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -336,6 +415,8 @@ function createMetricsState(): MetricsState {
     lines.push('# HELP carbon_process_resident_memory_bytes RSS memory.');
     lines.push('# TYPE carbon_process_resident_memory_bytes gauge');
     lines.push(`carbon_process_resident_memory_bytes ${process.memoryUsage().rss}`);
+
+    renderDomainCounters(lines);
 
     return lines.join('\n') + '\n';
   }

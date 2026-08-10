@@ -1,0 +1,306 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 1,
+  "id": null,
+  "iteration": 1,
+  "links": [],
+  "panels": [
+    {
+      "type": "row",
+      "id": 100,
+      "title": "HTTP",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "id": 1,
+      "title": "RPS by route",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "sum by (route) (job:carbon_http_requests_rate5m)",
+          "legendFormat": "{{route}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "right" } }
+    },
+    {
+      "type": "timeseries",
+      "id": 2,
+      "title": "5xx rate",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "job:carbon_http_5xx_rate5m",
+          "legendFormat": "5xx",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(carbon_http_requests_total{status_class=\"4xx\"}[5m]))",
+          "legendFormat": "4xx",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] }
+    },
+    {
+      "type": "timeseries",
+      "id": 3,
+      "title": "Latency p50 / p95 / p99 (ms)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 9 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(carbon_http_request_duration_ms_bucket[5m])))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(carbon_http_request_duration_ms_bucket[5m])))",
+          "legendFormat": "p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(carbon_http_request_duration_ms_bucket[5m])))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] }
+    },
+    {
+      "type": "timeseries",
+      "id": 4,
+      "title": "p99 by route (top 10)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 9 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "topk(10, job:carbon_http_p99_5m)",
+          "legendFormat": "{{route}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] }
+    },
+    {
+      "type": "stat",
+      "id": 5,
+      "title": "Requests in flight",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 17 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        { "expr": "carbon_http_requests_in_flight", "refId": "A" }
+      ]
+    },
+    {
+      "type": "stat",
+      "id": 6,
+      "title": "Event-loop lag (ms)",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 17 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        { "expr": "carbon_nodejs_eventloop_lag_ms", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 50 },
+              { "color": "red", "value": 100 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "id": 7,
+      "title": "Process RSS",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 17 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        { "expr": "carbon_process_resident_memory_bytes", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" } }
+    },
+    {
+      "type": "stat",
+      "id": 8,
+      "title": "Uptime",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 17 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        { "expr": "carbon_process_uptime_seconds", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "type": "row",
+      "id": 101,
+      "title": "Ingest",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 21 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "id": 9,
+      "title": "Ingest queue depth by state",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 22 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "carbon_ingest_queue_depth",
+          "legendFormat": "{{state}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "id": 10,
+      "title": "Ingest success rate (5m)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 22 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        { "expr": "job:carbon_ingest_success_rate5m", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } }
+    },
+    {
+      "type": "row",
+      "id": 102,
+      "title": "AI + domain",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 30 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "id": 11,
+      "title": "AI judge below threshold (rate)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 31 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "rate(carbon_ai_judge_below_threshold_total[5m])",
+          "legendFormat": "below-threshold",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "id": 12,
+      "title": "Events recorded by action (rate)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 31 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "sum by (action) (rate(carbon_events_recorded_total[5m]))",
+          "legendFormat": "{{action}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "id": 13,
+      "title": "Usage recorded by kind (rate)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 39 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "sum by (kind) (rate(carbon_usage_recorded_total[5m]))",
+          "legendFormat": "{{kind}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "id": 14,
+      "title": "Share links",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 39 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "rate(carbon_share_link_created_total[5m])",
+          "legendFormat": "created/s",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(carbon_share_link_hit_total[5m])",
+          "legendFormat": "hits/s",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "id": 15,
+      "title": "Error results by code (rate)",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 47 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "sum by (code) (rate(carbon_error_result_total[5m]))",
+          "legendFormat": "{{code}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 30,
+  "style": "dark",
+  "tags": ["carbon", "api"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": false, "text": "Prometheus", "value": "Prometheus" },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Datasource",
+        "multi": false,
+        "name": "DS_PROMETHEUS",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Carbon API — overview",
+  "uid": "carbon-api-overview",
+  "version": 1
+}

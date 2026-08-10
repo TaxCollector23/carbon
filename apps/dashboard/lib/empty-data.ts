@@ -77,6 +77,11 @@ export const sections: Record<string, SectionCopy> = {
     emptyTitle: 'No usage recorded',
     description: 'Metered events (ingests, AI calls, emulator runs) will appear here once you start using the API.',
   },
+  'feature-flags': {
+    title: 'Feature flags',
+    emptyTitle: 'No feature flags yet',
+    description: 'Feature flags gate experimental behaviour across the dashboard, emulator, and CLI. Override values per org here.',
+  },
 } as const;
 
 export type SectionSlug = keyof typeof sections;

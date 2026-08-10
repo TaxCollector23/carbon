@@ -137,6 +137,12 @@ export const projects = pgTable(
     name: text('name').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     archived: boolean('archived').notNull().default(false),
+    /**
+     * Postgres-generated tsvector for full-text search (see migration
+     * 0007_fulltext_search.sql). Never written by app code — the DB fills it
+     * from `slug` + `name`. Declared here so Drizzle knows the column exists.
+     */
+    searchTsv: text('search_tsv'),
   },
   (t) => ({ orgSlug: uniqueIndex('projects_org_slug_unique').on(t.orgId, t.slug) }),
 );
@@ -155,6 +161,8 @@ export const artifacts = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     /** Free-form tags for organizing snapshots/recordings (e.g. "ci-baseline"). */
     tags: text('tags').array().notNull().default(sql`ARRAY[]::text[]`),
+    /** Generated tsvector for full-text search — see 0007_fulltext_search.sql. */
+    searchTsv: text('search_tsv'),
   },
   (t) => ({ projectKind: index('artifacts_project_kind_idx').on(t.projectId, t.kind) }),
 );
@@ -205,6 +213,8 @@ export const events = pgTable(
     action: text('action').notNull(),
     metadata: jsonb('metadata').notNull().default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Generated tsvector for full-text search — see 0007_fulltext_search.sql. */
+    searchTsv: text('search_tsv'),
   },
   (t) => ({
     orgCreatedIdx: index('events_org_created_idx').on(t.orgId, t.createdAt),
@@ -450,6 +460,49 @@ export const usageEvents = pgTable(
       t.kind,
       t.occurredAt,
     ),
+  }),
+);
+
+/**
+ * Feature flag definitions. Rows are typically bootstrapped by the API via
+ * `seedBuiltInFlags(ctx)` on first read of `/v1/feature-flags`. `key` is the
+ * globally unique identifier used by both the API and the dashboard.
+ */
+export const featureFlags = pgTable(
+  'feature_flags',
+  {
+    id: text('id').primaryKey(),
+    key: text('key').notNull(),
+    description: text('description'),
+    defaultValue: boolean('default_value').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({ keyUnique: uniqueIndex('feature_flags_key_unique').on(t.key) }),
+);
+
+/**
+ * Per-scope overrides for a feature flag. `scope` is one of `'org' | 'user' |
+ * 'plan'` and `scopeId` is the org id, user id, or plan tier
+ * (`developer|team|enterprise`) respectively. Resolution order at read time:
+ * user > org > plan > flag default.
+ */
+export const featureFlagOverrides = pgTable(
+  'feature_flag_overrides',
+  {
+    id: text('id').primaryKey(),
+    flagKey: text('flag_key').notNull(),
+    scope: text('scope', { enum: ['org', 'user', 'plan'] }).notNull(),
+    scopeId: text('scope_id').notNull(),
+    value: boolean('value').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    scopeUnique: uniqueIndex('feature_flag_overrides_scope_unique').on(
+      t.flagKey,
+      t.scope,
+      t.scopeId,
+    ),
+    lookupIdx: index('feature_flag_overrides_lookup_idx').on(t.scope, t.scopeId, t.flagKey),
   }),
 );
 

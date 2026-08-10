@@ -1,0 +1,105 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": true,
+      "title": "Jaeger — carbon-api",
+      "tooltip": "Open Jaeger UI filtered to service=carbon-api",
+      "type": "link",
+      "url": "${JAEGER_URL:https://jaeger.example.com}/search?service=carbon-api"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": true,
+      "title": "Tempo — carbon-api",
+      "tooltip": "Open Grafana Tempo explore filtered to service.name=carbon-api",
+      "type": "link",
+      "url": "/explore?left=%7B%22datasource%22:%22tempo%22,%22queries%22:%5B%7B%22query%22:%22%7B%20service.name%3D%5C%22carbon-api%5C%22%20%7D%22%7D%5D%7D"
+    }
+  ],
+  "panels": [
+    {
+      "type": "text",
+      "id": 1,
+      "title": "Carbon OpenTelemetry spans",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
+      "options": {
+        "mode": "markdown",
+        "content": "Carbon emits manual spans around the ingest pipeline and provider calls in addition to the auto-instrumented HTTP / Fastify / ioredis / pg spans. Use the links above to jump into Jaeger or Tempo.\n\n### Ingestion pipeline\n- `ingest.pipeline` — root span for the sync + async ingest flow\n- `ingest.parse` — parser adapter (OpenAPI / Postman / HAR / …)\n- `ingest.infer.resources` — AI resource inference\n- `ingest.infer.relationships` — AI relationship inference\n- `ingest.judge` — LLM-as-judge quality gate\n- `ingest.build_graph` — resource-graph builder\n- `ingest.persist` — Postgres + storage writes\n\n### AI provider calls\n- `ai.complete` with attributes `ai.provider`, `ai.model`, `ai.prompt_tokens`, `ai.completion_tokens`\n\nSet `OTEL_EXPORTER_OTLP_ENDPOINT` on the API pod to enable export. See `DEPLOY.md` for vendor snippets."
+      }
+    },
+    {
+      "type": "timeseries",
+      "id": 2,
+      "title": "AI provider call rate (from metrics)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "sum by (kind) (rate(carbon_usage_recorded_total{kind=~\"ai.*\"}[5m]))",
+          "legendFormat": "{{kind}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "id": 3,
+      "title": "Ingest job duration histogram",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(carbon_ingest_job_duration_ms_bucket[5m])))",
+          "legendFormat": "p95",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(carbon_ingest_job_duration_ms_bucket[5m])))",
+          "legendFormat": "p50",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ms" } }
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 30,
+  "style": "dark",
+  "tags": ["carbon", "tracing"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": false, "text": "Prometheus", "value": "Prometheus" },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Datasource",
+        "multi": false,
+        "name": "DS_PROMETHEUS",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": { "from": "now-6h", "to": "now" },
+  "timezone": "",
+  "title": "Carbon API — tracing",
+  "uid": "carbon-api-tracing",
+  "version": 1
+}

@@ -1,12 +1,28 @@
 'use client';
 
+import { useEffect, useMemo, useRef } from 'react';
 import { EmptyState, ErrorBanner, Skeleton } from '@/components/ui';
-import { useEvents } from '@/lib/hooks/api';
+import { useEventStream, useEvents } from '@/lib/hooks/api';
 import { getSectionCopy } from '@/lib/empty-data';
-import { ApiError } from '@/lib/api-client';
+import { ApiError, type EventRow } from '@/lib/api-client';
 
 export default function ActivitySection() {
   const events = useEvents({ limit: 100 });
+  const stream = useEventStream({ maxEvents: 200 });
+
+  // Poll as a backup even when SSE is up — a dropped socket that hasn't
+  // errored yet would otherwise leave the UI silent. 20s is slow enough not
+  // to matter for a real-time transport but fast enough to catch a stale tab.
+  const pollMs = stream.unsupported ? 5_000 : 20_000;
+  const refetchRef = useRef(events.refetch);
+  refetchRef.current = events.refetch;
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const t = window.setInterval(() => {
+      void refetchRef.current();
+    }, pollMs);
+    return () => window.clearInterval(t);
+  }, [pollMs]);
 
   // 501/404 = the events route is not deployed on this API yet (a parallel
   // agent adds it in Phase 3). We show an honest "Not available yet" pill
@@ -14,7 +30,21 @@ export default function ActivitySection() {
   const notDeployed =
     events.error instanceof ApiError && (events.error.status === 404 || events.error.status === 501);
 
-  if (events.loading) {
+  // Merge the live stream on top of the last polled snapshot. The stream
+  // supplies the newest events; older ones stay in the polled list. Dedupe
+  // by id — a race between the SSE frame and the next poll can double-report.
+  const merged = useMemo<EventRow[]>(() => {
+    const seen = new Set<string>();
+    const out: EventRow[] = [];
+    for (const row of [...stream.events, ...(events.data?.data ?? [])]) {
+      if (seen.has(row.id)) continue;
+      seen.add(row.id);
+      out.push(row);
+    }
+    return out;
+  }, [stream.events, events.data?.data]);
+
+  if (events.loading && merged.length === 0) {
     return (
       <div className="space-y-2">
         <Skeleton className="h-16" />
@@ -33,11 +63,11 @@ export default function ActivitySection() {
     );
   }
 
-  if (events.error) {
+  if (events.error && merged.length === 0) {
     return <ErrorBanner error={events.error} onRetry={events.refetch} />;
   }
 
-  const rows = events.data?.data ?? [];
+  const rows = merged;
   if (rows.length === 0) {
     return (
       <EmptyState
@@ -58,6 +88,13 @@ export default function ActivitySection() {
 
   return (
     <div className="space-y-8">
+      <div className="text-muted-foreground text-xs">
+        {stream.unsupported
+          ? 'Polling every 5s (live stream unavailable).'
+          : stream.connected
+            ? 'Live — streaming updates.'
+            : 'Reconnecting to live stream…'}
+      </div>
       {Array.from(byDay.entries()).map(([day, items]) => (
         <section key={day}>
           <h3 className="text-muted-foreground mb-3 text-xs font-medium uppercase tracking-wide">

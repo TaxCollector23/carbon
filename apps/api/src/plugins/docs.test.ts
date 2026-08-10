@@ -250,6 +250,7 @@ describe('docs plugin', () => {
         '/v1/projects/{slug}/snapshots/{name}', // raw serialized StateSnapshot JSON
         '/v1/snapshots/{slug}/diff', // dynamic StateDiff shape
         '/v1/events/export', // text/csv attachment
+        '/v1/events/stream', // text/event-stream, long-lived SSE
       ];
 
       const missing: string[] = [];

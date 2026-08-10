@@ -6,6 +6,7 @@ import { CarbonError, makeId, NotFoundError } from '@carbon/core';
 import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
 import type { SessionAuthenticatedRequest } from '../plugins/session-auth.js';
+import { recordShareLinkCreated, recordShareLinkHit } from '../plugins/metrics.js';
 import { requireScope } from '../plugins/scopes.js';
 import { zodBody, zodResponse } from '../plugins/schema-helpers.js';
 import { getActor, recordEvent } from '../services/events.js';
@@ -80,6 +81,7 @@ export async function registerShareLinkRoutes(
         action: 'share_link.created',
         metadata: { id, ttlHours: body.ttlHours },
       });
+      recordShareLinkCreated();
       const dashboardUrl = process.env.DASHBOARD_URL ?? 'http://localhost:3000';
       reply.status(201);
       return {
@@ -121,6 +123,7 @@ export async function registerShareLinkRoutes(
         )
         .limit(1);
       if (!link) throw new NotFoundError('share_link', params.token);
+      recordShareLinkHit();
       // Return the most recent snapshot artifact for the project as the
       // "current state" the recipient can read. A future revision will
       // stream the live state engine here; for now a stable pointer is

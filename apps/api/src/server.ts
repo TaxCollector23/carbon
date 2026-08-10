@@ -29,6 +29,8 @@ import { registerAiQualityRoutes } from './routes/ai-quality.js';
 import { registerUsageRoutes } from './routes/usage.js';
 import { registerSsoRoutes } from './routes/sso.js';
 import { registerExportRoutes } from './routes/export.js';
+import { registerSearchRoutes } from './routes/search.js';
+import { registerFeatureFlagRoutes } from './routes/feature-flags.js';
 import { registerApiKeyAuth, type ApiKeyPluginOptions } from './plugins/api-key.js';
 import { registerSessionAuth } from './plugins/session-auth.js';
 import { registerIdempotency } from './plugins/idempotency.js';
@@ -339,6 +341,8 @@ export async function buildServer(
   await registerUsageRoutes(app, ctx);
   await registerSsoRoutes(app, ctx);
   await registerExportRoutes(app, ctx);
+  await registerSearchRoutes(app, ctx);
+  await registerFeatureFlagRoutes(app, ctx);
 
   return app;
 }

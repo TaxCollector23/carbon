@@ -2,6 +2,7 @@ import { makeId } from '@carbon/core';
 import { schema } from '@carbon/database';
 import type { JudgeIssue, JudgeVerdict } from '@carbon/ai';
 import type { AppContext } from '../context.js';
+import { recordAiJudgeBelowThreshold } from '../plugins/metrics.js';
 
 /**
  * Persist an AI judge verdict pair against a project. Every ingest with the
@@ -60,5 +61,6 @@ export async function recordAiQualityReport(
     needsReview,
     model,
   });
+  if (needsReview) recordAiJudgeBelowThreshold();
   return { id, minScore, needsReview };
 }
