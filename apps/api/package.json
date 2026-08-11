@@ -45,12 +45,14 @@
     "ioredis": "^5.4.2",
     "postgres": "^3.4.5",
     "stripe": "^17.0.0",
+    "ws": "^8.21.3",
     "zod": "^3.24.1",
     "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
     "@carbon/config": "workspace:*",
     "@types/node": "^22.10.0",
+    "@types/ws": "^8.18.1",
     "tsup": "^8.3.5",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",

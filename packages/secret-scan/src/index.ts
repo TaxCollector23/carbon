@@ -158,12 +158,24 @@ async function expandPaths(
   ignore: readonly string[],
 ): Promise<string[]> {
   const out = new Set<string>();
-  // Pre-compile ignore patterns so explicit paths honour them too — otherwise
-  // the pre-commit hook passes .env.example directly and skips the ignore
-  // list. fast-glob's isMatch handles the same brace/star grammar the caller
-  // wrote in DEFAULT_IGNORE, keeping semantics identical.
-  const shouldIgnore = (path: string): boolean =>
-    ignore.length > 0 && (fg.isDynamicPattern(ignore[0] ?? '') || true) && fg.sync(ignore, { cwd, absolute: true, dot: true, onlyFiles: false }).includes(path);
+  // Explicit paths should honour the ignore list too — the pre-commit hook
+  // passes staged files directly, bypassing fast-glob's discovery pass.
+  // Compile each glob pattern into a match predicate up front. Handles the
+  // patterns we actually ship in DEFAULT_IGNORE (**/foo, **/*.bar, **/dir/**);
+  // richer glob semantics can be added if a caller needs them.
+  const globToRe = (glob: string): RegExp => {
+    const re = glob
+      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+      .replace(/\*\*\/?/g, '§§DBLSTAR§§')
+      .replace(/\*/g, '[^/]*')
+      .replace(/§§DBLSTAR§§/g, '(?:.*/)?');
+    return new RegExp(`^${re}$`);
+  };
+  const ignoreRes = ignore.map(globToRe);
+  const shouldIgnore = (absPath: string): boolean => {
+    const rel = absPath.startsWith(cwd + '/') ? absPath.slice(cwd.length + 1) : absPath;
+    return ignoreRes.some((re) => re.test(absPath) || re.test(rel) || re.test('/' + rel));
+  };
   for (const raw of paths) {
     if (!raw) continue;
     const abs = resolve(cwd, raw);

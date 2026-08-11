@@ -4,6 +4,7 @@ import type { BehaviorGraph, IntermediateRepresentation } from '@carbon/types';
 import type { StateEngine } from '@carbon/state';
 import type { ConsistencyMode } from '@carbon/graph';
 import { registerGraphRoutes } from './router.js';
+import { registerGraphQL } from './graphql.js';
 import { registerStateStream } from './websocket.js';
 import { toHttpError } from './errors.js';
 
@@ -90,6 +91,7 @@ export async function createRuntime(opts: RuntimeOptions): Promise<Runtime> {
   }
 
   await registerStateStream(app, ctx);
+  await registerGraphQL(app, ctx);
   await registerGraphRoutes(app, ctx);
 
   let boundUrl = '';

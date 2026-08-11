@@ -583,6 +583,9 @@ export function createApiClient(options: ApiClientOptions = {}) {
         ...init,
       });
     } catch (err) {
+      // Preserve AbortError so callers can distinguish a cancelled request
+      // (fresh keystroke, unmounted component) from a genuine network fault.
+      if (err instanceof Error && err.name === 'AbortError') throw err;
       throw new ApiError({
         status: 0,
         code: 'CARBON_NETWORK',
@@ -752,10 +755,16 @@ export function createApiClient(options: ApiClientOptions = {}) {
     search(
       q: string,
       scope: SearchScope = 'all',
-      params: { limit?: number; cursor?: string } = {},
+      params: { limit?: number; cursor?: string; signal?: AbortSignal } = {},
     ) {
-      const query = toQuery({ q, scope, ...params });
-      return request<{ results: SearchResult[] }>('GET', `/v1/search${query}`);
+      const { signal, ...rest } = params;
+      const query = toQuery({ q, scope, ...rest });
+      return request<{ results: SearchResult[] }>(
+        'GET',
+        `/v1/search${query}`,
+        undefined,
+        signal ? { signal } : undefined,
+      );
     },
 
     // ---------------------------- organizations -----------------------------

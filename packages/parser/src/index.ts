@@ -9,3 +9,4 @@ export { AsyncApiParser } from './adapters/asyncapi.js';
 export { ProtobufParser } from './adapters/protobuf.js';
 export { GrpcParser } from './adapters/grpc.js';
 export * from './validate.js';
+export { createParserContext } from './parser.js';

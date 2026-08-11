@@ -1,5 +1,6 @@
 export * from './runtime.js';
 export * from './router.js';
+export * from './graphql.js';
 export * from './websocket.js';
 export * from './errors.js';
 export * from './plugins/index.js';

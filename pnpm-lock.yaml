@@ -125,6 +125,9 @@ importers:
       stripe:
         specifier: ^17.0.0
         version: 17.7.0
+      ws:
+        specifier: ^8.21.3
+        version: 8.21.3
       zod:
         specifier: ^3.24.1
         version: 3.25.76
@@ -138,6 +141,9 @@ importers:
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.1
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
       tsup:
         specifier: ^8.3.5
         version: 8.5.1(jiti@1.21.7)(postcss@8.5.25)(supports-color@10.2.2)(tsx@4.23.8)(typescript@5.9.3)(yaml@2.9.0)
@@ -779,6 +785,9 @@ importers:
       fastify:
         specifier: ^5.2.1
         version: 5.11.2
+      graphql:
+        specifier: ^16.11.0
+        version: 16.11.0
       ioredis:
         specifier: ^5.4.2
         version: 5.11.1
@@ -786,6 +795,9 @@ importers:
       '@carbon/config':
         specifier: workspace:*
         version: link:../config
+      '@carbon/parser':
+        specifier: workspace:*
+        version: link:../parser
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.1

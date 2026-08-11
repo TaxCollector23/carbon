@@ -9,6 +9,7 @@ allowBuilds:
   '@vscode/vsce-sign': false
   esbuild: false
   keytar: set this to true or false
+  msgpackr-extract: set this to true or false
   protobufjs: true
   puppeteer: set this to true or false
   sharp: set this to true or false

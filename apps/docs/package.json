@@ -4,8 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "mintlify dev --port 3002",
-    "build": "mintlify validate",
-    "check": "mintlify broken-links"
+    "validate": "mintlify validate",
+    "build": "mintlify export --output docs-site.zip",
+    "check": "mintlify broken-links",
+    "check:links": "bash scripts/check-links.sh"
   },
   "devDependencies": {
     "mintlify": "^4.0.0"

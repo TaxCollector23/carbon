@@ -10,6 +10,15 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Pages deploy needs an OIDC token to authenticate against
+# actions/deploy-pages@v4, and write access to the pages surface. Everything
+# else in this workflow is read-only, so per-job hardening is fine — but the
+# top-level defaults keep the least-privilege posture explicit.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 env:
   TURBO_TELEMETRY_DISABLED: 1
 
@@ -203,6 +212,77 @@ jobs:
           path: apps/e2e/playwright-report
           if-no-files-found: ignore
           retention-days: 7
+
+  docs-build:
+    name: Docs build
+    runs-on: ubuntu-latest
+    needs: install
+    # Mintlify's CLI works unauthenticated for public preview + export, but
+    # some org-scoped features (private groups, premium components) require
+    # a login token. If no token is configured we still run the job — the
+    # `if:` on the deploy job below is what gates publish.
+    env:
+      MINTLIFY_TOKEN: ${{ secrets.MINTLIFY_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.6.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile=false
+      - name: Validate docs (strict)
+        run: pnpm --filter @carbon/docs validate
+      - name: Check for broken links
+        run: pnpm --filter @carbon/docs check:links
+      - name: Build static site
+        run: pnpm --filter @carbon/docs build
+      - name: Unpack export bundle
+        # `mintlify export` produces a zip; Pages wants a directory.
+        run: |
+          set -euo pipefail
+          cd apps/docs
+          rm -rf site
+          mkdir -p site
+          unzip -q docs-site.zip -d site
+          # Preserve CNAME for the custom-domain switch.
+          cp CNAME site/CNAME || true
+      - name: Upload workflow artifact (debugging)
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-site
+          path: apps/docs/site
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload Pages artifact
+        # Only produce the pages artifact on main so PR builds don't try to
+        # deploy. `actions/deploy-pages` in the next job reads this.
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push' && (env.MINTLIFY_TOKEN != '' || vars.CARBON_DOCS_PUBLIC == 'true')
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/docs/site
+
+  docs-deploy:
+    name: Docs deploy (GitHub Pages)
+    runs-on: ubuntu-latest
+    needs: docs-build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # No-op until an operator enables Pages in repo settings
+    # (Settings -> Pages -> Source: GitHub Actions). Until then, the
+    # deploy-pages step will fail loudly and the rest of the pipeline is
+    # unaffected because this job is not a dependency of `deploy`.
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
 
   deploy:
     name: Deploy to Fly.io

@@ -5,6 +5,7 @@ import type {
   IntermediateRepresentation,
   JsonType,
   ParamDef,
+  RelationshipDef,
   ResourceDef,
   ResourceId,
 } from '@carbon/types';
@@ -49,13 +50,20 @@ export class GraphQLParser implements Parser {
 
     const resources: ResourceDef[] = [];
     const endpoints: EndpointDef[] = [];
+    const relationships: RelationshipDef[] = [];
 
     const queryType = types.find((t) => t.name === 'Query');
     const mutationType = types.find((t) => t.name === 'Mutation');
 
+    const resourceTypeNames = new Set<string>();
     for (const type of types) {
       if (['Query', 'Mutation', 'Subscription'].includes(type.name)) continue;
       if (type.kind !== 'type') continue;
+      resourceTypeNames.add(type.name);
+    }
+
+    for (const type of types) {
+      if (!resourceTypeNames.has(type.name)) continue;
       const id = type.name.toLowerCase() as ResourceId;
       resources.push({
         id,
@@ -63,6 +71,21 @@ export class GraphQLParser implements Parser {
         primaryKey: type.fields.find((f) => f.name.toLowerCase() === 'id')?.name ?? 'id',
         schema: toJsonType(type),
       });
+      // A typed field that points at another resource type becomes a
+      // relationship — the same edges the OpenAPI adapter emits when path
+      // segments reveal ownership. We infer kind conservatively: scalar
+      // (single) references become `references`; list references become
+      // `owns`. Downstream `graph` code can refine.
+      for (const field of type.fields) {
+        if (!resourceTypeNames.has(field.returnType)) continue;
+        if (field.returnType === type.name) continue;
+        relationships.push({
+          from: id,
+          to: field.returnType.toLowerCase() as ResourceId,
+          kind: field.returnList ? 'owns' : 'references',
+          via: field.name,
+        });
+      }
     }
 
     if (queryType) {
@@ -87,9 +110,9 @@ export class GraphQLParser implements Parser {
       auth: [],
       resources,
       endpoints,
-      relationships: [],
+      relationships,
       examples: [],
-      meta: { schemaTypes: types.length },
+      meta: { schemaTypes: types.length, graphqlSDL: input.content },
     };
   }
 }

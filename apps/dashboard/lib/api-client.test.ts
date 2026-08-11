@@ -8,12 +8,13 @@
  * The `describe` block is a smoke test only; the real verification is that
  * this file *type-checks*.
  */
-import { describe, expect, it } from 'vitest';
-import type {
-  ApiPaths,
-  Project,
-  ListResponse,
-  CreatedApiKey,
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  createApiClient,
+  type ApiPaths,
+  type Project,
+  type ListResponse,
+  type CreatedApiKey,
 } from './api-client';
 
 // ---------- /v1/projects GET ----------
@@ -64,5 +65,49 @@ function _typecheckOnly_createdApiKey(x: CreatedApiKey) {
 describe('api-client generated types', () => {
   it('compiles the wire-type assertions in this file', () => {
     expect(true).toBe(true);
+  });
+});
+
+describe('api-client.search cancellation', () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  it('propagates AbortError when the caller aborts the signal mid-flight', async () => {
+    // Fetch stub that resolves only when the caller's signal fires — mirrors
+    // the browser's real behavior of rejecting with a DOMException named
+    // 'AbortError'. We assert the client re-throws it verbatim rather than
+    // wrapping it in ApiError, so palette code can distinguish a superseded
+    // keystroke from a genuine network fault.
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) => {
+      return new Promise<Response>((_resolve, reject) => {
+        const signal = init?.signal;
+        if (!signal) throw new Error('expected AbortSignal to be forwarded');
+        const onAbort = () => {
+          const err = new Error('The operation was aborted.');
+          err.name = 'AbortError';
+          reject(err);
+        };
+        if (signal.aborted) onAbort();
+        else signal.addEventListener('abort', onAbort);
+      });
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const client = createApiClient({ baseUrl: 'http://test' });
+    const controller = new AbortController();
+    const promise = client.search('anything', 'all', { signal: controller.signal });
+    controller.abort();
+
+    await expect(promise).rejects.toMatchObject({ name: 'AbortError' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const call = fetchMock.mock.calls[0]!;
+    expect(String(call[0])).toContain('/v1/search');
+    expect(String(call[0])).toContain('q=anything');
+    // signal must not leak into the querystring
+    expect(String(call[0])).not.toContain('signal=');
   });
 });

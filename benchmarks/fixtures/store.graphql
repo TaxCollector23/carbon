@@ -1,0 +1,42 @@
+# Small SDL fixture used by @carbon/runtime graphql tests and the
+# `carbon emulate --from store.graphql` smoke test. Two related resources
+# so we exercise both single and list resolvers plus the mutation trio.
+
+type Query {
+  product(id: ID!): Product
+  products(limit: Int, cursor: String): [Product!]!
+  order(id: ID!): Order
+  orders(limit: Int, cursor: String): [Order!]!
+}
+
+type Mutation {
+  createProduct(input: ProductInput!): Product!
+  updateProduct(id: ID!, input: ProductInput!): Product!
+  deleteProduct(id: ID!): Boolean!
+
+  createOrder(input: OrderInput!): Order!
+  updateOrder(id: ID!, input: OrderInput!): Order!
+  deleteOrder(id: ID!): Boolean!
+}
+
+type Product {
+  id: ID!
+  name: String!
+  priceCents: Int!
+}
+
+type Order {
+  id: ID!
+  productId: ID!
+  quantity: Int!
+}
+
+input ProductInput {
+  name: String!
+  priceCents: Int!
+}
+
+input OrderInput {
+  productId: ID!
+  quantity: Int!
+}
