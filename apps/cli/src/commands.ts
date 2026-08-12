@@ -14,6 +14,7 @@ import { logoutCommand } from './commands/logout.js';
 import { qualityCommand } from './commands/quality.js';
 import { recordCommand } from './commands/record.js';
 import { replayCommand } from './commands/replay.js';
+import { serveCommand } from './commands/serve.js';
 import { snapshotCommand } from './commands/snapshot.js';
 import { usageCommand } from './commands/usage.js';
 import { watchCommand } from './commands/watch.js';
@@ -37,6 +38,7 @@ export const cliSubCommands = {
   inspect: inspectCommand,
   snapshot: snapshotCommand,
   replay: replayCommand,
+  serve: serveCommand,
   doctor: doctorCommand,
   'generate-tests': generateTestsCommand,
   usage: usageCommand,
@@ -65,6 +67,7 @@ export const cliCommandCatalog: readonly CliCommandInfo[] = [
   commandInfo('snapshot push', snapshotSubCommand('push')),
   commandInfo('snapshot pull', snapshotSubCommand('pull')),
   commandInfo('replay', replayCommand),
+  commandInfo('serve', serveCommand),
   commandInfo('doctor', doctorCommand),
   commandInfo('generate-tests', generateTestsCommand),
   commandInfo('usage', usageCommand),

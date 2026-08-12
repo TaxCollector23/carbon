@@ -191,6 +191,29 @@ Local files land under `.carbon/snapshots/`.
 
 ---
 
+## `carbon serve`
+
+Boot the local Carbon dev stack (API + dashboard + web + workers) in a
+single terminal. Interleaves each service's stdout with a colored tag
+prefix; Ctrl+C tears every child down together, and a non-zero exit
+from any one service stops the whole stack.
+
+**Arguments / flags**
+
+- `--only <list>` — comma-separated subset (`api,dashboard,web,docs,workers`).
+  Defaults to everything except `docs`.
+- `--skip-preflight` — skip the "port already in use" check (useful
+  when you know something legitimate is holding the port).
+
+**Example**
+
+```bash
+carbon serve                       # api + dashboard + web + workers
+carbon serve --only api,workers    # just the backend loop
+```
+
+---
+
 ## `carbon doctor`
 
 Diagnose the local development environment: Node ≥ 20, pnpm,
