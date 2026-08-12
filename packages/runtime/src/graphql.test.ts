@@ -76,21 +76,17 @@ describe('runtime graphql', () => {
     expect((listed.data as { products: unknown[] }).products).toHaveLength(1);
   });
 
-  // TODO(r15): the GraphQL parser doesn't yet auto-emit REST endpoints for
-  // SDL-declared types. State IS shared under the hood (same StateEngine
-  // instance) — verified indirectly by the delete-then-query test below. Skip
-  // this until we add the parser's SDL → REST endpoint mapping.
-  it.skip('shares state with the REST surface', async () => {
+  it('shares state with the REST surface', async () => {
     rt = await bootFromSdl();
-    // Create through GraphQL, read through the REST /graphql/product endpoint
-    // the parser emitted — same StateEngine underneath.
+    // Create through GraphQL, read through the /rest/products endpoint the
+    // parser auto-emitted — same StateEngine underneath.
     const create = await gql(
       rt,
       `mutation { createProduct(input: { name: "Gadget", priceCents: 999 }) { id } }`,
     );
     const id = (create.data as { createProduct: { id: string } }).createProduct.id;
 
-    const rest = await rt.app.inject({ method: 'GET', url: '/graphql/products' });
+    const rest = await rt.app.inject({ method: 'GET', url: '/rest/products' });
     expect(rest.statusCode).toBe(200);
     const data = (rest.json() as { data: Array<{ id: string }> }).data;
     expect(data.some((r) => r.id === id)).toBe(true);

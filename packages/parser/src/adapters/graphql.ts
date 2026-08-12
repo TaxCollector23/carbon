@@ -99,6 +99,27 @@ export class GraphQLParser implements Parser {
       }
     }
 
+    // Also emit REST-style endpoints per resource so consumers that prefer
+    // REST get list/get/create/update/delete for free — the runtime's normal
+    // REST router serves them from the same StateEngine the GraphQL resolvers
+    // read from. Path is `/rest/<plural>` so we never collide with a
+    // Query/Mutation field named `products` (which would emit `/graphql/products`).
+    // Consumers that only want GraphQL can ignore these — they cost nothing
+    // when idle.
+    const restPaths = new Set<string>();
+    for (const resource of resources) {
+      const plural = pluralize(resource.name.toLowerCase());
+      const base = `/rest/${plural}`;
+      if (restPaths.has(base)) continue;
+      restPaths.add(base);
+      const item = `${base}/:id`;
+      endpoints.push(restEndpoint('GET', base, 'list', resource.id));
+      endpoints.push(restEndpoint('POST', base, 'create', resource.id));
+      endpoints.push(restEndpoint('GET', item, 'get', resource.id));
+      endpoints.push(restEndpoint('PATCH', item, 'update', resource.id));
+      endpoints.push(restEndpoint('DELETE', item, 'delete', resource.id));
+    }
+
     return {
       version: 1,
       api: {
@@ -233,6 +254,37 @@ function toEndpoint(
     auth: [],
     meta: { graphql: origin },
   };
+}
+
+function restEndpoint(
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  path: string,
+  operation: EndpointDef['operation'],
+  resource: ResourceId,
+): EndpointDef {
+  return {
+    id: `${method}:${path}` as EndpointId,
+    method,
+    path,
+    operation,
+    resource,
+    params: path.includes(':id')
+      ? [{ name: 'id', in: 'path', required: true, schema: { kind: 'string' } }]
+      : [],
+    requestBody: null,
+    responses: [],
+    auth: [],
+    meta: { graphql: 'rest-shim' },
+  };
+}
+
+// Very small pluralizer — mirror of the singularizer in
+// packages/ai/src/providers/mock.ts. Covers the common cases; anything
+// weirder (person/people, mouse/mice) intentionally not supported.
+function pluralize(word: string): string {
+  if (word.endsWith('y') && !/[aeiou]y$/.test(word)) return `${word.slice(0, -1)}ies`;
+  if (word.endsWith('s') || word.endsWith('x') || word.endsWith('z')) return `${word}es`;
+  return `${word}s`;
 }
 
 function classifyMutation(
