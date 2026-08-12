@@ -7,3 +7,4 @@ export { AnthropicProvider } from './providers/anthropic.js';
 export { OpenAIProvider } from './providers/openai.js';
 export { GeminiProvider } from './providers/gemini.js';
 export { LocalProvider } from './providers/local.js';
+export { MockAiProvider, pathToResourceName } from './providers/mock.js';

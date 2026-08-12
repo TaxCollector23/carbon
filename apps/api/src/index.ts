@@ -9,7 +9,7 @@ import { FsStorage, S3Storage, type Storage } from '@carbon/storage';
 import { createIngestionPipeline } from '@carbon/ingestion';
 import { createDefaultParserRegistry } from '@carbon/parser';
 import { createIngestionQueue, createRedisConnection } from '@carbon/workers';
-import { AiCapabilities, AiJudge, OpenRouterProvider } from '@carbon/ai';
+import { AiCapabilities, AiJudge, MockAiProvider, OpenRouterProvider } from '@carbon/ai';
 import { loadEnv } from './env.js';
 import { buildServer } from './server.js';
 import type { AppContext } from './context.js';
@@ -90,7 +90,12 @@ async function main(): Promise<void> {
   // construction time. Emits `usage.ai.call` log lines for humans and
   // persists a metered row into `usage_events` for the /v1/usage aggregate.
   let ctxRef: AppContext | undefined;
-  const aiProvider = env.CARBON_AI_API_KEY
+  // `CARBON_AI_PROVIDER=mock` bypasses OpenRouter entirely and hands back a
+  // deterministic MockAiProvider — the way integration tests and CI exercise
+  // the ingest + judge pipeline without an LLM key.
+  const aiProvider = env.CARBON_AI_PROVIDER === 'mock'
+    ? new MockAiProvider({ defaultModel: env.CARBON_AI_MODEL, logger })
+    : env.CARBON_AI_API_KEY
     ? new OpenRouterProvider({
         apiKey: env.CARBON_AI_API_KEY,
         defaultModel: env.CARBON_AI_MODEL,

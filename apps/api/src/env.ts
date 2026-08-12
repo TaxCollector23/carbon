@@ -14,7 +14,7 @@ const RawEnvSchema = z
     STORAGE_ROOT: z.string().default('./.carbon-data'),
     LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'silent']).default('info'),
     CARBON_AI_PROVIDER: z
-      .enum(['openrouter', 'openai', 'anthropic', 'gemini', 'local'])
+      .enum(['openrouter', 'openai', 'anthropic', 'gemini', 'local', 'mock'])
       .default('openrouter'),
     CARBON_AI_API_KEY: z.string().optional(),
     CARBON_AI_MODEL: z.string().optional(),

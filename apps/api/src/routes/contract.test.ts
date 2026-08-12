@@ -1,5 +1,7 @@
-import { describe, expect, it, vi, afterEach } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi, afterEach } from 'vitest';
 import Fastify from 'fastify';
+import { WebSocketServer } from 'ws';
+import type { AddressInfo } from 'node:net';
 import { ZodError } from 'zod';
 import { isCarbonError, NoopLogger } from '@carbon/core';
 import { MemoryStorage } from '@carbon/storage';
@@ -161,3 +163,82 @@ describe('contract-check route', () => {
     expect(res.statusCode).toBe(404);
   });
 });
+
+describe('contract-check wsChecks', () => {
+  let wss: WebSocketServer;
+  let wsUrl: string;
+
+  beforeAll(async () => {
+    // Tiny in-process WS echo-with-greeting server: on connect, immediately
+    // sends `{"kind":"welcome"}`; on every message received, echoes it back.
+    wss = new WebSocketServer({ port: 0 });
+    await new Promise<void>((resolve) => wss.once('listening', resolve));
+    const port = (wss.address() as AddressInfo).port;
+    wsUrl = `ws://127.0.0.1:${port}`;
+    wss.on('connection', (ws) => {
+      ws.send(JSON.stringify({ kind: 'welcome' }));
+      ws.on('message', (raw) => ws.send(raw.toString()));
+    });
+  });
+
+  afterAll(async () => {
+    await new Promise<void>((resolve) => wss.close(() => resolve()));
+  });
+
+  it('opens the socket, sends the first frame, collects the expected count, and reports ok=true', async () => {
+    const app = await build();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/projects/demo/contract-check',
+      payload: {
+        url: 'https://api.example.com', // required by the schema; sampleRequests defaults to a single GET /
+        sampleRequests: [{ method: 'GET', path: '/health' }],
+        wsChecks: [
+          {
+            url: wsUrl,
+            sendMessage: { hello: true },
+            expectFrames: 2,
+            timeoutMs: 2000,
+            expectSchema: { type: 'object' },
+          },
+        ],
+      },
+    });
+    // The REST arm hits a fake URL and will error out — we only care about
+    // the ws arm shape here.
+    const body = res.json() as {
+      ws?: Array<{ url: string; framesReceived: number; ok?: boolean; frames: unknown[] }>;
+    };
+    expect(res.statusCode).toBe(200);
+    expect(Array.isArray(body.ws)).toBe(true);
+    const [check] = body.ws!;
+    expect(check).toBeDefined();
+    expect(check!.url).toBe(wsUrl);
+    // welcome frame + echoed sendMessage frame
+    expect(check!.framesReceived).toBeGreaterThanOrEqual(2);
+    expect(check!.frames.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('reports an error string when the socket cannot connect', async () => {
+    const app = await build();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/projects/demo/contract-check',
+      payload: {
+        url: 'https://api.example.com',
+        sampleRequests: [{ method: 'GET', path: '/' }],
+        wsChecks: [
+          {
+            url: 'ws://127.0.0.1:1', // nothing listens on port 1
+            expectFrames: 1,
+            timeoutMs: 300,
+          },
+        ],
+      },
+    });
+    const body = res.json() as { ws?: Array<{ error?: string }> };
+    expect(res.statusCode).toBe(200);
+    expect(body.ws?.[0]?.error).toBeTruthy();
+  });
+});
+
