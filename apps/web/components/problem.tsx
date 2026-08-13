@@ -21,7 +21,7 @@ const problems = [
 
 export function Problem() {
   return (
-    <Section id="problem" className="bg-subtle/50 py-24">
+    <Section id="problem" className="bg-subtle/50 ">
       <div className="grid gap-12 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
         <SectionHeading
           title="API development slows down when every test depends on someone else’s system."

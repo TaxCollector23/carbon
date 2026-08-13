@@ -27,8 +27,22 @@ export const main = defineCommand({
   subCommands: cliSubCommands,
 });
 
-function printWelcome(): void {
+async function printWelcome(): Promise<void> {
   ui.welcome(CARBON_VERSION);
+  // Sign-in is the first thing a new user should do. When the credentials
+  // file is missing, tell them plainly instead of dumping the full command
+  // catalog they can't actually use yet.
+  const { loadCredentials } = await import('./lib/credentials.js');
+  const signedIn = (await loadCredentials()) !== null;
+  if (!signedIn) {
+    ui.header('Get started');
+    process.stdout.write(
+      '\n  Run `carbon login` to open the Carbon dashboard, create an account,\n' +
+        '  and link this CLI. It takes about 30 seconds.\n\n' +
+        '  Local-only? Try `carbon emulate --from <spec.json>` — no account needed.\n\n',
+    );
+    return;
+  }
   ui.header('Commands');
   ui.commandList(cliCommandCatalog);
   ui.footer('Docs', 'https://github.com/carbon-dev/carbon#readme');
@@ -65,11 +79,11 @@ export async function runCli(rawArgs = process.argv.slice(2)): Promise<void> {
     void maybeShowNotice((line) => process.stdout.write(line));
   }
 
-  // Only draw the ANSI banner in human mode. JSON consumers get clean output.
-  if (!isJson()) ui.banner();
+  // (Banner removed intentionally — every command should print signal, not
+  // ASCII art. The welcome screen still greets an empty invocation.)
 
   if (argv.length === 0) {
-    printWelcome();
+    await printWelcome();
     return;
   }
 

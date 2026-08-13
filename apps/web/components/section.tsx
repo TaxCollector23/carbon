@@ -15,7 +15,13 @@ export function Section({ className, bordered = true, children, ...props }: Sect
       )}
       {...props}
     >
-      <div className="container">{children}</div>
+      {/*
+       * Uniform vertical rhythm — every section on the landing page shares
+       * the same padding block so the page reads as one document instead of
+       * a stack of mismatched cards. Children that need less breathing room
+       * can override with a negative-margin utility on their outermost node.
+       */}
+      <div className="container py-20 md:py-28">{children}</div>
     </section>
   );
 }

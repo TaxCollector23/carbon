@@ -16,7 +16,7 @@ import { COMPARE_ROWS, TIERS } from '@/lib/plans';
  */
 export function Pricing() {
   return (
-    <Section id="pricing" className="py-24">
+    <Section id="pricing">
       <SectionHeading
         title="Free forever for solo devs. Paid the moment your team needs shared state."
         description="The CLI, all 8 adapters, local snapshots, and chaos stay free forever. Team and Enterprise add cloud sync, dashboard collaboration, compliance controls, and scale."

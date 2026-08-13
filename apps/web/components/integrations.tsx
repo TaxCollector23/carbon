@@ -45,7 +45,7 @@ const inputs = [
 
 export function Integrations() {
   return (
-    <Section id="integrations" className="py-24">
+    <Section id="integrations">
       <div className="grid gap-12 lg:grid-cols-[0.75fr_1.25fr]">
         <SectionHeading
           title="Anything with a schema, a spec, or a wire."

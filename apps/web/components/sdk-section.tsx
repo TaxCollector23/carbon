@@ -17,7 +17,7 @@ await replica.snapshot.save('after-refund');
 
 export function SdkSection() {
   return (
-    <Section id="sdk" className="py-24">
+    <Section id="sdk">
       <div className="grid gap-12 lg:grid-cols-[1fr_1.4fr] lg:items-start">
         <SectionHeading
           title="Drive the runtime from a test file."

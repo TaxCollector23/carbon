@@ -57,7 +57,7 @@ const competitors = ['Prism', 'Mockoon', 'WireMock', 'MSW'] as const;
 
 export function Benchmarks() {
   return (
-    <Section id="benchmarks" className="py-24">
+    <Section id="benchmarks">
       <div className="grid gap-12 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
         <SectionHeading
           title="The only replica that keeps state."

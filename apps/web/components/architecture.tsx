@@ -14,7 +14,7 @@ const layers = [
 
 export function Architecture() {
   return (
-    <Section id="architecture" className="py-24">
+    <Section id="architecture">
       <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
         <SectionHeading
           title="A compiler pipeline."

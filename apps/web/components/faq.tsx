@@ -35,7 +35,7 @@ const items = [
 export function Faq() {
   const [open, setOpen] = useState<number | null>(0);
   return (
-    <Section id="faq" className="py-24">
+    <Section id="faq">
       <SectionHeading title="Questions, answered." align="center" className="mx-auto" />
       <div className="border-border mx-auto mt-12 max-w-2xl border-y">
         {items.map((item, i) => {

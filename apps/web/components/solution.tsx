@@ -21,7 +21,7 @@ const pillars = [
 
 export function Solution() {
   return (
-    <Section id="solution" className="py-24">
+    <Section id="solution">
       <div className="grid gap-12 lg:grid-cols-[1fr_1.15fr] lg:items-center">
         <div>
           <SectionHeading

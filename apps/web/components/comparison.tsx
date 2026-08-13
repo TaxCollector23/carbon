@@ -32,7 +32,7 @@ function Marker({ value }: { value: Cell }) {
 
 export function Comparison() {
   return (
-    <Section id="comparison" className="py-24">
+    <Section id="comparison">
       <SectionHeading title="What each option gives you." />
       <div className="border-border mt-12 overflow-x-auto border-y">
         <table className="w-full text-sm">

@@ -11,7 +11,7 @@ const commands = [
 
 export function CliSection() {
   return (
-    <Section id="cli" className="py-24">
+    <Section id="cli">
       <div className="grid gap-12 lg:grid-cols-[0.75fr_1.25fr] lg:items-start">
         <SectionHeading
           title="Six commands to a replica."
