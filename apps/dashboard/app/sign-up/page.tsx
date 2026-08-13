@@ -4,6 +4,7 @@ import { Suspense, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signUp } from '@/lib/auth-client';
+import { AuthShell, FieldLabel, inputClass } from '@/components/auth-shell';
 
 /**
  * Email/password sign-up. Same handler as /sign-in, different UI. On
@@ -13,6 +14,7 @@ function SignUpInner() {
   const router = useRouter();
   const search = useSearchParams();
   const next = safeNext(search.get('next'));
+  const fromCli = next.startsWith('/cli-auth/');
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -40,61 +42,12 @@ function SignUpInner() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-sm items-center p-6">
-      <div className="bg-card w-full rounded-lg border p-6 shadow-sm">
-        <h1 className="text-xl font-semibold tracking-tight">Create your Carbon account</h1>
-        <p className="text-muted-foreground mt-1 text-sm">Email and password. No email verification in dev.</p>
-
-        <form className="mt-6 space-y-4" onSubmit={onSubmit}>
-          <label className="block text-sm">
-            <span className="text-muted-foreground">Name</span>
-            <input
-              type="text"
-              autoComplete="name"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="border-border bg-background mt-1 block w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-            />
-          </label>
-          <label className="block text-sm">
-            <span className="text-muted-foreground">Email</span>
-            <input
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="border-border bg-background mt-1 block w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-            />
-          </label>
-          <label className="block text-sm">
-            <span className="text-muted-foreground">Password</span>
-            <input
-              type="password"
-              autoComplete="new-password"
-              required
-              minLength={8}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="border-border bg-background mt-1 block w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-            />
-          </label>
-          {error ? (
-            <p className="text-destructive text-sm" role="alert">
-              {error}
-            </p>
-          ) : null}
-          <button
-            type="submit"
-            disabled={pending}
-            className="bg-primary text-primary-foreground w-full rounded-md px-4 py-2 text-sm font-medium disabled:opacity-60"
-          >
-            {pending ? 'Creating account…' : 'Create account'}
-          </button>
-        </form>
-
-        <p className="text-muted-foreground mt-6 text-xs">
+    <AuthShell
+      title="Create your Carbon account"
+      subtitle="No email verification in dev. Takes about 15 seconds."
+      fromCli={fromCli}
+      footer={
+        <>
           Already have an account?{' '}
           <Link
             href={`/sign-in${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`}
@@ -102,9 +55,55 @@ function SignUpInner() {
           >
             Sign in
           </Link>
-        </p>
-      </div>
-    </main>
+        </>
+      }
+    >
+      <form className="space-y-5" onSubmit={onSubmit}>
+        <FieldLabel label="Name">
+          <input
+            type="text"
+            autoComplete="name"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className={inputClass}
+          />
+        </FieldLabel>
+        <FieldLabel label="Email">
+          <input
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={inputClass}
+          />
+        </FieldLabel>
+        <FieldLabel label="Password">
+          <input
+            type="password"
+            autoComplete="new-password"
+            required
+            minLength={8}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className={inputClass}
+          />
+        </FieldLabel>
+        {error ? (
+          <p className="text-destructive text-sm" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <button
+          type="submit"
+          disabled={pending}
+          className="bg-primary text-primary-foreground w-full rounded-md px-4 py-2.5 text-sm font-medium disabled:opacity-60"
+        >
+          {pending ? 'Creating account…' : 'Create account'}
+        </button>
+      </form>
+    </AuthShell>
   );
 }
 
