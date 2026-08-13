@@ -24,7 +24,11 @@ psql -U $USER -d carbon -c "INSERT INTO organizations (id, slug, name) VALUES ('
 ```bash
 pnpm --filter carbon-dev build          # build the CLI once
 export DATABASE_URL="postgresql://$USER@localhost:5432/carbon"
-export CARBON_AUTH_MODE=disabled        # skip Better Auth in local dev
+export CARBON_AUTH_MODE=disabled        # disables the API-key plugin so requests without
+                                        # `x-carbon-key` aren't rejected. Better Auth session
+                                        # cookies still resolve — they just don't gate anything
+                                        # in dev because requireScope is permissive when neither
+                                        # auth path attached.
 node apps/cli/dist/index.cjs serve      # api + dashboard + web + workers
 ```
 

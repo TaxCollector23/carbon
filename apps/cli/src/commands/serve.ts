@@ -1,11 +1,11 @@
 import { defineCommand } from 'citty';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { createServer } from 'node:net';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pc from 'picocolors';
 import { ui } from '../ui.js';
+import { isPortFree } from '../lib/net.js';
 
 interface ServiceSpec {
   readonly name: 'api' | 'dashboard' | 'web' | 'docs' | 'workers';
@@ -156,17 +156,6 @@ function pickServices(only: string | undefined): ServiceSpec[] {
       .filter((s) => s.length > 0),
   );
   return SERVICES.filter((s) => wanted.has(s.name));
-}
-
-async function isPortFree(port: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    const srv = createServer();
-    srv.once('error', () => resolve(false));
-    srv.once('listening', () => {
-      srv.close(() => resolve(true));
-    });
-    srv.listen(port, '127.0.0.1');
-  });
 }
 
 function findRepoRoot(startFrom?: string): string | null {

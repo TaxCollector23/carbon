@@ -10,6 +10,7 @@ import {
   EXIT_CONNECTIVITY,
   EXIT_INTERNAL,
 } from './lib/exit-codes.js';
+import { loadCredentials } from './lib/credentials.js';
 
 export const CARBON_VERSION = '0.2.1';
 // Expose to telemetry without a circular import.
@@ -32,7 +33,6 @@ async function printWelcome(): Promise<void> {
   // Sign-in is the first thing a new user should do. When the credentials
   // file is missing, tell them plainly instead of dumping the full command
   // catalog they can't actually use yet.
-  const { loadCredentials } = await import('./lib/credentials.js');
   const signedIn = (await loadCredentials()) !== null;
   if (!signedIn) {
     ui.header('Get started');

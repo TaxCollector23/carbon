@@ -147,6 +147,13 @@ export async function registerCliAuthRoutes(
     process.env.CARBON_DASHBOARD_URL ??
     'http://localhost:3001'
   ).replace(/\/+$/, '');
+  // Transient store for the freshly minted CLI secret between /approve and
+  // the next /poll. When `ctx.redis` is present (prod / staging), the store is
+  // Redis-backed with a short TTL — meaning approve on API instance A and poll
+  // on API instance B both see the same secret, so multi-instance deployments
+  // no longer need sticky sessions for CLI login. When Redis is absent (local
+  // dev, unit tests) the store transparently falls back to an in-process Map
+  // with per-entry TTL — same semantics, single-process only.
   const secretStore =
     opts.secretStore ?? createSecretStore({ redis: ctx.redis, logger: ctx.logger });
 
@@ -261,11 +268,10 @@ export async function registerCliAuthRoutes(
       .from(schema.apiKeys)
       .where(eq(schema.apiKeys.id, row.approvedApiKeyId))
       .limit(1);
-    // The presented secret is not stored, so we mint fresh material at
-    // approve-time (see /approve below) and stash it in the session row
-    // temporarily via `verifier` field? No — we stamp revealedAt and return
-    // the secret from the approve step's transient store. See notes on
-    // pendingSecrets below.
+    // The presented secret is never persisted in the DB. /approve stashes it
+    // in the transient `secretStore` (Redis when available, in-memory Map
+    // otherwise), and we consume it here exactly once, stamping revealedAt so
+    // subsequent polls only see the status.
     const secret = await secretStore.take(row.id);
     if (!secret) {
       // Server was restarted between approve and reveal, or a race lost the

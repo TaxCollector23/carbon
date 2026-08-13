@@ -5,15 +5,39 @@ description: 'Manage SAML and OIDC providers for your Carbon org.'
 
 Enterprise orgs can register SAML or OIDC identity providers through
 the admin-only SSO management routes. Configuration is stored on the
-organization record; provider records power the login flow once the
-Better Auth SSO plugin is wired in.
+organization record and drives the dashboard sign-in flow.
+
+## Sign-in flow
+
+1. User visits `https://<dashboard>/sign-in` and types their email.
+2. The sign-in page calls `GET /api/auth/sso/discovery?email=<addr>`,
+   which returns a provider match if the email's domain equals the
+   `emailDomain` on a registered SSO provider.
+3. On a match the sign-in page swaps the password button for
+   **Sign in with <ProviderName>**, which hits
+   `GET /api/auth/sso/login?providerId=<id>&next=<path>`.
+4. That endpoint redirects to the provider's OIDC authorize URL.
+5. On the return trip, `GET /api/auth/sso/callback?code=&state=`
+   exchanges the code for an `id_token`, extracts the email claim,
+   upserts the user in the shared Postgres, and sets the Better Auth
+   session cookie.
+
+### Callback URL to register at your IdP
+
+```
+https://<dashboard-host>/api/auth/sso/callback
+```
+
+Enterprise-provisioned deep-links can skip the discovery step by
+appending `?sso=<providerId>` to `/sign-in` — the page bounces to
+`/api/auth/sso/login` immediately.
 
 <Note>
-  Provider **management** is available today. End-to-end SAML/OIDC
-  **login enforcement** is deferred until the Better Auth SSO plugin
-  ships in a version this workspace can install. Register your provider
-  now; login flow becomes live in a subsequent release without any
-  config change on your side.
+  SAML is planned; today the shim only implements OIDC. The management
+  routes still accept `type: 'saml'` for forward-compatible storage.
+  Registering a SAML provider today lets you configure IdPs ahead of
+  the release, but the sign-in flow will 501 for SAML providers until
+  `@better-auth/plugin-sso` ships and this shim is retired.
 </Note>
 
 ## Routes

@@ -9,6 +9,7 @@ import {
   ApiError,
   type MemberRole,
   type Organization,
+  type Quota,
   type SlackInstallation,
   type SlackSubscription,
   type SsoProvider,
@@ -57,6 +58,7 @@ export default function SettingsSection() {
 
   return (
     <div className="space-y-8">
+      <UsageLimitsCard />
       {org.loading ? (
         <Skeleton className="h-24" />
       ) : notDeployed || (!org.data && !org.error) ? (
@@ -93,6 +95,134 @@ export default function SettingsSection() {
           badge={notDeployed ? 'Not available yet' : undefined}
         />
       )}
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// "Usage & limits" card — surfaces per-org plan ceilings + current counters
+// from `GET /v1/quota`. Rendered at the top of Settings so operators can
+// eyeball where they stand before hunting for the raw numbers on the billing
+// page. Silently no-ops when /v1/quota isn't deployed (older API).
+// -----------------------------------------------------------------------------
+
+function UsageLimitsCard() {
+  const quota = useAsync(async (): Promise<Quota | null> => {
+    try {
+      return await api.getQuota();
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 404 || err.status === 501)) return null;
+      throw err;
+    }
+  }, []);
+
+  if (quota.loading) return <Skeleton className="h-32" />;
+  if (quota.data === null) return null; // route not deployed — hide the card
+  if (quota.error)
+    return <ErrorBanner error={quota.error} onRetry={quota.refetch} />;
+  if (!quota.data) return null;
+
+  const q = quota.data;
+  return (
+    <section className="border-border max-w-3xl space-y-4 rounded-md border p-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-base font-medium">Usage &amp; limits</h3>
+          <p className="text-muted-foreground mt-1 text-xs">
+            Current consumption against your plan ceilings.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <PlanBadge plan={q.plan} />
+          {q.plan === 'developer' ? (
+            <a
+              href="/contact"
+              className="border-border rounded-md border px-2.5 py-1 text-xs hover:bg-muted/30"
+            >
+              Upgrade
+            </a>
+          ) : null}
+        </div>
+      </div>
+      <div className="space-y-3">
+        <QuotaBar label="Concurrent emulators" current={q.current.emulators} max={q.limits.emulatorsMax} />
+        <QuotaBar
+          label="Requests / minute"
+          current={q.current.requestsLast1m}
+          max={q.limits.requestsPerMinute}
+        />
+        <QuotaBar
+          label="AI ingests this month"
+          current={q.current.aiIngestsThisMonth}
+          max={q.limits.aiIngestsPerMonth}
+        />
+      </div>
+    </section>
+  );
+}
+
+function PlanBadge({ plan }: { plan: Quota['plan'] }) {
+  const label = plan.charAt(0).toUpperCase() + plan.slice(1);
+  const tone =
+    plan === 'enterprise'
+      ? 'bg-primary/10 text-primary border-primary/40'
+      : plan === 'team'
+        ? 'border-border bg-muted/40 text-foreground'
+        : 'border-border text-muted-foreground';
+  return (
+    <span className={`rounded-full border px-2 py-0.5 text-xs ${tone}`}>{label}</span>
+  );
+}
+
+function QuotaBar({
+  label,
+  current,
+  max,
+}: {
+  label: string;
+  /** null → the API can't compute the current value in this deployment. */
+  current: number | null;
+  /** null → unlimited on this plan. */
+  max: number | null;
+}) {
+  const unlimited = max === null;
+  const currentText = current === null ? '—' : String(current);
+  const pct = unlimited || current === null || max === 0 ? 0 : Math.min(100, (current / max) * 100);
+
+  // Green under 50%, amber 50–80%, red over 80% — chosen to match how the
+  // rest of the dashboard signals health, not to be a semantic scale for the
+  // color-blind (label + numeric value always accompany the bar).
+  const barColor =
+    pct >= 80
+      ? 'bg-red-500'
+      : pct >= 50
+        ? 'bg-amber-500'
+        : 'bg-emerald-500';
+
+  return (
+    <div>
+      <div className="mb-1 flex items-baseline justify-between text-xs">
+        <span className="text-muted-foreground">{label}</span>
+        {unlimited ? (
+          <span className="flex items-center gap-2">
+            <span className="font-mono">{currentText}</span>
+            <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+              Unlimited
+            </span>
+          </span>
+        ) : (
+          <span className="font-mono">
+            {currentText} / {max}
+          </span>
+        )}
+      </div>
+      <div className="bg-muted/40 h-1.5 w-full overflow-hidden rounded-full">
+        {unlimited ? (
+          <div className="h-full w-full bg-emerald-500/40" />
+        ) : (
+          <div className={`h-full ${barColor}`} style={{ width: `${pct}%` }} />
+        )}
+      </div>
     </div>
   );
 }

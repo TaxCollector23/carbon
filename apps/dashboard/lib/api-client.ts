@@ -306,6 +306,27 @@ export interface UsageEvent {
   occurredAt: string;
 }
 
+export type PlanTier = 'developer' | 'team' | 'enterprise';
+
+export interface Quota {
+  orgId: string;
+  plan: PlanTier;
+  limits: {
+    /** null = unlimited. */
+    emulatorsMax: number | null;
+    /** null = unlimited. */
+    requestsPerMinute: number | null;
+    /** null = unlimited. */
+    aiIngestsPerMonth: number | null;
+  };
+  current: {
+    emulators: number;
+    /** null = deployment can't cheaply compute it. */
+    requestsLast1m: number | null;
+    aiIngestsThisMonth: number;
+  };
+}
+
 export interface HealthDepStatus {
   status: 'ok' | 'slow' | 'down';
   latencyMs: number;
@@ -851,6 +872,9 @@ export function createApiClient(options: ApiClientOptions = {}) {
     listUsageEvents(params: { limit?: number; cursor?: string; kind?: string } = {}) {
       const q = toQuery(params);
       return request<ListResponse<UsageEvent>>('GET', `/v1/usage/events${q}`);
+    },
+    getQuota() {
+      return request<Quota>('GET', '/v1/quota');
     },
 
     // -------------------------------- health --------------------------------

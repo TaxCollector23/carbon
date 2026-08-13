@@ -81,3 +81,12 @@ from a laptop again.
 
 See [Prometheus](/deployment/prometheus) for scrape queries and alert
 rules.
+
+## Scaling the API horizontally
+
+`fly scale count 3 --app carbon-api` is safe out of the box — no sticky
+sessions required. Rate limits, idempotency keys, the ingest queue, and
+the CLI device-authorization flow (`carbon auth login`) all round-trip
+through Redis, so a browser approve landing on instance A and the CLI's
+next poll hitting instance B pick up the same freshly minted secret.
+Point every replica at the same `REDIS_URL` and you're done.

@@ -28,6 +28,7 @@ import { registerCliAuthRoutes, CLI_AUTH_PUBLIC_PATHS } from './routes/cli-auth.
 import { registerMeRoutes } from './routes/me.js';
 import { registerAiQualityRoutes } from './routes/ai-quality.js';
 import { registerUsageRoutes } from './routes/usage.js';
+import { registerQuotaRoutes } from './routes/quota.js';
 import { registerSsoRoutes } from './routes/sso.js';
 import { registerExportRoutes } from './routes/export.js';
 import { registerSearchRoutes } from './routes/search.js';
@@ -343,6 +344,7 @@ export async function buildServer(
   await registerMeRoutes(app, ctx);
   await registerAiQualityRoutes(app, ctx);
   await registerUsageRoutes(app, ctx);
+  await registerQuotaRoutes(app, ctx);
   await registerSsoRoutes(app, ctx);
   await registerExportRoutes(app, ctx);
   await registerSearchRoutes(app, ctx);

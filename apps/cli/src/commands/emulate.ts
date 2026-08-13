@@ -1,21 +1,12 @@
 import { defineCommand } from 'citty';
-import { createServer } from 'node:net';
 import { carbon } from '@carbon/sdk';
 import { ui } from '../ui.js';
+import { isPortFree } from '../lib/net.js';
 
 // Boot takes < 1s on a warm cache but can spike to 10s+ on a cold Node
 // process behind AV / spotlight indexing. Hard-cap the wait so we never leave
 // the user staring at a blinking cursor.
 const BOOT_TIMEOUT_MS = 20_000;
-
-async function isPortFree(port: number, host: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    const srv = createServer();
-    srv.once('error', () => resolve(false));
-    srv.once('listening', () => srv.close(() => resolve(true)));
-    srv.listen(port, host);
-  });
-}
 
 export const emulateCommand = defineCommand({
   meta: { name: 'emulate', description: 'Boot the local deterministic API runtime.' },
@@ -54,25 +45,50 @@ export const emulateCommand = defineCommand({
     ui.info(`Starting emulator from ${from}…`);
 
     let replica: Awaited<ReturnType<typeof carbon.emulate>>;
+    let timeoutHandle: NodeJS.Timeout | null = null;
     try {
-      replica = await Promise.race([
-        carbon.emulate({ from, port, host }),
-        new Promise<never>((_, reject) =>
-          setTimeout(
-            () =>
-              reject(
-                new Error(
-                  `Emulator boot exceeded ${Math.round(BOOT_TIMEOUT_MS / 1000)}s — the spec parser or runtime is stuck. Run \`carbon doctor\` and try again.`,
-                ),
+      const bootPromise = carbon.emulate({ from, port, host });
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutHandle = setTimeout(
+          () =>
+            reject(
+              new Error(
+                `Emulator boot exceeded ${Math.round(BOOT_TIMEOUT_MS / 1000)}s — the spec parser or runtime is stuck. Run \`carbon doctor\` and try again.`,
               ),
-            BOOT_TIMEOUT_MS,
-          ),
-        ),
-      ]);
+            ),
+          BOOT_TIMEOUT_MS,
+        );
+        // Never keep the event loop alive just for this timer — the loop is
+        // driven by whatever Fastify winds up owning.
+        timeoutHandle.unref();
+      });
+      replica = await Promise.race([bootPromise, timeoutPromise]);
+      // Success path: cancel the pending timer so it can't fire later.
+      if (timeoutHandle) clearTimeout(timeoutHandle);
     } catch (err) {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+      // If the timeout won the race, carbon.emulate() is still running and
+      // may bind the port a moment later. Attach a best-effort .catch to
+      // close it if it succeeds, so a phantom Fastify doesn't hold the port
+      // (or the event loop) after we've told the user boot failed.
+      // We can't `await` here — the process is already exiting — but the
+      // handler is attached before we `process.exit`, so Node's event loop
+      // gets a chance to run it if the resolve happens quickly.
+      const stray = Promise.resolve().then(async () => {
+        try {
+          const late = (await Promise.race([
+            carbon.emulate({ from, port, host }),
+            new Promise<null>((r) => setTimeout(() => r(null), 5000).unref()),
+          ])) as Awaited<ReturnType<typeof carbon.emulate>> | null;
+          if (late) await late.close();
+        } catch {
+          // Best-effort — if it also fails, we've done all we can.
+        }
+      });
+      void stray;
       ui.error(`Failed to start emulator: ${(err as Error).message}`);
-      process.exitCode = 1;
-      return;
+      // Exit hard so a partially-booted Fastify can't keep the process alive.
+      process.exit(1);
     }
 
     ui.success(`Runtime ready at ${ui.code(replica.url)}`);

@@ -1,9 +1,46 @@
 'use client';
 
-import { Suspense, useState, type FormEvent } from 'react';
+import { Suspense, useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn } from '@/lib/auth-client';
+
+interface DiscoveredProvider {
+  id: string;
+  name: string;
+  type: 'saml' | 'oidc';
+}
+
+/** Fetch /api/auth/sso/discovery for the typed email; 300ms debounced. */
+function useSsoDiscovery(email: string): DiscoveredProvider | null {
+  const [provider, setProvider] = useState<DiscoveredProvider | null>(null);
+  const inflight = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (!email.includes('@')) {
+      setProvider(null);
+      return;
+    }
+    const t = setTimeout(async () => {
+      inflight.current?.abort();
+      const ctrl = new AbortController();
+      inflight.current = ctrl;
+      try {
+        const res = await fetch(`/api/auth/sso/discovery?email=${encodeURIComponent(email)}`, {
+          signal: ctrl.signal,
+        });
+        if (!res.ok) return;
+        const body = (await res.json()) as { provider: DiscoveredProvider | null };
+        setProvider(body.provider);
+      } catch {
+        // Aborted or offline — leave provider null; user can still password-sign-in.
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [email]);
+
+  return provider;
+}
 
 /**
  * Email/password sign-in.
@@ -26,6 +63,14 @@ function SignInInner() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const ssoProvider = useSsoDiscovery(email);
+  // ?sso=<providerId> from an enterprise-provisioned deep-link skips the
+  // password interstitial entirely.
+  useEffect(() => {
+    const sso = search.get('sso');
+    if (!sso) return;
+    window.location.assign(`/api/auth/sso/login?providerId=${encodeURIComponent(sso)}&next=${encodeURIComponent(next)}`);
+  }, [search, next]);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -82,13 +127,22 @@ function SignInInner() {
               {error}
             </p>
           ) : null}
-          <button
-            type="submit"
-            disabled={pending}
-            className="bg-primary text-primary-foreground w-full rounded-md px-4 py-2 text-sm font-medium disabled:opacity-60"
-          >
-            {pending ? 'Signing in…' : 'Sign in'}
-          </button>
+          {ssoProvider ? (
+            <a
+              href={`/api/auth/sso/login?providerId=${encodeURIComponent(ssoProvider.id)}&next=${encodeURIComponent(next)}`}
+              className="bg-primary text-primary-foreground block w-full rounded-md px-4 py-2 text-center text-sm font-medium"
+            >
+              Sign in with {ssoProvider.name}
+            </a>
+          ) : (
+            <button
+              type="submit"
+              disabled={pending}
+              className="bg-primary text-primary-foreground w-full rounded-md px-4 py-2 text-sm font-medium disabled:opacity-60"
+            >
+              {pending ? 'Signing in…' : 'Sign in'}
+            </button>
+          )}
         </form>
 
         <p className="text-muted-foreground mt-6 text-xs">
