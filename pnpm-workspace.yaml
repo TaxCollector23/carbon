@@ -5,11 +5,11 @@ packages:
   - 'examples/*'
 allowBuilds:
   '@firebase/util': true
-  '@scarf/scarf': set this to true or false
+  '@scarf/scarf': false
   '@vscode/vsce-sign': false
   esbuild: false
-  keytar: set this to true or false
-  msgpackr-extract: set this to true or false
+  keytar: false
+  msgpackr-extract: false
   protobufjs: true
-  puppeteer: set this to true or false
-  sharp: set this to true or false
+  puppeteer: false
+  sharp: true
