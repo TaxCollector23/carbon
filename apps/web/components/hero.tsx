@@ -10,13 +10,16 @@ export function Hero() {
         <div className="grid min-h-[calc(100svh-4rem)] gap-12 py-14 sm:py-20 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
           <div className="animate-rise max-w-3xl">
             <h1 className="max-w-4xl text-balance text-5xl font-medium tracking-tight sm:text-7xl lg:text-[5.25rem] lg:leading-[0.92]">
-              API replicas that keep state.
+              A local mock server that actually remembers.
             </h1>
             <p className="text-muted-foreground mt-7 max-w-2xl text-pretty text-lg leading-8 sm:text-xl">
-              Point Carbon at an OpenAPI spec, AsyncAPI document, protobuf service, HAR file,
-              Postman collection, GraphQL schema, or recorded traffic. It builds a stateful runtime
-              on <code className="font-mono text-base">localhost:8787</code> for development, tests,
-              and CI.
+              Run <code className="font-mono text-base">carbon emulate --from spec.yaml --port 8787</code> and get a stateful
+              copy of your API on localhost. POSTs create real records, GETs return them, and snapshots
+              reset the whole thing between tests. Works from OpenAPI, GraphQL, gRPC, AsyncAPI, HAR, or Postman.
+            </p>
+            <p className="text-muted-foreground/80 mt-4 max-w-2xl text-sm leading-6">
+              Unlike Prism, WireMock, or Postman mocks, Carbon keeps state across requests — the pretend server behaves
+              like a real backend, not a lookup table of canned responses.
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link href="/dashboard" className={cn(buttonVariants({ size: 'lg' }), 'group gap-2')}>
@@ -41,9 +44,9 @@ export function Hero() {
             </div>
             <div className="border-border mt-8 grid max-w-xl grid-cols-3 border-y text-sm">
               {[
-                ['100%', 'upstream calls avoided after import'],
-                ['5', 'endpoints in the reference API'],
-                ['<1s', 'cold start on the reference project'],
+                ['0', 'network calls to the real API during tests'],
+                ['<1s', 'to boot a running server from a spec'],
+                ['1 cmd', 'to snapshot and rewind state'],
               ].map(([value, label], index) => (
                 <div key={label} className={cn('py-4', index > 0 && 'border-border border-l pl-5')}>
                   <div className="text-foreground font-mono text-base">{value}</div>
@@ -71,7 +74,7 @@ export function Hero() {
             </div>
           </div>
         </div>
-        <div className="border-border text-muted-foreground flex flex-wrap items-center justify-between gap-4 border-t py-5 text-xs uppercase">
+        <div className="border-border text-muted-foreground flex flex-wrap items-center gap-x-8 gap-y-3 border-t py-5 text-xs uppercase tracking-widest">
           <span>OpenAPI</span>
           <span>AsyncAPI</span>
           <span>gRPC</span>

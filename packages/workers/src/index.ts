@@ -7,8 +7,15 @@ import type { Logger } from '@carbon/core';
  * a strongly-typed producer + a registerHandler helper. All queues share a
  * single Redis connection factory to keep resource usage predictable.
  */
+export interface QueueDefaultJobOptions {
+  readonly attempts?: number;
+  readonly backoff?: { readonly type: 'exponential' | 'fixed'; readonly delay: number };
+}
+
 export interface QueueDefinition<Payload, Result = void> {
   readonly name: string;
+  /** Applied at add-time so producers don't have to repeat retry policy. */
+  readonly defaultJobOptions?: QueueDefaultJobOptions;
   /** Runtime tag only — not sent on the wire. Used to help catch mismatches. */
   readonly __payload?: Payload;
   readonly __result?: Result;
@@ -16,8 +23,9 @@ export interface QueueDefinition<Payload, Result = void> {
 
 export function defineQueue<Payload, Result = void>(
   name: string,
+  defaultJobOptions?: QueueDefaultJobOptions,
 ): QueueDefinition<Payload, Result> {
-  return { name };
+  return defaultJobOptions ? { name, defaultJobOptions } : { name };
 }
 
 export interface QueueRegistryOptions {
@@ -80,6 +88,15 @@ export class QueueRegistry {
           jobId: opts?.jobId,
           removeOnComplete: 1000,
           removeOnFail: 5000,
+          // Per-queue retry policy is declared at defineQueue-time so every
+          // producer inherits it. BullMQ handles the exponential backoff —
+          // handlers should throw on failure rather than sleep in-process.
+          ...(def.defaultJobOptions?.attempts !== undefined
+            ? { attempts: def.defaultJobOptions.attempts }
+            : {}),
+          ...(def.defaultJobOptions?.backoff !== undefined
+            ? { backoff: { ...def.defaultJobOptions.backoff } }
+            : {}),
         });
         this.logger.debug('workers.enqueued', { queue: def.name, jobId: job.id });
         return { jobId: job.id ?? '' };
@@ -160,5 +177,8 @@ export const Queues = {
   snapshot: defineQueue<{ projectSlug: string; name: string }>('carbon.snapshot'),
   webhookDelivery: defineQueue<WebhookDeliveryPayload, { status: number }>(
     'carbon.webhook.delivery',
+    // Handler throws on 5xx/429/network — BullMQ retries with exponential
+    // backoff (500ms, 1s, 2s, 4s, 8s) rather than the handler sleeping.
+    { attempts: 5, backoff: { type: 'exponential', delay: 500 } },
   ),
 } as const;

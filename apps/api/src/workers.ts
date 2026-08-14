@@ -66,17 +66,22 @@ export function startEmbeddedWorkers(deps: {
 
 interface DeliverOpts {
   logger: Logger;
-  maxAttempts?: number;
   timeoutMs?: number;
 }
 
+/**
+ * Attempt a single delivery. Throws on 5xx / 429 / network error so BullMQ
+ * re-enqueues the job under its configured attempts + exponential backoff —
+ * we no longer sleep up to 30s inside the handler holding a worker slot.
+ * The AbortController + clearTimeout wiring is preserved so a slow upstream
+ * cannot leak timers or sockets.
+ */
 async function deliverWebhook(
   payload: WebhookDeliveryPayload,
   opts: DeliverOpts,
 ): Promise<{ status: number }> {
   const logger = opts.logger.child({ event: payload.event, url: payload.url });
   const timeoutMs = opts.timeoutMs ?? 10_000;
-  const maxAttempts = opts.maxAttempts ?? 5;
   const body = JSON.stringify(payload.body);
   const headers: Record<string, string> = {
     'content-type': 'application/json',
@@ -92,35 +97,31 @@ async function deliverWebhook(
     headers['x-carbon-signature'] = `t=${timestamp},v1=${signature}`;
   }
 
-  let attempt = 1;
-  let lastError: string | null = null;
-  while (attempt <= maxAttempts) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const res = await fetch(payload.url, {
-        method: 'POST',
-        headers,
-        body,
-        signal: controller.signal,
-      });
-      clearTimeout(timer);
-      if (res.status < 500 && res.status !== 429) {
-        logger.info('webhook.delivered', { status: res.status, attempt });
-        return { status: res.status };
-      }
-      lastError = `HTTP ${res.status}`;
-    } catch (err) {
-      clearTimeout(timer);
-      lastError = (err as Error).message;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(payload.url, {
+      method: 'POST',
+      headers,
+      body,
+      signal: controller.signal,
+    });
+    if (res.status < 500 && res.status !== 429) {
+      logger.info('webhook.delivered', { status: res.status });
+      return { status: res.status };
     }
-    const backoff = Math.min(30_000, 500 * 2 ** (attempt - 1));
-    logger.warn('webhook.retry', { attempt, backoff, lastError });
-    await new Promise((r) => setTimeout(r, backoff));
-    attempt++;
+    // Throw so BullMQ retries — do not sleep inside the handler.
+    throw new CarbonError({
+      code: 'CARBON_INTERNAL',
+      message: `Webhook delivery failed: HTTP ${res.status}`,
+    });
+  } catch (err) {
+    if (err instanceof CarbonError) throw err;
+    throw new CarbonError({
+      code: 'CARBON_INTERNAL',
+      message: `Webhook delivery failed: ${(err as Error).message}`,
+    });
+  } finally {
+    clearTimeout(timer);
   }
-  throw new CarbonError({
-    code: 'CARBON_INTERNAL',
-    message: `Webhook delivery failed after ${maxAttempts} attempts: ${lastError}`,
-  });
 }

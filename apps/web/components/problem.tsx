@@ -2,20 +2,20 @@ import { Section, SectionHeading } from './section';
 
 const problems = [
   {
-    title: 'Shared staging changes underneath you',
-    body: 'Test data, migrations, and service state can shift before your branch is ready.',
+    title: 'Your integration suite hits Stripe test mode and takes 4 minutes',
+    body: 'Every CI run pays the round-trip tax to someone else’s sandbox. A flaky network turns a green build red.',
   },
   {
-    title: 'Fixtures drift from real behavior',
-    body: 'Static JSON keeps tests moving, but it rarely captures state changes and relationships.',
+    title: 'A coworker’s migration corrupts the shared sandbox mid-run',
+    body: 'One team seeds fixtures, another truncates them, and your PR fails on data that vanished ten minutes ago.',
   },
   {
-    title: 'Third-party limits slow test runs',
-    body: 'External quotas and network latency turn ordinary integration tests into waiting time.',
+    title: 'Your mock returns [] for a resource you just POSTed',
+    body: 'Prism, WireMock, and hand-rolled fixtures reply with canned examples. They forget every write the moment it happens.',
   },
   {
-    title: 'Network access becomes a hidden dependency',
-    body: 'A local test should not fail because a remote API, VPN, or sandbox is unavailable.',
+    title: 'Offline means the tests don’t run',
+    body: 'On a plane, on a train, or on a VPN that just dropped — a local unit test should not depend on a remote API being reachable.',
   },
 ];
 
@@ -24,8 +24,8 @@ export function Problem() {
     <Section id="problem" className="bg-subtle/50 ">
       <div className="grid gap-12 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
         <SectionHeading
-          title="API development slows down when every test depends on someone else’s system."
-          description="Shared staging, stale fixtures, third-party limits, and network access all add friction before your code can prove it works."
+          title="Every test that touches a real API is a test that can’t be trusted."
+          description="Shared sandboxes drift, static fixtures forget state, and third-party latency turns a unit test into a coffee break."
         />
         <div className="divide-border border-border divide-y border-y">
           {problems.map((p, index) => (

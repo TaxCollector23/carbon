@@ -103,11 +103,22 @@ interface RateBucket {
  */
 function makeIpLimiter(max: number, windowMs: number) {
   const buckets = new Map<string, RateBucket>();
+  // Prune every N inserts so an attacker spraying unique IPs cannot grow the
+  // Map without bound. Cheap: iterating a few thousand entries is microseconds.
+  const PRUNE_EVERY = 512;
+  let inserts = 0;
   return function check(ip: string): boolean {
     const now = Date.now();
     const b = buckets.get(ip);
     if (!b || b.resetAt <= now) {
       buckets.set(ip, { count: 1, resetAt: now + windowMs });
+      inserts += 1;
+      if (inserts >= PRUNE_EVERY) {
+        inserts = 0;
+        for (const [k, v] of buckets) {
+          if (v.resetAt <= now) buckets.delete(k);
+        }
+      }
       return true;
     }
     b.count += 1;

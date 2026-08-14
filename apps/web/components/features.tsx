@@ -16,52 +16,52 @@ const features = [
   {
     icon: Database,
     title: 'Stateful CRUD',
-    body: 'Reads reflect writes through the state engine.',
+    body: 'Persists every POST, PUT, PATCH, and DELETE in memory. GETs return what you actually wrote.',
   },
   {
     icon: Waypoints,
     title: 'Resource graph',
-    body: 'Relationships modeled explicitly across resources.',
+    body: 'Tracks relationships between resources so a deleted parent cascades to its children.',
   },
   {
     icon: Camera,
     title: 'Snapshots',
-    body: 'Save full state, branch it, restore it, and compare it.',
+    body: 'Freezes the whole server state to JSON. Restores it before each test in a millisecond.',
   },
   {
     icon: Webhook,
     title: 'Webhook simulation',
-    body: 'Trigger and inspect outbound webhook deliveries.',
+    body: 'Fires outbound webhooks on the mutations you configure. Inspects deliveries and retries.',
   },
   {
     icon: Clock,
-    title: 'Latency simulation',
-    body: 'Model realistic p50 / p95 to catch UX regressions.',
+    title: 'Latency injection',
+    body: 'Replays p50 and p95 latency profiles so slow-network regressions surface in local runs.',
   },
   {
     icon: Scale,
-    title: 'Error injection',
-    body: 'Force any status code, timeout, or partial failure.',
+    title: 'Chaos presets',
+    body: 'Forces any status code, timeout, or partial failure on demand. Tests your error paths.',
   },
   {
     icon: KeyRound,
     title: 'Auth-aware',
-    body: 'API keys, OAuth flows, and RBAC modeled correctly.',
+    body: 'Checks API keys, OAuth scopes, and RBAC exactly like the upstream service does.',
   },
   {
     icon: Radio,
     title: 'Streaming & SSE',
-    body: 'Long-lived responses and event streams supported.',
+    body: 'Serves long-lived responses and event streams the same way your production API does.',
   },
   {
     icon: Layers,
     title: 'Pagination',
-    body: 'Cursor and offset pagination replayed deterministically.',
+    body: 'Replays cursor and offset pagination deterministically across snapshots.',
   },
   {
     icon: Cable,
     title: 'GraphQL & REST',
-    body: 'One runtime for both. Same graph, same primitives.',
+    body: 'Runs both from the same graph. Query, mutation, or endpoint — same primitives underneath.',
   },
 ];
 
@@ -70,8 +70,8 @@ export function Features() {
     <Section id="features" className="bg-subtle/50 ">
       <div className="grid gap-12 lg:grid-cols-[0.72fr_1.28fr]">
         <SectionHeading
-          title="Backend behavior without the upstream dependency."
-          description="Use only what the test needs: mutate resources, force failures, replay latency, and inspect delivery state."
+          title="Everything a real backend does. None of the network."
+          description="Mutate resources, force failures, replay latency, and inspect webhook deliveries — all against a server running on your laptop."
         />
         <div className="border-border grid gap-x-8 border-y py-4 sm:grid-cols-2">
           {features.map(({ icon: Icon, title, body }) => (

@@ -291,9 +291,21 @@ interface UpsertInput {
   status: string;
   seats: number;
   currentPeriodEnd: Date | null;
+  /**
+   * Optional ordering guard. When set, the update is skipped if the stored
+   * row's `updatedAt` is strictly newer than this timestamp — i.e. a Stripe
+   * retry delivered an older `customer.subscription.*` event out of order and
+   * should NOT downgrade a row that has since been updated by a newer event.
+   * When the update proceeds, this value becomes the new `updatedAt` so
+   * subsequent comparisons keep working.
+   */
+  guardTimestamp?: Date;
 }
 
-async function upsertSubscription(ctx: AppContext, input: UpsertInput): Promise<void> {
+async function upsertSubscription(
+  ctx: AppContext,
+  input: UpsertInput,
+): Promise<'inserted' | 'updated' | 'skipped-out-of-order'> {
   const now = new Date();
   // Manual read-then-insert-or-update rather than PG's ON CONFLICT so the
   // logic is the same across every drizzle backend and easy to fake in
@@ -301,12 +313,25 @@ async function upsertSubscription(ctx: AppContext, input: UpsertInput): Promise<
   // concurrent duplicate insert would surface as a constraint error, not a
   // silent second row.
   const existing = await ctx.db
-    .select({ id: schema.subscriptions.id })
+    .select({
+      id: schema.subscriptions.id,
+      updatedAt: schema.subscriptions.updatedAt,
+    })
     .from(schema.subscriptions)
     .where(eq(schema.subscriptions.orgId, input.orgId))
     .limit(1);
 
   if (existing[0]) {
+    if (input.guardTimestamp && existing[0].updatedAt instanceof Date) {
+      if (existing[0].updatedAt.getTime() > input.guardTimestamp.getTime()) {
+        ctx.logger.info('billing.webhook_out_of_order', {
+          orgId: input.orgId,
+          storedUpdatedAt: existing[0].updatedAt.toISOString(),
+          incomingEventTime: input.guardTimestamp.toISOString(),
+        });
+        return 'skipped-out-of-order';
+      }
+    }
     await ctx.db
       .update(schema.subscriptions)
       .set({
@@ -316,10 +341,10 @@ async function upsertSubscription(ctx: AppContext, input: UpsertInput): Promise<
         status: input.status,
         seats: input.seats,
         currentPeriodEnd: input.currentPeriodEnd,
-        updatedAt: now,
+        updatedAt: input.guardTimestamp ?? now,
       })
       .where(eq(schema.subscriptions.orgId, input.orgId));
-    return;
+    return 'updated';
   }
 
   await ctx.db.insert(schema.subscriptions).values({
@@ -332,11 +357,44 @@ async function upsertSubscription(ctx: AppContext, input: UpsertInput): Promise<
     seats: input.seats,
     currentPeriodEnd: input.currentPeriodEnd,
     createdAt: now,
-    updatedAt: now,
+    updatedAt: input.guardTimestamp ?? now,
   });
+  return 'inserted';
 }
 
 async function handleEvent(event: Stripe.Event, ctx: AppContext): Promise<void> {
+  // Idempotency ledger — Stripe redelivers on any 5xx and network hiccups can
+  // produce duplicate deliveries. Insert the event id first; on unique-
+  // violation, short-circuit with a 200 so Stripe stops retrying and we don't
+  // apply the same state change twice.
+  try {
+    await ctx.db.insert(schema.processedStripeEvents).values({
+      id: event.id,
+      type: event.type,
+    });
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      ctx.logger.info('billing.webhook_duplicate', {
+        id: event.id,
+        type: event.type,
+      });
+      return;
+    }
+    // Ledger failed for a non-uniqueness reason (transient DB issue). Log and
+    // continue — the ordering guard still protects against downgrades, and
+    // ignoring the event entirely would leave the row stale.
+    ctx.logger.warn('billing.webhook_ledger_failed', {
+      id: event.id,
+      type: event.type,
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  // Stripe stamps every event with a monotonic-per-resource `created` unix
+  // timestamp. Use it as the ordering guard on subscription mutations so a
+  // delayed retry of an older event cannot overwrite fresher state.
+  const eventTime = new Date(event.created * 1000);
+
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session;
@@ -385,6 +443,7 @@ async function handleEvent(event: Stripe.Event, ctx: AppContext): Promise<void> 
         status: sub.status,
         seats,
         currentPeriodEnd,
+        guardTimestamp: eventTime,
       });
       return;
     }
@@ -404,6 +463,7 @@ async function handleEvent(event: Stripe.Event, ctx: AppContext): Promise<void> 
         status: 'canceled',
         seats: 1,
         currentPeriodEnd: subscriptionPeriodEnd(sub),
+        guardTimestamp: eventTime,
       });
       return;
     }
@@ -432,6 +492,20 @@ function readOrgIdFromSubscription(sub: Stripe.Subscription): string | null {
   const meta = sub.metadata?.orgId;
   if (typeof meta === 'string' && meta.length > 0) return meta;
   return null;
+}
+
+/**
+ * Postgres surfaces a unique-constraint conflict as SQLSTATE `23505`. The
+ * exact error shape depends on driver — postgres-js and node-postgres both
+ * expose `.code`, but drizzle wraps some errors — so we also sniff the
+ * message as a fallback.
+ */
+function isUniqueViolation(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const code = (err as { code?: unknown }).code;
+  if (code === '23505') return true;
+  const msg = err instanceof Error ? err.message.toLowerCase() : '';
+  return msg.includes('duplicate key') || msg.includes('unique constraint');
 }
 
 function subscriptionPeriodEnd(sub: Stripe.Subscription): Date | null {

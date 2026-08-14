@@ -31,7 +31,7 @@ async function main(): Promise<void> {
 
   logger.info('api.boot', { env: env.NODE_ENV, port: env.API_PORT });
 
-  const { db } = createDatabase({
+  const { db, sql } = createDatabase({
     url: env.DATABASE_URL,
     prepare: env.DATABASE_PREPARE,
     ssl: env.NODE_ENV === 'production' ? true : undefined,
@@ -251,6 +251,14 @@ async function main(): Promise<void> {
         if (workers) await workers.close();
         if (ingestionQueue) await ingestionQueue.close();
         if (redis) await redis.quit();
+        // Drain the Postgres pool last (after HTTP and workers). Without this
+        // SIGTERM cuts inflight queries mid-flight. 5s cap so a hung backend
+        // can't stall shutdown past the 30s force-kill above.
+        try {
+          await sql.end({ timeout: 5 });
+        } catch (err) {
+          logger.warn('api.db_drain_error', { message: (err as Error).message });
+        }
         // Flush any pending spans to the collector before exit. No-op when
         // tracing is disabled.
         await getTracingHandle().shutdown();

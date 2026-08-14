@@ -64,14 +64,7 @@ export function Integrations() {
                   </div>
                   <h3 className="mt-2 text-sm font-medium">{i.name}</h3>
                 </div>
-                <span
-                  className={
-                    'text-2xs shrink-0 border px-2 py-0.5 uppercase tracking-widest transition-colors ' +
-                    (i.status === 'stable' || i.status === 'supported'
-                      ? 'border-foreground/20 text-foreground group-hover:bg-foreground group-hover:text-background'
-                      : 'border-border text-muted-foreground border-dashed')
-                  }
-                >
+                <span className="text-2xs border-foreground/20 text-foreground group-hover:bg-foreground group-hover:text-background shrink-0 border px-2 py-0.5 uppercase tracking-widest transition-colors">
                   {i.status}
                 </span>
               </div>

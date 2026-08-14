@@ -44,7 +44,7 @@ export function Footer() {
                     <li key={label}>
                       <Link
                         href={href}
-                        className="text-foreground transition-opacity hover:opacity-70"
+                        className="text-muted-foreground hover:text-foreground transition-colors"
                       >
                         {label}
                       </Link>

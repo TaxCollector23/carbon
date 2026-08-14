@@ -34,6 +34,42 @@ export const PLAN_RATE_LIMITS: Record<PlanTier, number> = {
 
 const DEFAULT_EXEMPT = ['/health', '/ready'];
 
+/**
+ * In-process token bucket used ONLY when Redis is throwing. Prevents an
+ * unlimited free-for-all during a Redis outage — before this, a Redis failure
+ * meant every caller could hammer the API without a ceiling. Deliberately
+ * conservative: burst 20, refill 10/s per identity. Bounded map with FIFO
+ * eviction so a rotating IP flood cannot grow it without limit.
+ */
+const FALLBACK_BURST = 20;
+const FALLBACK_REFILL_PER_SEC = 10;
+const FALLBACK_MAX_BUCKETS = 10_000;
+const fallbackBuckets = new Map<string, { tokens: number; updatedAt: number }>();
+
+function allowFallback(id: string): boolean {
+  const now = Date.now();
+  let bucket = fallbackBuckets.get(id);
+  if (!bucket) {
+    if (fallbackBuckets.size >= FALLBACK_MAX_BUCKETS) {
+      // Map iteration is insertion-ordered — drop the oldest bucket.
+      const oldest = fallbackBuckets.keys().next();
+      if (!oldest.done) fallbackBuckets.delete(oldest.value);
+    }
+    bucket = { tokens: FALLBACK_BURST, updatedAt: now };
+    fallbackBuckets.set(id, bucket);
+  } else {
+    // Refresh recency for LRU-ish eviction: re-insert to move to the tail.
+    fallbackBuckets.delete(id);
+    fallbackBuckets.set(id, bucket);
+    const elapsedSec = (now - bucket.updatedAt) / 1000;
+    bucket.tokens = Math.min(FALLBACK_BURST, bucket.tokens + elapsedSec * FALLBACK_REFILL_PER_SEC);
+    bucket.updatedAt = now;
+  }
+  if (bucket.tokens < 1) return false;
+  bucket.tokens -= 1;
+  return true;
+}
+
 const RATE_LIMIT_SCRIPT = `
 local count = redis.call("INCR", KEYS[1])
 if count == 1 then
@@ -129,7 +165,16 @@ export async function registerControlPlaneRateLimit(
       }
     } catch (err) {
       ctx.logger.warn('rate_limit.redis_error', { message: (err as Error).message });
-      // Fail open — do not reject legitimate traffic on infra hiccups.
+      // Fall back to an in-process token bucket rather than failing fully
+      // open. A Redis outage previously let any caller hammer the API without
+      // a ceiling; the fallback keeps a conservative per-identity limit.
+      if (!allowFallback(id)) {
+        reply.header('retry-after', '1');
+        reply
+          .status(429)
+          .send({ error: { code: 'CARBON_RATE_LIMITED', message: 'Rate limit exceeded' } });
+        return reply;
+      }
     }
   });
 }

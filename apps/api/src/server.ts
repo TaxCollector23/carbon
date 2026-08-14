@@ -44,6 +44,7 @@ import { registerDocs } from './plugins/docs.js';
 import { recordErrorResult, registerMetrics, type IngestMetrics } from './plugins/metrics.js';
 import { isTransient, mapDriverError } from './errors.js';
 import { AlwaysReady, type Lifecycle } from './lifecycle.js';
+import { shutdownRedisEventBus } from './services/event-bus.js';
 import type { Redis } from 'ioredis';
 import type { AppContext } from './context.js';
 
@@ -333,6 +334,11 @@ export async function buildServer(
   await registerRecordingRoutes(app, ctx);
   await registerJobRoutes(app, ctx);
   await registerEventRoutes(app, ctx);
+  // Tear down the shared SSE Redis subscriber on graceful shutdown so its
+  // socket doesn't outlive the Fastify instance in embedded/test use.
+  app.addHook('onClose', async () => {
+    await shutdownRedisEventBus();
+  });
   await registerOrganizationRoutes(app, ctx);
   await registerBillingRoutes(app, ctx);
   await registerScimRoutes(app, ctx);

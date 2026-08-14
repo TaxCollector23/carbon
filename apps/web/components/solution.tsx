@@ -2,20 +2,20 @@ import { Section, SectionHeading } from './section';
 
 const pillars = [
   {
-    title: 'A POST changes what future GETs return',
-    body: 'Carbon compiles resources, relationships, and transitions into a runtime your app can call.',
+    title: 'POST creates a record. GET returns it.',
+    body: 'Carbon infers the resource model from your spec and runs a real HTTP server on localhost:8787 that mutates in-memory like a real backend.',
   },
   {
-    title: 'Deterministic on the request path',
-    body: 'After ingestion, request handling runs without AI calls on the request path.',
+    title: 'No AI on the request path',
+    body: 'Inference happens once at ingest. Every subsequent request is deterministic, offline, and answered in microseconds.',
   },
   {
-    title: 'Snapshot, branch, replay',
-    body: 'Save runtime state as JSON and restore it in another test file, machine, or pull request.',
+    title: 'Snapshot, rewind, replay',
+    body: 'Freeze the entire server state to JSON, restore it before each test, and rewind the journal to undo any mutation by sequence number.',
   },
   {
-    title: 'Same base URL locally and in CI',
-    body: 'Use the same runtime in development and CI without calling the upstream API after import.',
+    title: 'Same URL in your laptop and in CI',
+    body: 'Boot the emulator in dev, in Docker, or in GitHub Actions. The upstream API is never called after `carbon ingest` runs.',
   },
 ];
 
@@ -25,8 +25,8 @@ export function Solution() {
       <div className="grid gap-12 lg:grid-cols-[1fr_1.15fr] lg:items-center">
         <div>
           <SectionHeading
-            title="Compile API behavior into a stateful runtime."
-            description="Carbon turns API shape and observed behavior into a runtime your application can mutate."
+            title="Reads your spec. Runs a real server. Remembers what you did."
+            description="Carbon parses your OpenAPI, GraphQL, or gRPC contract, infers the resource model behind it, and boots an HTTP server that behaves like the real thing — with journaling, snapshots, and injectable failure modes."
           />
           <div className="border-border mt-10 border-y">
             {pillars.map((p) => (
@@ -37,23 +37,21 @@ export function Solution() {
             ))}
           </div>
         </div>
-        <div className="border-border bg-background relative min-h-[430px] overflow-hidden border p-6">
-          <div className="bg-border absolute inset-x-6 top-1/2 h-px" />
-          <div className="bg-border absolute inset-y-6 left-1/2 w-px" />
-          <div className="bg-border relative grid h-full grid-cols-2 gap-px">
-            {[
-              ['POST', '/customers', 'creates state'],
-              ['GET', '/customers/:id', 'reads mutation'],
-              ['SNAPSHOT', 'seeded-checkout', 'freezes graph'],
-              ['REPLAY', 'ci/pr-184', 'same result'],
-            ].map(([method, path, note]) => (
-              <div key={method} className="solution-cell bg-background group p-5">
-                <div className="text-2xs text-muted-foreground font-mono uppercase">{method}</div>
-                <div className="text-foreground mt-3 font-mono text-sm">{path}</div>
-                <div className="text-muted-foreground mt-2 text-sm">{note}</div>
+        <div className="border-border bg-border grid grid-cols-2 gap-px overflow-hidden border">
+          {[
+            ['POST', '/customers', 'creates state'],
+            ['GET', '/customers/:id', 'reads mutation'],
+            ['SNAPSHOT', 'seeded-checkout', 'freezes graph'],
+            ['REPLAY', 'ci/pr-184', 'same result'],
+          ].map(([method, path, note]) => (
+            <div key={method} className="solution-cell bg-background group p-6">
+              <div className="text-2xs text-muted-foreground font-mono uppercase tracking-widest">
+                {method}
               </div>
-            ))}
-          </div>
+              <div className="text-foreground mt-3 font-mono text-sm">{path}</div>
+              <div className="text-muted-foreground mt-2 text-sm leading-6">{note}</div>
+            </div>
+          ))}
         </div>
       </div>
     </Section>

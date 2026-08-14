@@ -24,20 +24,21 @@ export function Pricing() {
         className="mx-auto"
       />
 
-      <div className="mx-auto mt-14 grid max-w-6xl gap-4 lg:grid-cols-3">
-        {TIERS.map((tier) => (
+      <div className="border-border mx-auto mt-14 grid max-w-6xl border-y lg:grid-cols-3">
+        {TIERS.map((tier, idx) => (
           <section
             key={tier.id}
             className={cn(
-              'border-border bg-background flex flex-col rounded-lg border p-6 sm:p-8',
-              tier.highlighted && 'bg-subtle/60 ring-foreground/10 shadow-sm ring-1',
+              'border-border relative flex flex-col p-6 sm:p-8',
+              idx > 0 && 'border-t lg:border-l lg:border-t-0',
+              tier.highlighted && 'bg-subtle/40',
             )}
           >
             <div>
               <div className="flex items-center gap-3">
                 <h3 className="text-base font-medium">{tier.name}</h3>
                 {tier.highlighted ? (
-                  <span className="border-border text-muted-foreground rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wider">
+                  <span className="text-2xs text-muted-foreground border-border border px-1.5 py-0.5 uppercase tracking-widest">
                     Most popular
                   </span>
                 ) : null}
@@ -62,7 +63,7 @@ export function Pricing() {
               <Link
                 href={tier.cta.href}
                 className={cn(
-                  'inline-flex w-full items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition',
+                  'focus-visible:ring-ring inline-flex w-full items-center justify-center px-4 py-2.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                   tier.highlighted
                     ? 'bg-foreground text-background hover:opacity-90'
                     : 'border-border text-foreground hover:bg-subtle border',
@@ -85,9 +86,9 @@ export function Pricing() {
             Full breakdown in the docs →
           </a>
         </div>
-        <div className="border-border overflow-x-auto rounded-lg border">
+        <div className="border-border overflow-x-auto border-y">
           <table className="w-full min-w-[720px] text-sm">
-            <thead className="bg-subtle/50 text-muted-foreground text-left text-xs uppercase tracking-wider">
+            <thead className="text-muted-foreground border-border border-b text-left text-xs uppercase tracking-widest">
               <tr>
                 <th className="px-4 py-3 font-medium">Capability</th>
                 <th className="px-4 py-3 font-medium">Free</th>

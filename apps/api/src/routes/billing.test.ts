@@ -69,8 +69,13 @@ function makeDb(): { db: AppContext['db']; rows: SubRow[] } {
       }),
     }),
     insert: () => ({
-      values: async (v: SubRow) => {
-        rows.push({ ...v });
+      values: async (v: Record<string, unknown>) => {
+        // The webhook path also inserts into `processed_stripe_events` for
+        // dedupe; those rows have neither `orgId` nor `plan`. Only mirror
+        // real subscription writes into the test's `rows` fake.
+        if ('orgId' in v && 'plan' in v) {
+          rows.push({ ...(v as unknown as SubRow) });
+        }
       },
     }),
     update: () => {

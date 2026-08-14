@@ -49,6 +49,10 @@ const SESSION_COOKIE_NAMES = ['better-auth.session_token', '__Secure-better-auth
 
 export async function registerSessionAuth(app: FastifyInstance, ctx: AppContext): Promise<void> {
   app.addHook('onRequest', async (req) => {
+    // Skip session lookup when the request already authenticated via API key.
+    // The api-key plugin runs first (see server.ts) and sets `req.apiKey`;
+    // running an extra sessions JOIN on that hot path is pure waste.
+    if ((req as { apiKey?: unknown }).apiKey) return;
     const token = extractToken(req);
     if (!token) return;
 

@@ -219,6 +219,7 @@ export const events = pgTable(
   (t) => ({
     orgCreatedIdx: index('events_org_created_idx').on(t.orgId, t.createdAt),
     orgActionIdx: index('events_org_action_idx').on(t.orgId, t.action),
+    orgActorIdx: index('events_org_actor_idx').on(t.orgId, t.actorId),
     projectIdx: index('events_project_idx').on(t.projectId),
   }),
 );
@@ -460,6 +461,7 @@ export const usageEvents = pgTable(
       t.kind,
       t.occurredAt,
     ),
+    orgOccurredIdx: index('usage_events_org_occurred_idx').on(t.orgId, t.occurredAt),
   }),
 );
 
@@ -610,6 +612,19 @@ export const slackChannelSubscriptions = pgTable(
     installIdx: index('slack_channel_subscriptions_install_idx').on(t.installationId),
   }),
 );
+
+/**
+ * Idempotency ledger for Stripe webhook events. Stripe redelivers on any 5xx
+ * and network hiccups can produce duplicate deliveries; the webhook handler
+ * `INSERT`s each event id here first and returns 200 immediately on a
+ * unique-violation. `id` is Stripe's globally-unique `evt_*` — no org scoping
+ * needed.
+ */
+export const processedStripeEvents = pgTable('processed_stripe_events', {
+  id: text('id').primaryKey(),
+  type: text('type'),
+  receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
+});
 
 /** Short-lived, read-only shareable replica links. */
 export const shareLinks = pgTable(

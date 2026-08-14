@@ -2,13 +2,13 @@ import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { and, desc, eq, lt, type SQL } from 'drizzle-orm';
-import type { Redis } from 'ioredis';
 import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
 import { resolveCallerOrg } from '../plugins/caller-org.js';
 import { requireScope } from '../plugins/scopes.js';
 import { zodQuery, zodResponse, zodResponseWithExample } from '../plugins/schema-helpers.js';
-import { eventBus, redisChannelForOrg, type PublishedEvent } from '../services/events.js';
+import { eventBus, type PublishedEvent } from '../services/events.js';
+import { getRedisEventBus } from '../services/event-bus.js';
 
 const EventSchema = z.object({
   id: z.string(),
@@ -159,29 +159,22 @@ export async function registerEventRoutes(app: FastifyInstance, ctx: AppContext)
     };
     eventBus.on('new-event', onLocal);
 
-    // Cross-instance fanout via Redis pub/sub when available. ioredis requires
-    // a dedicated connection for subscribe mode, so we duplicate the shared
-    // client and clean it up when the socket closes.
-    let subscriber: Redis | undefined;
-    if (ctx.redis) {
+    // Cross-instance fanout via Redis pub/sub when available. The shared
+    // `RedisEventBus` maintains ONE duplicated ioredis client for the whole
+    // process and multiplexes org channels onto it — so N tabs no longer
+    // means N `duplicate()`s. `unsubscribeRedis` is called on socket close.
+    let unsubscribeRedis: (() => void) | undefined;
+    if (orgId && ctx.redis) {
       try {
-        subscriber = ctx.redis.duplicate();
-        const channel = redisChannelForOrg(orgId);
-        await subscriber.subscribe(channel);
-        subscriber.on('message', (_ch, message) => {
-          try {
-            const evt = JSON.parse(message) as PublishedEvent;
-            if (filter(evt)) writeSseFrame(raw, 'new-event', evt);
-          } catch {
-            // Ignore malformed messages — a stray publish must not tear the
-            // stream down for well-behaved subscribers.
-          }
+        const bus = getRedisEventBus(ctx.redis, ctx.logger);
+        unsubscribeRedis = await bus.subscribe(orgId, (evt) => {
+          if (filter(evt)) writeSseFrame(raw, 'new-event', evt);
         });
       } catch (err) {
         ctx.logger.warn('events.stream.redis_subscribe_failed', {
           message: err instanceof Error ? err.message : String(err),
         });
-        subscriber = undefined;
+        unsubscribeRedis = undefined;
       }
     }
 
@@ -196,9 +189,9 @@ export async function registerEventRoutes(app: FastifyInstance, ctx: AppContext)
     const cleanup = (): void => {
       clearInterval(heartbeat);
       eventBus.off('new-event', onLocal);
-      if (subscriber) {
-        subscriber.disconnect();
-        subscriber = undefined;
+      if (unsubscribeRedis) {
+        unsubscribeRedis();
+        unsubscribeRedis = undefined;
       }
       try {
         raw.end();

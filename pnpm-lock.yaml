@@ -970,6 +970,27 @@ importers:
         specifier: ^5.7.2
         version: 5.9.3
 
+  packages/vitest:
+    devDependencies:
+      '@carbon/config':
+        specifier: workspace:*
+        version: link:../config
+      '@carbon/parser':
+        specifier: workspace:*
+        version: link:../parser
+      '@carbon/sdk':
+        specifier: workspace:*
+        version: link:../sdk
+      '@carbon/state':
+        specifier: workspace:*
+        version: link:../state
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)(supports-color@10.2.2)
+
   packages/workers:
     dependencies:
       '@carbon/core':
