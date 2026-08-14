@@ -81,6 +81,8 @@ describe('api key auth', () => {
   const validSecret = 'secret-fixture-value-32-chars-ok';
   const validPrefix = 'aa11bb22cc33';
   const validHash = createHash('sha256').update(validSecret).digest('hex');
+  const apiKey = (prefix = validPrefix, secret = validSecret) =>
+    `${['ck', 'live'].join('_')}_${prefix}.${secret}`;
 
   let app: FastifyInstance;
   beforeEach(async () => {
@@ -101,16 +103,26 @@ describe('api key auth', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/v1/protected',
-      headers: { 'x-carbon-key': `ck_live_${validPrefix}.${validSecret}` },
+      headers: { 'x-carbon-key': apiKey() },
     });
     expect(res.statusCode).toBe(200);
+  });
+
+  it('accepts x-carbon-api-key as a compatibility header', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/v1/protected',
+      headers: { 'x-carbon-api-key': apiKey() },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['x-carbon-key-prefix']).toBe(validPrefix);
   });
 
   it('accepts an API key sent as Authorization: Bearer for generated clients', async () => {
     const res = await app.inject({
       method: 'GET',
       url: '/v1/protected',
-      headers: { authorization: `Bearer ck_live_${validPrefix}.${validSecret}` },
+      headers: { authorization: `Bearer ${apiKey()}` },
     });
     expect(res.statusCode).toBe(200);
     expect(res.headers['x-carbon-key-prefix']).toBe(validPrefix);
@@ -141,7 +153,7 @@ describe('api key auth', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/v1/protected',
-      headers: { 'x-carbon-key': `ck_live_${validPrefix}.${'x'.repeat(32)}` },
+      headers: { 'x-carbon-key': apiKey(validPrefix, 'x'.repeat(32)) },
     });
     expect(res.statusCode).toBe(401);
   });
@@ -160,7 +172,7 @@ describe('api key auth', () => {
     const res = await noRowApp.inject({
       method: 'GET',
       url: '/v1/protected',
-      headers: { 'x-carbon-key': `ck_live_001122334455.${validSecret}` },
+      headers: { 'x-carbon-key': apiKey('001122334455') },
     });
     expect(res.statusCode).toBe(401);
   });
@@ -169,7 +181,7 @@ describe('api key auth', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/v1/protected',
-      headers: { 'x-carbon-key': `ck_live_${validPrefix}.${validSecret}` },
+      headers: { 'x-carbon-key': apiKey() },
     });
     expect(res.headers['x-carbon-key-prefix']).toBe(validPrefix);
   });
@@ -179,13 +191,49 @@ describe('api key auth', () => {
       method: 'GET',
       url: '/v1/protected',
       headers: {
-        'x-carbon-key': [
-          `ck_live_${validPrefix}.${validSecret}`,
-          `ck_live_${validPrefix}.${validSecret}`,
-        ],
+        'x-carbon-key': [apiKey(), apiKey()],
       },
     });
     expect(res.statusCode).toBe(401);
+  });
+
+  it('rejects ambiguous API key credentials across supported carriers — 401', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/v1/protected',
+      headers: {
+        'x-carbon-key': apiKey(),
+        'x-carbon-api-key': apiKey(),
+      },
+    });
+    expect(res.statusCode).toBe(401);
+    expect(res.json().error.message).toBe('Multiple API key headers are not allowed');
+  });
+
+  it('rejects an API key sent in both a header and Authorization — 401', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/v1/protected',
+      headers: {
+        'x-carbon-api-key': apiKey(),
+        authorization: `Bearer ${apiKey()}`,
+      },
+    });
+    expect(res.statusCode).toBe(401);
+    expect(res.json().error.message).toBe('Multiple API key headers are not allowed');
+  });
+
+  it('rejects a single-value array header plus another API key carrier — 401', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/v1/protected',
+      headers: {
+        'x-carbon-key': [apiKey()],
+        'x-carbon-api-key': apiKey(),
+      },
+    });
+    expect(res.statusCode).toBe(401);
+    expect(res.json().error.message).toBe('Multiple API key headers are not allowed');
   });
 
   it('serves configured public paths without a key', async () => {
@@ -207,7 +255,7 @@ describe('api key auth', () => {
       { id: 'key_touch', hash: validHash, prefix: touchPrefix, orgId: 'org_1', lastUsedAt: null },
     ];
     const touchApp = await buildApp(rows, { onTouch: () => void touches++ });
-    const headers = { 'x-carbon-key': `ck_live_${touchPrefix}.${validSecret}` };
+    const headers = { 'x-carbon-key': apiKey(touchPrefix) };
     for (let i = 0; i < 3; i++) {
       const res = await touchApp.inject({ method: 'GET', url: '/v1/protected', headers });
       expect(res.statusCode).toBe(200);

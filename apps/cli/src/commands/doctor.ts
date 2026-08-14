@@ -4,6 +4,14 @@ import { statSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { join } from 'node:path';
 import pc from 'picocolors';
+import {
+  DEFAULT_API_URL,
+  credentialsPath,
+  loadConfig,
+  loadCredentials,
+  type CarbonConfig,
+  type Credentials,
+} from '../lib/credentials.js';
 import { ui } from '../ui.js';
 
 type Status = 'ok' | 'warn' | 'fail';
@@ -18,17 +26,43 @@ export const doctorCommand = defineCommand({
     name: 'doctor',
     description: 'Diagnose the local Carbon development environment.',
   },
-  async run() {
+  args: {
+    'api-url': {
+      type: 'string',
+      description: 'Carbon API base URL to check.',
+    },
+    'skip-network': {
+      type: 'boolean',
+      description: 'Skip the API reachability probe.',
+    },
+  },
+  async run({ args }) {
+    const config = await readConfig();
+    const credentials = await readCredentials();
+    const apiUrl = resolveDoctorApiUrl(
+      args['api-url'] as string | undefined,
+      credentials.value,
+      config.value,
+    );
+
     const checks: Check[] = [];
     checks.push(checkNode());
     checks.push(checkPnpm());
-    for (const port of [3000, 3001, 4000]) {
-      checks.push(await checkPort(port));
+    if (config.error) checks.push(loadErrorCheck('Carbon config', config.error));
+    if (credentials.error) checks.push(loadErrorCheck('Saved credentials', credentials.error));
+    checks.push(checkCredentials(credentials.value, apiUrl));
+    const apiBase = checkApiBase(apiUrl);
+    checks.push(apiBase);
+    for (const target of LOCAL_PORTS) {
+      checks.push(await checkPort(target.port, target.name));
     }
     checks.push(checkUrl('DATABASE_URL'));
     checks.push(checkUrl('REDIS_URL'));
     checks.push(checkNodeModulesStaleness());
     checks.push(checkDocker());
+    if (!args['skip-network'] && apiBase.status !== 'fail') {
+      checks.push(await checkApiReachability(apiUrl));
+    }
 
     printTable(checks);
     const failed = checks.filter((c) => c.status === 'fail').length;
@@ -36,12 +70,22 @@ export const doctorCommand = defineCommand({
   },
 });
 
+const MIN_NODE_MAJOR = 22;
+const MIN_NODE_MINOR = 13;
+
+const LOCAL_PORTS = [
+  { port: 1223, name: 'Web dev port 1223' },
+  { port: 3001, name: 'Dashboard dev port 3001' },
+  { port: 4000, name: 'API dev port 4000' },
+] as const;
+
 function checkNode(): Check {
   const raw = process.versions.node;
-  const major = Number(raw.split('.')[0]);
+  const [major = 0, minor = 0] = raw.split('.').map((part) => Number(part));
+  const supported = major > MIN_NODE_MAJOR || (major === MIN_NODE_MAJOR && minor >= MIN_NODE_MINOR);
   return {
-    name: 'Node.js >= 20',
-    status: major >= 20 ? 'ok' : 'fail',
+    name: 'Node.js >= 22.13',
+    status: supported ? 'ok' : 'fail',
     detail: `v${raw}`,
   };
 }
@@ -57,7 +101,7 @@ function checkPnpm(): Check {
   }
 }
 
-async function checkPort(port: number): Promise<Check> {
+async function checkPort(port: number, name = `Port ${port} free`): Promise<Check> {
   const free = await new Promise<boolean>((resolve) => {
     const srv = createServer();
     srv.once('error', () => resolve(false));
@@ -67,10 +111,123 @@ async function checkPort(port: number): Promise<Check> {
     srv.listen(port, '127.0.0.1');
   });
   return {
-    name: `Port ${port} free`,
+    name,
     status: free ? 'ok' : 'warn',
     detail: free ? 'available' : 'in use',
   };
+}
+
+interface LoadResult<T> {
+  readonly value: T | null;
+  readonly error?: Error;
+}
+
+async function readConfig(): Promise<LoadResult<CarbonConfig>> {
+  try {
+    return { value: await loadConfig() };
+  } catch (err) {
+    return { value: null, error: err as Error };
+  }
+}
+
+async function readCredentials(): Promise<LoadResult<Credentials>> {
+  try {
+    return { value: await loadCredentials() };
+  } catch (err) {
+    return { value: null, error: err as Error };
+  }
+}
+
+function loadErrorCheck(name: string, err: Error): Check {
+  return {
+    name,
+    status: 'fail',
+    detail: err.message,
+  };
+}
+
+function resolveDoctorApiUrl(
+  flag: string | undefined,
+  credentials: Credentials | null,
+  config: CarbonConfig | null,
+): string {
+  return (flag ?? credentials?.apiUrl ?? config?.apiUrl ?? DEFAULT_API_URL).replace(/\/+$/, '');
+}
+
+function checkCredentials(credentials: Credentials | null, apiUrl: string): Check {
+  if (!credentials) {
+    return {
+      name: 'Saved credentials',
+      status: 'warn',
+      detail: `not found at ${credentialsPath()} — run carbon login`,
+    };
+  }
+
+  const savedApiUrl = credentials.apiUrl.replace(/\/+$/, '');
+  const key = credentials.keyPrefix ? credentials.keyPrefix : credentials.key.slice(0, 20);
+  if (savedApiUrl !== apiUrl) {
+    return {
+      name: 'Saved credentials',
+      status: 'warn',
+      detail: `${key} saved for ${savedApiUrl}; probing ${apiUrl}`,
+    };
+  }
+
+  return {
+    name: 'Saved credentials',
+    status: 'ok',
+    detail: `${key} saved for ${savedApiUrl}`,
+  };
+}
+
+function checkApiBase(apiUrl: string): Check {
+  try {
+    // eslint-disable-next-line no-new
+    new URL(apiUrl);
+    return { name: 'Carbon API URL', status: 'ok', detail: apiUrl };
+  } catch {
+    return { name: 'Carbon API URL', status: 'fail', detail: `invalid URL: ${apiUrl}` };
+  }
+}
+
+async function checkApiReachability(apiUrl: string): Promise<Check> {
+  const url = `${apiUrl}/v1/version`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 3000);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (res.ok) {
+      const version = await readVersion(res);
+      return {
+        name: 'Carbon API reachable',
+        status: 'ok',
+        detail: version ? `${apiUrl} (${version})` : apiUrl,
+      };
+    }
+    return {
+      name: 'Carbon API reachable',
+      status: 'warn',
+      detail: `${url} returned HTTP ${res.status}`,
+    };
+  } catch (err) {
+    return {
+      name: 'Carbon API reachable',
+      status: 'warn',
+      detail: `${apiUrl} not reachable (${(err as Error).message})`,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function readVersion(res: Response): Promise<string | null> {
+  try {
+    const body = (await res.json()) as { version?: unknown; release?: unknown };
+    const version = typeof body.version === 'string' ? body.version : body.release;
+    return typeof version === 'string' ? version : null;
+  } catch {
+    return null;
+  }
 }
 
 function checkUrl(envVar: string): Check {

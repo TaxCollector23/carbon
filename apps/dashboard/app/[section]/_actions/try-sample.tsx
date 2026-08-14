@@ -8,7 +8,7 @@ import { api } from '@/lib/hooks/api';
 import { ApiError, type SampleSummary } from '@/lib/api-client';
 
 /**
- * "Try a sample" — one-click flow that creates a fresh project on the API
+ * Example import — one-click flow that creates a fresh project on the API
  * from a curated OpenAPI fixture (Stripe, GitHub, etc.), runs ingest
  * synchronously, and drops the user on the new project's snapshots page.
  *
@@ -96,14 +96,14 @@ export function TrySampleButton({
         onClick={() => setOpen(true)}
         data-testid="try-sample-button"
       >
-        Try a sample
+        Import example
       </Button>
       <Modal
         open={open}
         onClose={() => {
           if (status.kind !== 'instantiating') setOpen(false);
         }}
-        title="Try a sample API"
+        title="Import an example API"
         footer={
           <Button
             variant="ghost"

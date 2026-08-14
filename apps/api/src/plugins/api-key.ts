@@ -27,6 +27,8 @@ import type { SessionAuthenticatedRequest } from './session-auth.js';
  * `req.sessionUser` is already attached.
  */
 
+const DEFAULT_API_KEY_HEADER = 'x-carbon-key';
+const COMPAT_API_KEY_HEADERS = ['x-carbon-api-key'] as const;
 const KEY_PATTERN = /^ck_live_([a-f0-9]{12})\.([A-Za-z0-9_-]{32,128})$/;
 
 export interface ApiKeyPluginOptions {
@@ -71,7 +73,7 @@ export async function registerApiKeyAuth(
     });
     return;
   }
-  const header = (opts.headerName ?? 'x-carbon-key').toLowerCase();
+  const header = (opts.headerName ?? DEFAULT_API_KEY_HEADER).toLowerCase();
   const publicPaths = new Set(opts.publicPaths ?? DEFAULT_PUBLIC_PATHS);
 
   app.addHook('onRequest', async (req, reply) => {
@@ -92,7 +94,10 @@ export async function registerApiKeyAuth(
       if ((req as SessionAuthenticatedRequest).sessionUser) return;
       throw new CarbonError({
         code: 'CARBON_UNAUTHENTICATED',
-        message: `Missing ${header} header`,
+        message:
+          header === DEFAULT_API_KEY_HEADER
+            ? 'Missing x-carbon-key, x-carbon-api-key, or Authorization: Bearer ck_live_...'
+            : `Missing ${header} header`,
         expose: true,
       });
     }
@@ -206,16 +211,24 @@ function extractPresentedKey(
   req: FastifyRequest,
   header: string,
 ): { presented?: string; duplicate: boolean; headerName: string } {
-  const keyHeader = req.headers[header];
-  if (Array.isArray(keyHeader)) {
-    return {
-      presented: keyHeader[0],
-      duplicate: keyHeader.length !== 1,
-      headerName: header,
-    };
-  }
-  if (typeof keyHeader === 'string' && keyHeader.trim() !== '') {
-    return { presented: keyHeader.trim(), duplicate: false, headerName: header };
+  const credentials: Array<{ headerName: string; value: string }> = [];
+  for (const headerName of apiKeyHeaders(header)) {
+    const keyHeader = req.headers[headerName];
+    if (Array.isArray(keyHeader)) {
+      if (keyHeader.length !== 1) {
+        return {
+          presented: keyHeader[0],
+          duplicate: true,
+          headerName,
+        };
+      }
+      const value = keyHeader[0]?.trim();
+      if (value) credentials.push({ headerName, value });
+      continue;
+    }
+    if (typeof keyHeader === 'string' && keyHeader.trim() !== '') {
+      credentials.push({ headerName, value: keyHeader.trim() });
+    }
   }
 
   const rawAuth = req.headers.authorization;
@@ -226,11 +239,29 @@ function extractPresentedKey(
   if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
     const token = auth.slice(7).trim();
     if (token.startsWith('ck_live_')) {
-      return { presented: token, duplicate: false, headerName: 'authorization' };
+      credentials.push({ headerName: 'authorization', value: token });
     }
   }
 
+  if (credentials.length > 1) {
+    return {
+      presented: credentials[0]!.value,
+      duplicate: true,
+      headerName: 'API key',
+    };
+  }
+  if (credentials.length === 1) {
+    const credential = credentials[0]!;
+    return { presented: credential.value, duplicate: false, headerName: credential.headerName };
+  }
+
   return { duplicate: false, headerName: header };
+}
+
+function apiKeyHeaders(primaryHeader: string): string[] {
+  return [primaryHeader, DEFAULT_API_KEY_HEADER, ...COMPAT_API_KEY_HEADERS].filter(
+    (headerName, index, headers) => headers.indexOf(headerName) === index,
+  );
 }
 
 function sha256(input: string): Buffer {

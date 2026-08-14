@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Carbon API",
-    "description": "Control plane for Carbon — projects, ingestion, emulators, snapshots, artifacts, org/billing, and CLI auth. Every endpoint accepts either an API key (`x-carbon-key`) or a Better Auth session cookie/bearer token; the docs and `/health` endpoints are the only routes served anonymously.",
+    "description": "Control plane for Carbon — projects, ingestion, emulators, snapshots, artifacts, org/billing, and CLI auth. Every endpoint accepts either an API key (`x-carbon-key`, `x-carbon-api-key`, or `Authorization: Bearer ck_live_...`) or a Better Auth session cookie/bearer token; the docs and `/health` endpoints are the only routes served anonymously.",
     "version": "dev",
     "contact": {
       "name": "Carbon",
@@ -17,7 +17,13 @@
         "type": "apiKey",
         "in": "header",
         "name": "x-carbon-key",
-        "description": "A key minted via `POST /v1/api-keys` or the `bootstrap` script. Prefix `ck_live_*` for production, `ck_test_*` for test envs."
+        "description": "A key minted via `POST /v1/api-keys` or the `bootstrap` script. Keys use the `ck_live_<12 hex chars>.<secret>` format."
+      },
+      "apiKeyCompat": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-carbon-api-key",
+        "description": "Compatibility alias for `x-carbon-key`. Use one API-key carrier per request."
       },
       "bearerAuth": {
         "type": "http",
@@ -4778,7 +4784,12 @@
     }
   },
   "servers": [{ "url": "http://localhost:4000", "description": "local dev" }],
-  "security": [{ "apiKey": [] }, { "bearerAuth": [] }, { "sessionCookie": [] }],
+  "security": [
+    { "apiKey": [] },
+    { "apiKeyCompat": [] },
+    { "bearerAuth": [] },
+    { "sessionCookie": [] }
+  ],
   "tags": [
     { "name": "Projects", "description": "Organize ingested APIs and manage per-project ACLs." },
     { "name": "Snapshots", "description": "Save and restore emulator runtime state." },

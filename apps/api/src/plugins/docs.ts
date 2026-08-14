@@ -172,7 +172,8 @@ export async function registerDocs(app: FastifyInstance, release: string): Promi
         description:
           'Control plane for Carbon — projects, ingestion, emulators, snapshots, ' +
           'artifacts, org/billing, and CLI auth. Every endpoint accepts either an ' +
-          'API key (`x-carbon-key`) or a Better Auth session cookie/bearer token; ' +
+          'API key (`x-carbon-key`, `x-carbon-api-key`, or `Authorization: Bearer ck_live_...`) ' +
+          'or a Better Auth session cookie/bearer token; ' +
           'the docs and `/health` endpoints are the only routes served anonymously.',
         version: release,
         contact: {
@@ -194,7 +195,14 @@ export async function registerDocs(app: FastifyInstance, release: string): Promi
             name: 'x-carbon-key',
             description:
               'A key minted via `POST /v1/api-keys` or the `bootstrap` script. ' +
-              'Prefix `ck_live_*` for production, `ck_test_*` for test envs.',
+              'Keys use the `ck_live_<12 hex chars>.<secret>` format.',
+          },
+          apiKeyCompat: {
+            type: 'apiKey',
+            in: 'header',
+            name: 'x-carbon-api-key',
+            description:
+              'Compatibility alias for `x-carbon-key`. Use one API-key carrier per request.',
           },
           bearerAuth: {
             type: 'http',
@@ -215,7 +223,7 @@ export async function registerDocs(app: FastifyInstance, release: string): Promi
           },
         },
       },
-      security: [{ apiKey: [] }, { bearerAuth: [] }, { sessionCookie: [] }],
+      security: [{ apiKey: [] }, { apiKeyCompat: [] }, { bearerAuth: [] }, { sessionCookie: [] }],
       tags: [...API_TAGS],
     },
   });

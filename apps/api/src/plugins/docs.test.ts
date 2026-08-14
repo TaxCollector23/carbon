@@ -94,10 +94,16 @@ describe('docs plugin', () => {
         expect.arrayContaining([expect.objectContaining({ url: 'http://localhost:4000' })]),
       );
       expect(body.components.securitySchemes.apiKey).toBeTruthy();
+      expect(body.components.securitySchemes.apiKeyCompat?.name).toBe('x-carbon-api-key');
       expect(body.components.securitySchemes.bearerAuth).toBeTruthy();
       expect(body.components.securitySchemes.sessionCookie).toBeTruthy();
       expect(body.security).toEqual(
-        expect.arrayContaining([{ apiKey: [] }, { bearerAuth: [] }, { sessionCookie: [] }]),
+        expect.arrayContaining([
+          { apiKey: [] },
+          { apiKeyCompat: [] },
+          { bearerAuth: [] },
+          { sessionCookie: [] },
+        ]),
       );
     } finally {
       await app.close();

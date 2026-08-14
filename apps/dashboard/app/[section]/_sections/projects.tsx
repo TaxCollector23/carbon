@@ -28,9 +28,7 @@ export default function ProjectsSection() {
         <div className="flex items-center gap-2">
           {sampleParam ? (
             <TrySampleButton autoInstantiate={sampleParam} onDone={() => void projects.refetch()} />
-          ) : (
-            <TrySampleButton onDone={() => void projects.refetch()} />
-          )}
+          ) : null}
           <Button size="sm" onClick={() => setOpen(true)} data-testid="new-project-button">
             New project
           </Button>

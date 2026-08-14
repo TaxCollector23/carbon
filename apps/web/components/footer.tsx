@@ -1,27 +1,28 @@
 import Link from 'next/link';
+import { dashboardSignInUrl } from '@/lib/urls';
 import { Wordmark } from './logo';
 
-const columns = [
-  {
-    heading: 'Product',
-    links: [
-      ['Dashboard', '/dashboard'],
-      ['Benchmarks', '/benchmarks'],
-      ['Workflow', '/#workflow'],
-      ['CLI', '/#cli'],
-      ['Emulators', '/emulators'],
-      ['Pricing', '/#pricing'],
-      ['Enterprise', '/enterprise'],
-      ['Talk to us', '/contact'],
-    ],
-  },
-  {
-    heading: 'Community',
-    links: [['GitHub', 'https://github.com/TaxCollector23/carbon']],
-  },
-] satisfies Array<{ heading: string; links: [string, string][] }>;
-
 export function Footer() {
+  const columns = [
+    {
+      heading: 'Product',
+      links: [
+        ['Dashboard', dashboardSignInUrl('/')],
+        ['Benchmarks', '/benchmarks'],
+        ['Workflow', '/#workflow'],
+        ['CLI', '/#cli'],
+        ['Emulators', '/emulators'],
+        ['Pricing', '/#pricing'],
+        ['Enterprise', '/enterprise'],
+        ['Talk to us', '/contact'],
+      ],
+    },
+    {
+      heading: 'Community',
+      links: [['GitHub', 'https://github.com/TaxCollector23/carbon']],
+    },
+  ] satisfies Array<{ heading: string; links: [string, string][] }>;
+
   return (
     <footer className="border-border bg-background border-t">
       <div className="container py-16">

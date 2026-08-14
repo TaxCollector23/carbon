@@ -1,9 +1,12 @@
 import Link from 'next/link';
 import { ArrowRight, LayoutDashboard, Play } from 'lucide-react';
 import { buttonVariants, cn } from '@carbon/ui';
+import { dashboardSignInUrl } from '@/lib/urls';
 import { TerminalDemo } from './terminal';
 
 export function Hero() {
+  const dashboardHref = dashboardSignInUrl('/');
+
   return (
     <section id="top" className="border-border bg-background relative overflow-hidden border-b">
       <div className="container relative">
@@ -25,7 +28,10 @@ export function Hero() {
               gRPC service contracts into the same stateful HTTP runtime.
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-3">
-              <Link href="/dashboard" className={cn(buttonVariants({ size: 'lg' }), 'group gap-2')}>
+              <Link
+                href={dashboardHref}
+                className={cn(buttonVariants({ size: 'lg' }), 'group gap-2')}
+              >
                 <LayoutDashboard className="h-4 w-4" />
                 Enter Dashboard
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />

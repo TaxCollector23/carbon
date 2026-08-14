@@ -20,11 +20,16 @@ front the `apps/api` service with).
 Carbon accepts three auth mechanisms, in this order of preference for
 programmatic callers:
 
-### 1. API key (`x-carbon-key`) — recommended for CLI, CI, servers
+### 1. API key — recommended for CLI, CI, servers
 
 ```bash
 curl -H "x-carbon-key: ck_live_…" <api-origin>/v1/me
 ```
+
+`x-carbon-key` is the canonical header. The API also accepts
+`x-carbon-api-key` and `Authorization: Bearer ck_live_...` for
+generated clients and environments with fixed auth-header conventions.
+Send only one API-key carrier per request.
 
 Keys are minted per-org and carry a scope (`read`, `write`, `admin`).
 Rotate them from the dashboard or via `POST /v1/api-keys`. See

@@ -6,11 +6,7 @@ description: 'From npm install to a stateful replica in under five minutes.'
 ## Or start from a sample
 
 Not ready to point Carbon at your own spec yet? Every install ships with a
-curated set of real API subsets you can spin up in one click.
-
-**From the dashboard** — open the workspace overview and hit **Try a sample**.
-Pick one, and Carbon creates a fresh project, ingests the bundled OpenAPI
-spec, and drops you on the projects list.
+curated catalog of real API subsets you can boot locally.
 
 **From the CLI**:
 
@@ -21,9 +17,9 @@ carbon emulate --catalog stripe
 Available catalog entries include `stripe`, `github`, `openai`, `slack`,
 `twilio`, `notion`, `linear`, and `shopify`.
 
-**From the public gallery** — [Carbon gallery](https://carbon-web-psi.vercel.app/gallery)
-links each entry into the dashboard via `?sample=<id>`, which triggers the
-same one-click flow while signed in.
+The catalog is useful for a first smoke test because it exercises the same
+stateful runtime path as your own OpenAPI, AsyncAPI, GraphQL, protobuf/gRPC,
+HAR, or Postman input.
 
 ---
 
@@ -110,17 +106,18 @@ That's the whole loop: **ingest → emulate → mutate → snapshot → restore*
 
 <Note>
   **Try the examples.** Runnable copy-paste samples live under
-  [`examples/`](https://github.com/carbondev/carbon/tree/master/examples) in the
+  [`examples/`](https://github.com/TaxCollector23/carbon/tree/master/examples) in the
   repo:
 
-  - [`examples/sdk-basic`](https://github.com/carbondev/carbon/tree/master/examples/sdk-basic)
-    — boot a replica from an OpenAPI file with `carbon.emulate()`.
-  - [`examples/sdk-with-ai`](https://github.com/carbondev/carbon/tree/master/examples/sdk-with-ai)
-    — same, plus AI-inferred resources gated by `replica.assertQuality()`.
-  - [`examples/sdk-vitest`](https://github.com/carbondev/carbon/tree/master/examples/sdk-vitest)
-    — drop the SDK into a Vitest suite with proper setup/teardown.
+- [`examples/sdk-basic`](https://github.com/TaxCollector23/carbon/tree/master/examples/sdk-basic)
+  — boot a replica from an OpenAPI file with `carbon.emulate()`.
+- [`examples/sdk-with-ai`](https://github.com/TaxCollector23/carbon/tree/master/examples/sdk-with-ai)
+  — same, plus AI-inferred resources gated by `replica.assertQuality()`.
+- [`examples/sdk-vitest`](https://github.com/TaxCollector23/carbon/tree/master/examples/sdk-vitest)
+  — drop the SDK into a Vitest suite with proper setup/teardown.
 
-  From a clone: `pnpm --filter @carbon/example-sdk-basic dev`.
+From a clone: `pnpm --filter @carbon/example-sdk-basic dev`.
+
 </Note>
 
 ## Next steps

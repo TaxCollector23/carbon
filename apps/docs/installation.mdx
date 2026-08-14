@@ -11,7 +11,7 @@ npm install -g carbon-api
 
 The package name is **`carbon-api`**; the primary binary is `carbon`
 (`carbon-api` and `carbon-dev` are linked as aliases). Requires Node.js
-20 or newer.
+22.13 or newer.
 
 ## One-liner script
 
@@ -36,8 +36,9 @@ carbon doctor
 ```
 
 `carbon doctor` runs a local diagnostic — Node version, pnpm, port
-availability on 3000/3001/4000, `DATABASE_URL`/`REDIS_URL` sanity, docker
-presence — so you can tell right away whether the environment is ready.
+availability on 1223/3001/4000, saved credentials, API URL,
+`DATABASE_URL`/`REDIS_URL` sanity, and docker presence — so you can tell
+right away whether the environment is ready.
 
 ## Shell completion
 

@@ -69,10 +69,12 @@ function DashboardHomeInner() {
             </div>
             <div className="flex items-center gap-3">
               <HealthPill />
-              <TrySampleButton
-                autoInstantiate={sampleParam}
-                onDone={() => void projects.refetch()}
-              />
+              {sampleParam ? (
+                <TrySampleButton
+                  autoInstantiate={sampleParam}
+                  onDone={() => void projects.refetch()}
+                />
+              ) : null}
               <a
                 href={`${MARKETING_URL}/#cli`}
                 className="text-muted-foreground hover:text-foreground text-sm"
