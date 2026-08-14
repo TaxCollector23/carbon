@@ -1,7 +1,9 @@
 import { defineCommand } from 'citty';
 import { carbon } from '@carbon/sdk';
+import { CATALOG, findEntry } from '@carbon/catalog';
 import { ui } from '../ui.js';
 import { isPortFree } from '../lib/net.js';
+import { resolveCatalogSpec } from '../lib/catalog-cache.js';
 
 // Boot takes < 1s on a warm cache but can spike to 10s+ on a cold Node
 // process behind AV / spotlight indexing. Hard-cap the wait so we never leave
@@ -12,6 +14,11 @@ export const emulateCommand = defineCommand({
   meta: { name: 'emulate', description: 'Boot the local deterministic API runtime.' },
   args: {
     from: { type: 'string', description: 'Spec or recording to emulate' },
+    catalog: {
+      type: 'string',
+      description:
+        'Named entry from the built-in emulator catalog (e.g. stripe, github). See `carbon emulate --catalog list` or carbon.dev/emulators.',
+    },
     port: { type: 'string', description: 'Port to bind', default: '8787' },
     host: { type: 'string', description: 'Host to bind', default: '127.0.0.1' },
     watch: {
@@ -21,12 +28,48 @@ export const emulateCommand = defineCommand({
     },
   },
   async run({ args }) {
-    if (!args.from) {
-      ui.error('Provide --from <spec|recording>');
+    let from: string;
+    if (args.catalog) {
+      const slug = String(args.catalog).trim().toLowerCase();
+      if (slug === 'list' || slug === 'help') {
+        ui.header('Built-in emulator catalog');
+        for (const entry of CATALOG) {
+          process.stdout.write(
+            `  ${entry.slug.padEnd(12)} ${entry.name} — ${entry.tagline}\n`,
+          );
+        }
+        process.stdout.write(
+          '\n  Run: carbon emulate --catalog <slug>\n' +
+            '  Docs: https://carbon.dev/emulators\n\n',
+        );
+        return;
+      }
+      const entry = findEntry(slug);
+      if (!entry) {
+        ui.error(
+          `Unknown catalog entry '${slug}'. Run \`carbon emulate --catalog list\` to see options.`,
+        );
+        process.exitCode = 1;
+        return;
+      }
+      try {
+        ui.info(`Resolving ${entry.name} spec from catalog…`);
+        from = await resolveCatalogSpec(entry);
+      } catch (err) {
+        ui.error(
+          `Could not fetch spec for '${slug}': ${(err as Error).message}. ` +
+            `Retry when online, or pass --from <url|path> with a local copy.`,
+        );
+        process.exitCode = 1;
+        return;
+      }
+    } else if (args.from) {
+      from = String(args.from);
+    } else {
+      ui.error('Provide --from <spec|recording> or --catalog <slug>');
       process.exitCode = 1;
       return;
     }
-    const from = String(args.from);
     const port = Number(args.port);
     const host = String(args.host);
 

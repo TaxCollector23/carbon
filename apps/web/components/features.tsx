@@ -1,67 +1,32 @@
-import {
-  Cable,
-  Camera,
-  Clock,
-  Database,
-  KeyRound,
-  Layers,
-  Radio,
-  Scale,
-  Waypoints,
-  Webhook,
-} from 'lucide-react';
+import { Camera, Database, Radio, Scale } from 'lucide-react';
 import { Section, SectionHeading } from './section';
 
+/**
+ * Trimmed to the four capabilities that are genuinely differentiated versus
+ * MSW / WireMock / Prism / Mockoon / Postman Mocks. Every other item in the
+ * old grid (auth, pagination, streaming, GraphQL, resource graph) is real,
+ * but they read as table-stakes on a landing page and dilute the pitch.
+ */
 const features = [
   {
     icon: Database,
-    title: 'Stateful CRUD',
-    body: 'Persists every POST, PUT, PATCH, and DELETE in memory. GETs return what you actually wrote.',
-  },
-  {
-    icon: Waypoints,
-    title: 'Resource graph',
-    body: 'Tracks relationships between resources so a deleted parent cascades to its children.',
+    title: 'Persists state',
+    body: 'Every POST, PUT, PATCH, and DELETE is stored. Later GETs return what you actually wrote — not a canned example.',
   },
   {
     icon: Camera,
-    title: 'Snapshots',
-    body: 'Freezes the whole server state to JSON. Restores it before each test in a millisecond.',
-  },
-  {
-    icon: Webhook,
-    title: 'Webhook simulation',
-    body: 'Fires outbound webhooks on the mutations you configure. Inspects deliveries and retries.',
-  },
-  {
-    icon: Clock,
-    title: 'Latency injection',
-    body: 'Replays p50 and p95 latency profiles so slow-network regressions surface in local runs.',
+    title: 'Freezes with snapshots',
+    body: 'Freezes the whole server state to JSON, then restores it before each test in a millisecond. Rewind mid-run too.',
   },
   {
     icon: Scale,
-    title: 'Chaos presets',
-    body: 'Forces any status code, timeout, or partial failure on demand. Tests your error paths.',
-  },
-  {
-    icon: KeyRound,
-    title: 'Auth-aware',
-    body: 'Checks API keys, OAuth scopes, and RBAC exactly like the upstream service does.',
+    title: 'Forces failures (chaos)',
+    body: 'One flag forces timeouts, 5xx, rate limits, or partial writes. Exercise the error paths you never test on staging.',
   },
   {
     icon: Radio,
-    title: 'Streaming & SSE',
-    body: 'Serves long-lived responses and event streams the same way your production API does.',
-  },
-  {
-    icon: Layers,
-    title: 'Pagination',
-    body: 'Replays cursor and offset pagination deterministically across snapshots.',
-  },
-  {
-    icon: Cable,
-    title: 'GraphQL & REST',
-    body: 'Runs both from the same graph. Query, mutation, or endpoint — same primitives underneath.',
+    title: 'Records real traffic',
+    body: 'Point Carbon at a real API in record mode, hit it once, and replay the traffic offline forever after.',
   },
 ];
 

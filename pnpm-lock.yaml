@@ -190,6 +190,9 @@ importers:
         specifier: ^8.21.3
         version: 8.21.3
     devDependencies:
+      '@carbon/catalog':
+        specifier: workspace:*
+        version: link:../../packages/catalog
       '@carbon/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -378,6 +381,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@carbon/catalog':
+        specifier: workspace:*
+        version: link:../../packages/catalog
       '@carbon/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -586,6 +592,15 @@ importers:
       vitest:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.20.1)(supports-color@10.2.2)
+
+  packages/catalog:
+    devDependencies:
+      '@carbon/config':
+        specifier: workspace:*
+        version: link:../config
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
 
   packages/client:
     dependencies:

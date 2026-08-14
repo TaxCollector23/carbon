@@ -9,28 +9,31 @@ import { COMPARE_ROWS, TIERS } from '@/lib/plans';
  * feature-comparison table sourced from `apps/web/lib/plans.ts` so the docs
  * `plans.mdx` page and this component stay in visual lockstep.
  *
- * Tiers gate on the collaboration/scale axis — the free tier is deliberately
- * generous (full CLI + adapters + local snapshots + chaos) so the paid tiers
- * are the moment a team needs shared state, compliance, or scale rather than
- * an artificial capability wall.
+ * Tiers now gate on the anxiety curve, not org size. Free is the full local
+ * runtime forever. Pro hooks on *drift detection* — the day-two solo-dev
+ * anxiety of "does my mock still match reality?". Team / Business is the
+ * subsequent team-lead purchase for shared state + SSO + audit. Enterprise
+ * adds self-host and regulated-scale controls.
  */
 export function Pricing() {
   return (
     <Section id="pricing">
       <SectionHeading
-        title="Free forever for solo devs. Paid the moment your team needs shared state."
-        description="The CLI, all 8 adapters, local snapshots, and chaos stay free forever. Team and Enterprise add cloud sync, dashboard collaboration, compliance controls, and scale."
+        title="Free forever for solo devs. Paid the moment your emulator risks going stale."
+        description="The CLI, all 8 adapters, local snapshots, and chaos stay free forever. Pro adds drift detection so your captured traffic keeps matching production. Team and Enterprise layer shared state and compliance on top."
         align="center"
         className="mx-auto"
       />
 
-      <div className="border-border mx-auto mt-14 grid max-w-6xl border-y lg:grid-cols-3">
+      <div className="border-border mx-auto mt-14 grid max-w-6xl border-y lg:grid-cols-4">
         {TIERS.map((tier, idx) => (
           <section
             key={tier.id}
             className={cn(
               'border-border relative flex flex-col p-6 sm:p-8',
               idx > 0 && 'border-t lg:border-l lg:border-t-0',
+              // 4-col grid on lg wraps to 2 rows only if we drop below lg;
+              // the tier ordering keeps Pro second so it stays highlighted.
               tier.highlighted && 'bg-subtle/40',
             )}
           >
@@ -87,11 +90,12 @@ export function Pricing() {
           </a>
         </div>
         <div className="border-border overflow-x-auto border-y">
-          <table className="w-full min-w-[720px] text-sm">
+          <table className="w-full min-w-[840px] text-sm">
             <thead className="text-muted-foreground border-border border-b text-left text-xs uppercase tracking-widest">
               <tr>
                 <th className="px-4 py-3 font-medium">Capability</th>
                 <th className="px-4 py-3 font-medium">Free</th>
+                <th className="px-4 py-3 font-medium">Pro</th>
                 <th className="px-4 py-3 font-medium">Team</th>
                 <th className="px-4 py-3 font-medium">Enterprise</th>
               </tr>
@@ -112,6 +116,7 @@ export function Pricing() {
                     )}
                   </td>
                   <td className="text-muted-foreground px-4 py-3">{row.developer}</td>
+                  <td className="text-muted-foreground px-4 py-3">{row.pro}</td>
                   <td className="text-muted-foreground px-4 py-3">{row.team}</td>
                   <td className="text-muted-foreground px-4 py-3">{row.enterprise}</td>
                 </tr>

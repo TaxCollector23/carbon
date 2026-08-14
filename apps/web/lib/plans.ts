@@ -6,11 +6,17 @@
  *
  * Rationale for the axis: capability-gating a developer tool teaches users to
  * fork rather than pay. Every tier gets the full CLI + local runtime + 8
- * adapters + chaos + local snapshots. Paid tiers gate strictly on *cloud
- * collaboration, compliance, and scale* — the moment two humans need to look
- * at the same replica or a company needs to prove who did what.
+ * adapters + chaos + local snapshots.
+ *
+ * Pro gates on the day-two anxiety of a solo dev: "does my mock still match
+ * reality?" — i.e. **drift detection** against the real upstream, plus
+ * unlimited AI ingest, extended chaos, and a snapshot library. Team sharing
+ * is a bullet on Pro, not the headline.
+ *
+ * Team/Business is the team-lead purchase — cloud shared state, org quota,
+ * SSO, audit log. Enterprise adds self-host + regulated-scale controls.
  */
-export type TierId = 'developer' | 'team' | 'enterprise';
+export type TierId = 'developer' | 'pro' | 'team' | 'enterprise';
 
 export interface Tier {
   readonly id: TierId;
@@ -61,34 +67,53 @@ export const TIERS: readonly Tier[] = [
     ],
   },
   {
-    id: 'team',
-    name: 'Pro / Team',
+    id: 'pro',
+    name: 'Pro',
     price: '$29',
     period: 'per developer / month',
-    tagline: 'Cloud sync, dashboard, drift detection — the moment two humans need to share state.',
-    cta: { label: 'Start a team trial', href: dashboardUrl('/onboarding') },
+    tagline:
+      "Carbon periodically replays a slice of your captured traffic against the real API and tells you when behavior diverges — so your local emulator doesn't rot silently.",
+    cta: { label: 'Start Pro trial', href: dashboardUrl('/onboarding') },
     highlighted: true,
     features: [
       'Everything in Free',
-      'Cloud-hosted project & snapshot sync (`carbon snapshot push/pull`)',
-      'Team dashboard: projects, runs, activity, member roles',
-      'AI-assisted inference — unlimited, best-available model',
-      'Drift detection against the real upstream API',
-      'Audit log — 30-day view',
+      'Drift detection — scheduled replay of captured traffic against the real upstream',
+      'Unlimited AI-assisted ingest (best-available model)',
+      'Extended chaos presets — saved, reusable, matrix-runnable',
+      'Snapshot library — versioned, tagged, shareable across your own machines',
+      'Optional cloud sync when you want it (single-seat)',
       '90-day snapshot / event retention',
       'Email support (business hours)',
     ],
   },
   {
+    id: 'team',
+    name: 'Team / Business',
+    price: '$79',
+    period: 'per developer / month',
+    tagline:
+      'For teams already living in Carbon — shared cloud state, org quota, SSO, and an audit log.',
+    cta: { label: 'Start a team trial', href: dashboardUrl('/onboarding') },
+    features: [
+      'Everything in Pro',
+      'Shared cloud-hosted projects & snapshot sync (`carbon snapshot push/pull`)',
+      'Team dashboard: projects, runs, activity feed, member roles',
+      'Org-wide quota + spend controls',
+      'SSO (SAML, OIDC)',
+      'Audit log — 90-day view',
+      'Priority email + shared Slack channel',
+    ],
+  },
+  {
     id: 'enterprise',
     name: 'Enterprise',
-    price: 'Contact sales',
-    period: 'starts at $30k / year',
-    tagline: 'SSO, SCIM, self-host, audit export, and unlimited retention for regulated teams.',
+    price: 'Contact us',
+    period: 'annual, tailored to your footprint',
+    tagline: 'Self-host, SCIM, unlimited retention, SIEM export, and BYO LLM key for regulated teams.',
     cta: { label: 'Talk to us', href: '/contact' },
     features: [
       'Everything in Team',
-      'SSO (SAML, OIDC) and SCIM provisioning',
+      'SCIM provisioning',
       'Full audit log + SIEM webhook + compliance export',
       'Configurable / unlimited retention',
       'Self-hosted control plane',
@@ -109,6 +134,7 @@ export interface CompareRow {
   readonly label: string;
   readonly href?: string;
   readonly developer: string;
+  readonly pro: string;
   readonly team: string;
   readonly enterprise: string;
 }
@@ -118,6 +144,7 @@ export const COMPARE_ROWS: readonly CompareRow[] = [
     label: 'CLI + local runtime, all 8 adapters',
     href: docsUrl('/concepts/spec-to-runtime'),
     developer: 'Unlimited',
+    pro: 'Unlimited',
     team: 'Unlimited',
     enterprise: 'Unlimited',
   },
@@ -125,65 +152,75 @@ export const COMPARE_ROWS: readonly CompareRow[] = [
     label: 'Local JSON snapshots',
     href: docsUrl('/concepts/state-engine'),
     developer: 'Unlimited',
-    team: 'Unlimited',
-    enterprise: 'Unlimited',
+    pro: 'Unlimited + versioned library',
+    team: 'Unlimited + versioned library',
+    enterprise: 'Unlimited + versioned library',
   },
   {
     label: 'Chaos (error + latency injection)',
     href: docsUrl('/concepts/chaos'),
     developer: 'Full',
-    team: 'Full',
+    pro: 'Full + saved presets',
+    team: 'Full + saved presets',
     enterprise: 'Full + saved presets',
   },
   {
-    label: 'Cloud-hosted project & snapshot sync',
+    label: 'Drift detection against upstream',
+    developer: '—',
+    pro: 'Scheduled replay + email',
+    team: 'Scheduled + team dashboard',
+    enterprise: 'Scheduled + Slack / webhook alerts',
+  },
+  {
+    label: 'AI-assisted resource / relationship inference',
+    href: docsUrl('/concepts/ai-inference'),
+    developer: '10 ingests / month',
+    pro: 'Unlimited',
+    team: 'Unlimited',
+    enterprise: 'Unlimited + BYO LLM key',
+  },
+  {
+    label: 'Cloud-hosted shared project & snapshot sync',
     href: docsUrl('/concepts/state-engine'),
     developer: '—',
+    pro: 'Single-seat',
     team: 'Included',
     enterprise: 'Included',
   },
   {
     label: 'Dashboard, activity feed, member roles',
     developer: '—',
+    pro: '—',
     team: 'Included',
     enterprise: 'Included + custom roles',
   },
   {
-    label: 'AI-assisted resource / relationship inference',
-    href: docsUrl('/concepts/ai-inference'),
-    developer: '10 ingests / month',
-    team: 'Unlimited',
-    enterprise: 'Unlimited + BYO LLM key',
-  },
-  {
-    label: 'Drift detection against upstream',
-    developer: '—',
-    team: 'Included',
-    enterprise: 'Included + Slack / webhook alerts',
-  },
-  {
     label: 'Snapshot / event retention',
     developer: '7-day local cache',
+    pro: '90 days',
     team: '90 days',
     enterprise: 'Configurable / unlimited',
   },
   {
     label: 'Audit log',
     developer: '—',
-    team: '30-day view',
+    pro: '—',
+    team: '90-day view',
     enterprise: 'Full export + SIEM webhook',
   },
   {
     label: 'SSO',
     href: docsUrl('/enterprise/sso'),
     developer: '—',
-    team: '—',
+    pro: '—',
+    team: 'SAML + OIDC',
     enterprise: 'SAML + OIDC',
   },
   {
     label: 'SCIM provisioning',
     href: docsUrl('/enterprise/scim'),
     developer: '—',
+    pro: '—',
     team: '—',
     enterprise: 'Included',
   },
@@ -191,13 +228,15 @@ export const COMPARE_ROWS: readonly CompareRow[] = [
     label: 'Self-hosted control plane',
     href: docsUrl('/deployment/self-hosted'),
     developer: '—',
+    pro: '—',
     team: '—',
     enterprise: 'Included',
   },
   {
     label: 'Support',
     developer: 'GitHub issues',
-    team: 'Email, business hours',
+    pro: 'Email, business hours',
+    team: 'Priority email + shared Slack',
     enterprise: 'Dedicated Slack + SLA',
   },
 ];

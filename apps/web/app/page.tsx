@@ -10,6 +10,7 @@ import { Integrations } from '@/components/integrations';
 import { Nav } from '@/components/nav';
 import { Pricing } from '@/components/pricing';
 import { Problem } from '@/components/problem';
+import { Record } from '@/components/record';
 import { SdkSection } from '@/components/sdk-section';
 import { Solution } from '@/components/solution';
 import { Workflow } from '@/components/workflow';
@@ -28,8 +29,9 @@ export default function LandingPage() {
        *   6. Breadth — what it plugs into (Integrations)
        *   7. Differentiation — vs alternatives, feature grid (Comparison, Features)
        *   8. Hard numbers (Benchmarks)
-       *   9. Buy (Pricing) — after they see what they're paying for
-       *   10. Objections (FAQ)
+       *   9. The sharper wedge — capture prod traffic instead of a spec (Record)
+       *   10. Buy (Pricing) — after they see what they're paying for
+       *   11. Objections (FAQ)
        */}
       <main id="main" className="pt-16">
         <Hero />
@@ -43,6 +45,7 @@ export default function LandingPage() {
         <Comparison />
         <Features />
         <Benchmarks />
+        <Record />
         <Pricing />
         <Faq />
       </main>

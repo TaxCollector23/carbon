@@ -52,6 +52,18 @@ export function Nav() {
         </Link>
         <div className="flex items-center gap-2">
           <Link
+            href="/vs/msw"
+            className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'hidden sm:inline-flex')}
+          >
+            Compare
+          </Link>
+          <Link
+            href="/emulators"
+            className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'hidden sm:inline-flex')}
+          >
+            Emulators
+          </Link>
+          <Link
             href="/#pricing"
             className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'hidden sm:inline-flex')}
           >
