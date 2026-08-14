@@ -6,6 +6,7 @@ import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import { requireScope } from '../plugins/scopes.js';
 import { zodQuery, zodResponse } from '../plugins/schema-helpers.js';
 import { resolveCallerOrg } from '../plugins/caller-org.js';
+import type { JobRecord } from '../services/jobs.js';
 
 const JobResponse = z
   .object({
@@ -38,6 +39,11 @@ const JobListResponse = z.object({
   hasMore: z.boolean(),
 });
 
+function publicJob(job: JobRecord): Omit<JobRecord, 'orgId' | 'meta'> {
+  const { orgId: _orgId, meta: _meta, ...rest } = job;
+  return rest;
+}
+
 export async function registerJobRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
   app.get<{ Params: { id: string } }>(
     '/v1/jobs/:id',
@@ -56,8 +62,7 @@ export async function registerJobRoutes(app: FastifyInstance, ctx: AppContext): 
       const job = await ctx.jobs.get(req.params.id);
       const orgId = (req as AuthenticatedRequest).apiKey?.orgId;
       if (orgId && job.orgId !== orgId) throw new NotFoundError('job', req.params.id);
-      const { orgId: _orgId, ...publicJob } = job;
-      return publicJob;
+      return publicJob(job);
     },
   );
 
@@ -70,7 +75,7 @@ export async function registerJobRoutes(app: FastifyInstance, ctx: AppContext): 
       schema: {
         summary: 'List recent async jobs',
         description:
-          'Enumerate the operator queue. Scoped to the caller\'s org. Supports `status` filter (including `deadLetter`) and offset pagination via `cursor`.',
+          "Enumerate the operator queue. Scoped to the caller's org. Supports `status` filter (including `deadLetter`) and offset pagination via `cursor`.",
         querystring: zodQuery(JobListQuery),
         response: { 200: zodResponse(JobListResponse) },
       },
@@ -87,7 +92,7 @@ export async function registerJobRoutes(app: FastifyInstance, ctx: AppContext): 
         cursor: query.cursor,
       });
       return {
-        data: page.data.map(({ orgId: _o, ...rest }) => rest),
+        data: page.data.map(publicJob),
         nextCursor: page.nextCursor,
         hasMore: page.hasMore,
       };
@@ -112,8 +117,17 @@ export async function registerJobRoutes(app: FastifyInstance, ctx: AppContext): 
       const orgId = (req as AuthenticatedRequest).apiKey?.orgId;
       if (orgId && existing.orgId !== orgId) throw new NotFoundError('job', req.params.id);
       const updated = await ctx.jobs.retry(req.params.id);
-      const { orgId: _orgId, ...publicJob } = updated;
-      return publicJob;
+      const payload = existing.meta?.payload;
+      if (ctx.ingestionQueue && payload && typeof payload === 'object') {
+        await ctx.ingestionQueue.add(
+          'ingest',
+          payload as Parameters<typeof ctx.ingestionQueue.add>[1],
+          {
+            jobId: `${existing.id}:manual:${Date.now()}`,
+          },
+        );
+      }
+      return publicJob(updated);
     },
   );
 }

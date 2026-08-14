@@ -84,6 +84,6 @@ There are 33 test files today covering parser/runtime/api/state, but the dashboa
 - Every new mutating route must go through the existing `requireScope(...)` pattern used in `apps/api/src/routes/*.ts` — do not bypass it for convenience.
 - Every new table needs a Drizzle migration file under `packages/database/migrations/` plus a matching entry under `packages/database/migrations/meta/` (follow the existing numbered convention, e.g. `0004_...sql`).
 - Preserve `CARBON_AUTH_MODE=disabled` dev-mode behavior (`apps/api/src/env.ts`) so local development without Postgres/Redis still works — new features should degrade gracefully in that mode, not hard-crash.
-- When a section genuinely has no data yet, show the existing honest empty-state copy from `apps/dashboard/lib/empty-data.ts` — the goal of this prompt is to make empty states *true* (backed by a real fetch that returned zero rows), not to remove them.
+- When a section genuinely has no data yet, show the existing honest empty-state copy from `apps/dashboard/lib/empty-data.ts` — the goal of this prompt is to make empty states _true_ (backed by a real fetch that returned zero rows), not to remove them.
 
 Work phase by phase, run `pnpm typecheck` and `pnpm test` after each phase, and do not move to the next phase until the current one's tests pass.

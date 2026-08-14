@@ -119,7 +119,11 @@ function printTable(checks: readonly Check[]): void {
   const nameWidth = Math.max(...checks.map((c) => c.name.length));
   for (const c of checks) {
     const badge =
-      c.status === 'ok' ? pc.green('OK  ') : c.status === 'warn' ? pc.yellow('WARN') : pc.red('FAIL');
+      c.status === 'ok'
+        ? pc.green('OK  ')
+        : c.status === 'warn'
+          ? pc.yellow('WARN')
+          : pc.red('FAIL');
     const name = c.name.padEnd(nameWidth);
     process.stdout.write(`  ${badge}  ${name}  ${pc.dim(c.detail)}\n`);
   }

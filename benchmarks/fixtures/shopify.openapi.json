@@ -5,95 +5,273 @@
     "version": "2024-01",
     "description": "Curated slice of Shopify's Admin REST API for the Carbon sample gallery. Covers products, variants, orders, customers, fulfillments, and inventory."
   },
-  "servers": [{ "url": "https://{shop}.myshopify.com/admin/api/2024-01", "variables": { "shop": { "default": "example" } } }],
+  "servers": [
+    {
+      "url": "https://{shop}.myshopify.com/admin/api/2024-01",
+      "variables": { "shop": { "default": "example" } }
+    }
+  ],
   "paths": {
     "/products.json": {
-      "get": { "tags": ["products"], "summary": "List products", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["products"], "summary": "Create a product", "responses": { "201": { "description": "created" } } }
+      "get": {
+        "tags": ["products"],
+        "summary": "List products",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["products"],
+        "summary": "Create a product",
+        "responses": { "201": { "description": "created" } }
+      }
     },
     "/products/{product_id}.json": {
-      "parameters": [{ "name": "product_id", "in": "path", "required": true, "schema": { "type": "integer" } }],
-      "get": { "tags": ["products"], "summary": "Retrieve a product", "responses": { "200": { "description": "ok" } } },
-      "put": { "tags": ["products"], "summary": "Update a product", "responses": { "200": { "description": "ok" } } },
-      "delete": { "tags": ["products"], "summary": "Delete a product", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "product_id", "in": "path", "required": true, "schema": { "type": "integer" } }
+      ],
+      "get": {
+        "tags": ["products"],
+        "summary": "Retrieve a product",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "put": {
+        "tags": ["products"],
+        "summary": "Update a product",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "delete": {
+        "tags": ["products"],
+        "summary": "Delete a product",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/products/{product_id}/variants.json": {
-      "parameters": [{ "name": "product_id", "in": "path", "required": true, "schema": { "type": "integer" } }],
-      "get": { "tags": ["variants"], "summary": "List variants", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["variants"], "summary": "Create a variant", "responses": { "201": { "description": "created" } } }
+      "parameters": [
+        { "name": "product_id", "in": "path", "required": true, "schema": { "type": "integer" } }
+      ],
+      "get": {
+        "tags": ["variants"],
+        "summary": "List variants",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["variants"],
+        "summary": "Create a variant",
+        "responses": { "201": { "description": "created" } }
+      }
     },
     "/variants/{variant_id}.json": {
-      "parameters": [{ "name": "variant_id", "in": "path", "required": true, "schema": { "type": "integer" } }],
-      "get": { "tags": ["variants"], "summary": "Retrieve a variant", "responses": { "200": { "description": "ok" } } },
-      "put": { "tags": ["variants"], "summary": "Update a variant", "responses": { "200": { "description": "ok" } } },
-      "delete": { "tags": ["variants"], "summary": "Delete a variant", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "variant_id", "in": "path", "required": true, "schema": { "type": "integer" } }
+      ],
+      "get": {
+        "tags": ["variants"],
+        "summary": "Retrieve a variant",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "put": {
+        "tags": ["variants"],
+        "summary": "Update a variant",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "delete": {
+        "tags": ["variants"],
+        "summary": "Delete a variant",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/collections.json": {
-      "get": { "tags": ["collections"], "summary": "List collections", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["collections"],
+        "summary": "List collections",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/collections/{collection_id}.json": {
-      "parameters": [{ "name": "collection_id", "in": "path", "required": true, "schema": { "type": "integer" } }],
-      "get": { "tags": ["collections"], "summary": "Retrieve a collection", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "collection_id", "in": "path", "required": true, "schema": { "type": "integer" } }
+      ],
+      "get": {
+        "tags": ["collections"],
+        "summary": "Retrieve a collection",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/orders.json": {
-      "get": { "tags": ["orders"], "summary": "List orders", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["orders"], "summary": "Create an order", "responses": { "201": { "description": "created" } } }
+      "get": {
+        "tags": ["orders"],
+        "summary": "List orders",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["orders"],
+        "summary": "Create an order",
+        "responses": { "201": { "description": "created" } }
+      }
     },
     "/orders/{order_id}.json": {
-      "parameters": [{ "name": "order_id", "in": "path", "required": true, "schema": { "type": "integer" } }],
-      "get": { "tags": ["orders"], "summary": "Retrieve an order", "responses": { "200": { "description": "ok" } } },
-      "put": { "tags": ["orders"], "summary": "Update an order", "responses": { "200": { "description": "ok" } } },
-      "delete": { "tags": ["orders"], "summary": "Delete an order", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "order_id", "in": "path", "required": true, "schema": { "type": "integer" } }
+      ],
+      "get": {
+        "tags": ["orders"],
+        "summary": "Retrieve an order",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "put": {
+        "tags": ["orders"],
+        "summary": "Update an order",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "delete": {
+        "tags": ["orders"],
+        "summary": "Delete an order",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/orders/{order_id}/close.json": {
-      "parameters": [{ "name": "order_id", "in": "path", "required": true, "schema": { "type": "integer" } }],
-      "post": { "tags": ["orders"], "summary": "Close an order", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "order_id", "in": "path", "required": true, "schema": { "type": "integer" } }
+      ],
+      "post": {
+        "tags": ["orders"],
+        "summary": "Close an order",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/orders/{order_id}/cancel.json": {
-      "parameters": [{ "name": "order_id", "in": "path", "required": true, "schema": { "type": "integer" } }],
-      "post": { "tags": ["orders"], "summary": "Cancel an order", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "order_id", "in": "path", "required": true, "schema": { "type": "integer" } }
+      ],
+      "post": {
+        "tags": ["orders"],
+        "summary": "Cancel an order",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/orders/{order_id}/fulfillments.json": {
-      "parameters": [{ "name": "order_id", "in": "path", "required": true, "schema": { "type": "integer" } }],
-      "get": { "tags": ["fulfillments"], "summary": "List fulfillments", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["fulfillments"], "summary": "Create a fulfillment", "responses": { "201": { "description": "created" } } }
+      "parameters": [
+        { "name": "order_id", "in": "path", "required": true, "schema": { "type": "integer" } }
+      ],
+      "get": {
+        "tags": ["fulfillments"],
+        "summary": "List fulfillments",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["fulfillments"],
+        "summary": "Create a fulfillment",
+        "responses": { "201": { "description": "created" } }
+      }
     },
     "/orders/{order_id}/refunds.json": {
-      "parameters": [{ "name": "order_id", "in": "path", "required": true, "schema": { "type": "integer" } }],
-      "get": { "tags": ["refunds"], "summary": "List refunds for an order", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["refunds"], "summary": "Create a refund", "responses": { "201": { "description": "created" } } }
+      "parameters": [
+        { "name": "order_id", "in": "path", "required": true, "schema": { "type": "integer" } }
+      ],
+      "get": {
+        "tags": ["refunds"],
+        "summary": "List refunds for an order",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["refunds"],
+        "summary": "Create a refund",
+        "responses": { "201": { "description": "created" } }
+      }
     },
     "/customers.json": {
-      "get": { "tags": ["customers"], "summary": "List customers", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["customers"], "summary": "Create a customer", "responses": { "201": { "description": "created" } } }
+      "get": {
+        "tags": ["customers"],
+        "summary": "List customers",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["customers"],
+        "summary": "Create a customer",
+        "responses": { "201": { "description": "created" } }
+      }
     },
     "/customers/{customer_id}.json": {
-      "parameters": [{ "name": "customer_id", "in": "path", "required": true, "schema": { "type": "integer" } }],
-      "get": { "tags": ["customers"], "summary": "Retrieve a customer", "responses": { "200": { "description": "ok" } } },
-      "put": { "tags": ["customers"], "summary": "Update a customer", "responses": { "200": { "description": "ok" } } },
-      "delete": { "tags": ["customers"], "summary": "Delete a customer", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "customer_id", "in": "path", "required": true, "schema": { "type": "integer" } }
+      ],
+      "get": {
+        "tags": ["customers"],
+        "summary": "Retrieve a customer",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "put": {
+        "tags": ["customers"],
+        "summary": "Update a customer",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "delete": {
+        "tags": ["customers"],
+        "summary": "Delete a customer",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/customers/search.json": {
-      "get": { "tags": ["customers"], "summary": "Search customers", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["customers"],
+        "summary": "Search customers",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/inventory_levels.json": {
-      "get": { "tags": ["inventory"], "summary": "List inventory levels", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["inventory"],
+        "summary": "List inventory levels",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/inventory_levels/set.json": {
-      "post": { "tags": ["inventory"], "summary": "Set inventory level", "responses": { "200": { "description": "ok" } } }
+      "post": {
+        "tags": ["inventory"],
+        "summary": "Set inventory level",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/inventory_items/{inventory_item_id}.json": {
-      "parameters": [{ "name": "inventory_item_id", "in": "path", "required": true, "schema": { "type": "integer" } }],
-      "get": { "tags": ["inventory"], "summary": "Retrieve an inventory item", "responses": { "200": { "description": "ok" } } },
-      "put": { "tags": ["inventory"], "summary": "Update an inventory item", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        {
+          "name": "inventory_item_id",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "integer" }
+        }
+      ],
+      "get": {
+        "tags": ["inventory"],
+        "summary": "Retrieve an inventory item",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "put": {
+        "tags": ["inventory"],
+        "summary": "Update an inventory item",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/webhooks.json": {
-      "get": { "tags": ["webhooks"], "summary": "List webhooks", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["webhooks"], "summary": "Create a webhook", "responses": { "201": { "description": "created" } } }
+      "get": {
+        "tags": ["webhooks"],
+        "summary": "List webhooks",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["webhooks"],
+        "summary": "Create a webhook",
+        "responses": { "201": { "description": "created" } }
+      }
     },
     "/webhooks/{webhook_id}.json": {
-      "parameters": [{ "name": "webhook_id", "in": "path", "required": true, "schema": { "type": "integer" } }],
-      "delete": { "tags": ["webhooks"], "summary": "Delete a webhook", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "webhook_id", "in": "path", "required": true, "schema": { "type": "integer" } }
+      ],
+      "delete": {
+        "tags": ["webhooks"],
+        "summary": "Delete a webhook",
+        "responses": { "200": { "description": "ok" } }
+      }
     }
   }
 }

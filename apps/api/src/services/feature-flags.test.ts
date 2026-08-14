@@ -43,7 +43,11 @@ interface Store {
 }
 
 /** Recursively collect every string appearing in a Drizzle SQL expression. */
-function collectStrings(x: unknown, out: Set<string> = new Set(), seen = new WeakSet()): Set<string> {
+function collectStrings(
+  x: unknown,
+  out: Set<string> = new Set(),
+  seen = new WeakSet(),
+): Set<string> {
   if (x == null) return out;
   if (typeof x === 'string') {
     out.add(x);
@@ -81,12 +85,7 @@ function makeCtx(store: Store): AppContext {
           if (table === schema.featureFlagOverrides) {
             store.overrideReads += 1;
             return store.overrides
-              .filter(
-                (o) =>
-                  strs.has(o.flagKey) &&
-                  strs.has(o.scope) &&
-                  strs.has(o.scopeId),
-              )
+              .filter((o) => strs.has(o.flagKey) && strs.has(o.scope) && strs.has(o.scopeId))
               .map((o) => ({ value: o.value }));
           }
           if (table === schema.featureFlags) {
@@ -210,27 +209,23 @@ describe('feature-flags service', () => {
     });
     const ctx = makeCtx(store);
 
-    expect(
-      await getFlag(ctx, 'x.enabled', { orgId: 'o1', userId: 'u1', plan: 'team' }),
-    ).toBe(false);
+    expect(await getFlag(ctx, 'x.enabled', { orgId: 'o1', userId: 'u1', plan: 'team' })).toBe(
+      false,
+    );
 
     await setFlag(ctx, 'x.enabled', 'plan', 'team', true);
     _resetFeatureFlagCache();
-    expect(
-      await getFlag(ctx, 'x.enabled', { orgId: 'o1', userId: 'u1', plan: 'team' }),
-    ).toBe(true);
+    expect(await getFlag(ctx, 'x.enabled', { orgId: 'o1', userId: 'u1', plan: 'team' })).toBe(true);
 
     await setFlag(ctx, 'x.enabled', 'org', 'o1', false);
     _resetFeatureFlagCache();
-    expect(
-      await getFlag(ctx, 'x.enabled', { orgId: 'o1', userId: 'u1', plan: 'team' }),
-    ).toBe(false);
+    expect(await getFlag(ctx, 'x.enabled', { orgId: 'o1', userId: 'u1', plan: 'team' })).toBe(
+      false,
+    );
 
     await setFlag(ctx, 'x.enabled', 'user', 'u1', true);
     _resetFeatureFlagCache();
-    expect(
-      await getFlag(ctx, 'x.enabled', { orgId: 'o1', userId: 'u1', plan: 'team' }),
-    ).toBe(true);
+    expect(await getFlag(ctx, 'x.enabled', { orgId: 'o1', userId: 'u1', plan: 'team' })).toBe(true);
   });
 
   it('unknown flag resolves to false', async () => {

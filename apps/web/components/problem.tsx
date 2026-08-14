@@ -3,29 +3,29 @@ import { Section, SectionHeading } from './section';
 const problems = [
   {
     title: 'Your integration suite hits Stripe test mode and takes 4 minutes',
-    body: 'Every CI run pays the round-trip tax to someone else’s sandbox. A flaky network turns a green build red.',
+    body: 'Every CI run waits on someone else’s sandbox. Network variance turns ordinary integration coverage into slow feedback.',
   },
   {
     title: 'A coworker’s migration corrupts the shared sandbox mid-run',
-    body: 'One team seeds fixtures, another truncates them, and your PR fails on data that vanished ten minutes ago.',
+    body: 'One team seeds fixtures, another resets them, and your PR depends on shared state nobody meant to change.',
   },
   {
     title: 'Your mock returns [] for a resource you just POSTed',
-    body: 'Prism, WireMock, and hand-rolled fixtures reply with canned examples. They forget every write the moment it happens.',
+    body: 'Static examples are useful for smoke tests, but they do not model read-after-write flows or destructive updates.',
   },
   {
     title: 'Offline means the tests don’t run',
-    body: 'On a plane, on a train, or on a VPN that just dropped — a local unit test should not depend on a remote API being reachable.',
+    body: 'A local test suite should not depend on a remote API being reachable before developers can ship.',
   },
 ];
 
 export function Problem() {
   return (
-    <Section id="problem" className="bg-subtle/50 ">
+    <Section id="problem" className="bg-subtle/50">
       <div className="grid gap-12 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
         <SectionHeading
-          title="Every test that touches a real API is a test that can’t be trusted."
-          description="Shared sandboxes drift, static fixtures forget state, and third-party latency turns a unit test into a coffee break."
+          title="Integration tests should be fast without becoming shallow."
+          description="Shared sandboxes drift, static fixtures lose state, and third-party latency slows feedback right when teams need confidence."
         />
         <div className="divide-border border-border divide-y border-y">
           {problems.map((p, index) => (

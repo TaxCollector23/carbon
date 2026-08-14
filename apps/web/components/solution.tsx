@@ -26,7 +26,7 @@ export function Solution() {
         <div>
           <SectionHeading
             title="Reads your spec. Runs a real server. Remembers what you did."
-            description="Carbon parses your OpenAPI, GraphQL, or gRPC contract, infers the resource model behind it, and boots an HTTP server that behaves like the real thing — with journaling, snapshots, and injectable failure modes."
+            description="Carbon parses your OpenAPI, AsyncAPI, GraphQL, HAR, Postman, protobuf, or gRPC contract, infers the resource model behind it, and boots an HTTP server with journaling, snapshots, and injectable failure modes."
           />
           <div className="border-border mt-10 border-y">
             {pillars.map((p) => (

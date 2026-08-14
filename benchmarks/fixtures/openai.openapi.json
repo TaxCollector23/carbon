@@ -8,101 +8,255 @@
   "servers": [{ "url": "https://api.openai.com/v1" }],
   "paths": {
     "/chat/completions": {
-      "post": { "tags": ["chat"], "summary": "Create chat completion", "responses": { "200": { "description": "ok" } } }
+      "post": {
+        "tags": ["chat"],
+        "summary": "Create chat completion",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/completions": {
-      "post": { "tags": ["completions"], "summary": "Create completion (legacy)", "responses": { "200": { "description": "ok" } } }
+      "post": {
+        "tags": ["completions"],
+        "summary": "Create completion (legacy)",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/embeddings": {
-      "post": { "tags": ["embeddings"], "summary": "Create embeddings", "responses": { "200": { "description": "ok" } } }
+      "post": {
+        "tags": ["embeddings"],
+        "summary": "Create embeddings",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/models": {
-      "get": { "tags": ["models"], "summary": "List models", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["models"],
+        "summary": "List models",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/models/{model}": {
-      "parameters": [{ "name": "model", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "get": { "tags": ["models"], "summary": "Retrieve a model", "responses": { "200": { "description": "ok" } } },
-      "delete": { "tags": ["models"], "summary": "Delete a fine-tuned model", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "model", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "tags": ["models"],
+        "summary": "Retrieve a model",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "delete": {
+        "tags": ["models"],
+        "summary": "Delete a fine-tuned model",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/files": {
-      "get": { "tags": ["files"], "summary": "List files", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["files"], "summary": "Upload a file", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["files"],
+        "summary": "List files",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["files"],
+        "summary": "Upload a file",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/files/{file_id}": {
-      "parameters": [{ "name": "file_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "get": { "tags": ["files"], "summary": "Retrieve a file", "responses": { "200": { "description": "ok" } } },
-      "delete": { "tags": ["files"], "summary": "Delete a file", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "file_id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "tags": ["files"],
+        "summary": "Retrieve a file",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "delete": {
+        "tags": ["files"],
+        "summary": "Delete a file",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/files/{file_id}/content": {
-      "parameters": [{ "name": "file_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "get": { "tags": ["files"], "summary": "Download file content", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "file_id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "tags": ["files"],
+        "summary": "Download file content",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/images/generations": {
-      "post": { "tags": ["images"], "summary": "Create image", "responses": { "200": { "description": "ok" } } }
+      "post": {
+        "tags": ["images"],
+        "summary": "Create image",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/audio/transcriptions": {
-      "post": { "tags": ["audio"], "summary": "Create transcription", "responses": { "200": { "description": "ok" } } }
+      "post": {
+        "tags": ["audio"],
+        "summary": "Create transcription",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/audio/translations": {
-      "post": { "tags": ["audio"], "summary": "Create translation", "responses": { "200": { "description": "ok" } } }
+      "post": {
+        "tags": ["audio"],
+        "summary": "Create translation",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/moderations": {
-      "post": { "tags": ["moderations"], "summary": "Create moderation", "responses": { "200": { "description": "ok" } } }
+      "post": {
+        "tags": ["moderations"],
+        "summary": "Create moderation",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/assistants": {
-      "get": { "tags": ["assistants"], "summary": "List assistants", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["assistants"], "summary": "Create an assistant", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["assistants"],
+        "summary": "List assistants",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["assistants"],
+        "summary": "Create an assistant",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/assistants/{assistant_id}": {
-      "parameters": [{ "name": "assistant_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "get": { "tags": ["assistants"], "summary": "Retrieve an assistant", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["assistants"], "summary": "Modify an assistant", "responses": { "200": { "description": "ok" } } },
-      "delete": { "tags": ["assistants"], "summary": "Delete an assistant", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "assistant_id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "tags": ["assistants"],
+        "summary": "Retrieve an assistant",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["assistants"],
+        "summary": "Modify an assistant",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "delete": {
+        "tags": ["assistants"],
+        "summary": "Delete an assistant",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/threads": {
-      "post": { "tags": ["threads"], "summary": "Create a thread", "responses": { "200": { "description": "ok" } } }
+      "post": {
+        "tags": ["threads"],
+        "summary": "Create a thread",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/threads/{thread_id}": {
-      "parameters": [{ "name": "thread_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "get": { "tags": ["threads"], "summary": "Retrieve a thread", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["threads"], "summary": "Modify a thread", "responses": { "200": { "description": "ok" } } },
-      "delete": { "tags": ["threads"], "summary": "Delete a thread", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "thread_id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "tags": ["threads"],
+        "summary": "Retrieve a thread",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["threads"],
+        "summary": "Modify a thread",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "delete": {
+        "tags": ["threads"],
+        "summary": "Delete a thread",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/threads/{thread_id}/messages": {
-      "parameters": [{ "name": "thread_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "get": { "tags": ["threads"], "summary": "List messages", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["threads"], "summary": "Create a message", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "thread_id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "tags": ["threads"],
+        "summary": "List messages",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["threads"],
+        "summary": "Create a message",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/threads/{thread_id}/runs": {
-      "parameters": [{ "name": "thread_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "get": { "tags": ["threads"], "summary": "List runs", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["threads"], "summary": "Create a run", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "thread_id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "tags": ["threads"],
+        "summary": "List runs",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["threads"],
+        "summary": "Create a run",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/threads/{thread_id}/runs/{run_id}": {
       "parameters": [
         { "name": "thread_id", "in": "path", "required": true, "schema": { "type": "string" } },
         { "name": "run_id", "in": "path", "required": true, "schema": { "type": "string" } }
       ],
-      "get": { "tags": ["threads"], "summary": "Retrieve a run", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["threads"],
+        "summary": "Retrieve a run",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/threads/{thread_id}/runs/{run_id}/cancel": {
       "parameters": [
         { "name": "thread_id", "in": "path", "required": true, "schema": { "type": "string" } },
         { "name": "run_id", "in": "path", "required": true, "schema": { "type": "string" } }
       ],
-      "post": { "tags": ["threads"], "summary": "Cancel a run", "responses": { "200": { "description": "ok" } } }
+      "post": {
+        "tags": ["threads"],
+        "summary": "Cancel a run",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/fine_tuning/jobs": {
-      "get": { "tags": ["fine_tuning"], "summary": "List fine-tuning jobs", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["fine_tuning"], "summary": "Create a fine-tuning job", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["fine_tuning"],
+        "summary": "List fine-tuning jobs",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["fine_tuning"],
+        "summary": "Create a fine-tuning job",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/fine_tuning/jobs/{job_id}": {
-      "parameters": [{ "name": "job_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "get": { "tags": ["fine_tuning"], "summary": "Retrieve a fine-tuning job", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "job_id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "tags": ["fine_tuning"],
+        "summary": "Retrieve a fine-tuning job",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/fine_tuning/jobs/{job_id}/cancel": {
-      "parameters": [{ "name": "job_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "post": { "tags": ["fine_tuning"], "summary": "Cancel a fine-tuning job", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "job_id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "post": {
+        "tags": ["fine_tuning"],
+        "summary": "Cancel a fine-tuning job",
+        "responses": { "200": { "description": "ok" } }
+      }
     }
   }
 }

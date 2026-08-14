@@ -4,31 +4,18 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { buttonVariants, cn } from '@carbon/ui';
 import { Wordmark } from './logo';
+import { dashboardSignInUrl, dashboardSignUpUrl } from '@/lib/urls';
 
 /**
  * Cross-app dashboard entry points.
  *
- * `NEXT_PUBLIC_DASHBOARD_URL` is baked at build time by Next.js. Fall back to
- * the local dev origin so `pnpm dev` works out of the box. The `?next=/`
+ * `NEXT_PUBLIC_DASHBOARD_URL` is baked at build time by Next.js. The `?next=/`
  * param is honoured by apps/dashboard's /sign-in and /sign-up pages.
  */
-function dashboardUrl(): string {
-  const raw = process.env.NEXT_PUBLIC_DASHBOARD_URL;
-  return raw && raw.trim() !== '' ? raw.replace(/\/+$/, '') : 'http://localhost:3001';
-}
-
-function dashboardSignInUrl(): string {
-  return `${dashboardUrl()}/sign-in?next=/`;
-}
-
-function dashboardSignUpUrl(): string {
-  return `${dashboardUrl()}/sign-up?next=/`;
-}
-
 export function Nav() {
   const [scrolled, setScrolled] = useState(false);
-  const signIn = dashboardSignInUrl();
-  const signUp = dashboardSignUpUrl();
+  const signIn = dashboardSignInUrl('/');
+  const signUp = dashboardSignUpUrl('/');
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -53,38 +40,53 @@ export function Nav() {
         <div className="flex items-center gap-2">
           <Link
             href="/vs/msw"
-            className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'hidden sm:inline-flex')}
+            className={cn(
+              buttonVariants({ variant: 'ghost', size: 'sm' }),
+              'hidden sm:inline-flex',
+            )}
           >
             Compare
           </Link>
           <Link
             href="/emulators"
-            className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'hidden sm:inline-flex')}
+            className={cn(
+              buttonVariants({ variant: 'ghost', size: 'sm' }),
+              'hidden sm:inline-flex',
+            )}
           >
             Emulators
           </Link>
           <Link
             href="/#pricing"
-            className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'hidden sm:inline-flex')}
+            className={cn(
+              buttonVariants({ variant: 'ghost', size: 'sm' }),
+              'hidden sm:inline-flex',
+            )}
           >
             Pricing
           </Link>
           <Link
+            href="/enterprise"
+            className={cn(
+              buttonVariants({ variant: 'ghost', size: 'sm' }),
+              'hidden sm:inline-flex',
+            )}
+          >
+            Enterprise
+          </Link>
+          <Link
             href="/contact"
-            className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'hidden sm:inline-flex')}
+            className={cn(
+              buttonVariants({ variant: 'ghost', size: 'sm' }),
+              'hidden sm:inline-flex',
+            )}
           >
             Talk to us
           </Link>
-          <a
-            href={signIn}
-            className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}
-          >
+          <a href={signIn} className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
             Sign in
           </a>
-          <a
-            href={signUp}
-            className={cn(buttonVariants({ size: 'sm' }))}
-          >
+          <a href={signUp} className={cn(buttonVariants({ size: 'sm' }))}>
             Sign up
           </a>
         </div>

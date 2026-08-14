@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Check } from 'lucide-react';
 import { cn } from '@carbon/ui/cn';
 import { Section, SectionHeading } from './section';
-import { COMPARE_ROWS, TIERS } from '@/lib/plans';
+import { COMPARE_ROWS, TIERS, docsUrl } from '@/lib/plans';
 
 /**
  * Landing-page pricing block. Three tiers rendered as cards, followed by a
@@ -25,16 +25,14 @@ export function Pricing() {
         className="mx-auto"
       />
 
-      <div className="border-border mx-auto mt-14 grid max-w-6xl border-y lg:grid-cols-4">
+      <div className="border-border mx-auto mt-14 grid max-w-4xl border-y">
         {TIERS.map((tier, idx) => (
           <section
             key={tier.id}
             className={cn(
-              'border-border relative flex flex-col p-6 sm:p-8',
-              idx > 0 && 'border-t lg:border-l lg:border-t-0',
-              // 4-col grid on lg wraps to 2 rows only if we drop below lg;
-              // the tier ordering keeps Pro second so it stays highlighted.
-              tier.highlighted && 'bg-subtle/40',
+              'border-border grid gap-6 py-7 md:grid-cols-[0.72fr_1fr_auto] md:items-start',
+              idx > 0 && 'border-t',
+              tier.highlighted && 'bg-subtle/30 px-5 md:-mx-5 md:px-5',
             )}
           >
             <div>
@@ -54,7 +52,7 @@ export function Pricing() {
                 {tier.tagline}
               </p>
             </div>
-            <ul className="mt-6 grid gap-3 text-sm">
+            <ul className="grid gap-3 text-sm">
               {tier.features.map((f) => (
                 <li key={f} className="flex items-start gap-2.5">
                   <Check className="text-foreground mt-0.5 h-4 w-4 shrink-0" />
@@ -62,11 +60,11 @@ export function Pricing() {
                 </li>
               ))}
             </ul>
-            <div className="mt-8">
+            <div className="md:min-w-36">
               <Link
                 href={tier.cta.href}
                 className={cn(
-                  'focus-visible:ring-ring inline-flex w-full items-center justify-center px-4 py-2.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                  'focus-visible:ring-ring focus-visible:ring-offset-background inline-flex w-full items-center justify-center px-4 py-2.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
                   tier.highlighted
                     ? 'bg-foreground text-background hover:opacity-90'
                     : 'border-border text-foreground hover:bg-subtle border',
@@ -83,10 +81,10 @@ export function Pricing() {
         <div className="mb-6 flex items-baseline justify-between">
           <h3 className="text-xl font-medium tracking-tight">Compare features</h3>
           <a
-            href={(process.env.NEXT_PUBLIC_DOCS_URL ?? 'https://docs.carbon.dev') + '/plans'}
+            href={docsUrl('/plans')}
             className="text-muted-foreground hover:text-foreground text-xs underline"
           >
-            Full breakdown in the docs →
+            Full breakdown in the docs
           </a>
         </div>
         <div className="border-border overflow-x-auto border-y">

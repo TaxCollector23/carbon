@@ -200,7 +200,8 @@ function createResolver(root: unknown): Resolver {
         for (const [k, v] of Object.entries(props)) {
           properties[k] = schemaToJsonType(v, visited);
         }
-        const required = ((resolved as { required?: string[] }).required ?? []) as readonly string[];
+        const required = ((resolved as { required?: string[] }).required ??
+          []) as readonly string[];
         return { kind: 'object', properties, required };
       }
     }
@@ -232,12 +233,7 @@ function extractParams(
     const resolved = resolver.resolve(p);
     if (!isObject(resolved)) continue;
     const inValue = resolved.in;
-    if (
-      inValue !== 'path' &&
-      inValue !== 'query' &&
-      inValue !== 'header' &&
-      inValue !== 'cookie'
-    ) {
+    if (inValue !== 'path' && inValue !== 'query' && inValue !== 'header' && inValue !== 'cookie') {
       continue;
     }
     out.push({
@@ -269,14 +265,17 @@ function extractResponses(op: Record<string, unknown>, resolver: Resolver): Resp
     const resolved = resolver.resolve(response);
     if (!isObject(resolved)) continue;
     const content = resolved.content as Record<string, { schema?: unknown }> | undefined;
-    const media = content?.['application/json'] ?? (content ? Object.values(content)[0] : undefined);
+    const media =
+      content?.['application/json'] ?? (content ? Object.values(content)[0] : undefined);
     const body = media?.schema ? resolver.schemaToJsonType(media.schema) : null;
     const headers: Record<string, JsonType> = {};
     const hdrs = resolved.headers as Record<string, unknown> | undefined;
     if (hdrs) {
       for (const [name, def] of Object.entries(hdrs)) {
         const rdef = resolver.resolve(def);
-        headers[name] = isObject(rdef) ? resolver.schemaToJsonType(rdef.schema) : { kind: 'unknown' };
+        headers[name] = isObject(rdef)
+          ? resolver.schemaToJsonType(rdef.schema)
+          : { kind: 'unknown' };
       }
     }
     out.push({ status: code, body, headers });
@@ -318,7 +317,8 @@ function extractAuthSchemes(doc: Record<string, unknown>): IntermediateRepresent
     const type = value.type as string | undefined;
     if (type === 'http') {
       const scheme = value.scheme as string | undefined;
-      if (scheme === 'bearer') out.push({ kind: 'bearer', format: value.bearerFormat as string | undefined });
+      if (scheme === 'bearer')
+        out.push({ kind: 'bearer', format: value.bearerFormat as string | undefined });
       else if (scheme === 'basic') out.push({ kind: 'basic' });
     } else if (type === 'apiKey') {
       const inField = value.in as 'header' | 'query' | undefined;
@@ -345,11 +345,7 @@ function pickResourceName(op: Record<string, unknown>, path: string): string | n
   return last ? singularize(last) : null;
 }
 
-function ensureResource(
-  map: Map<string, ResourceDef>,
-  id: ResourceId,
-  name: string,
-): ResourceDef {
+function ensureResource(map: Map<string, ResourceDef>, id: ResourceId, name: string): ResourceDef {
   const existing = map.get(String(id));
   if (existing) return existing;
   const def: ResourceDef = {

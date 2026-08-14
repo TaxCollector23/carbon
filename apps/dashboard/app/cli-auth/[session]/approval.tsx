@@ -45,17 +45,15 @@ export default function CliAuthApproval({ sessionId, apiUrl }: ApprovalProps) {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(orgId ? { orgId } : {}),
       });
-      const body = (await res.json().catch(() => null)) as
-        | {
-            status?: 'approved';
-            orgId?: string;
-            error?: {
-              code?: string;
-              message?: string;
-              availableOrgs?: OrgOption[];
-            };
-          }
-        | null;
+      const body = (await res.json().catch(() => null)) as {
+        status?: 'approved';
+        orgId?: string;
+        error?: {
+          code?: string;
+          message?: string;
+          availableOrgs?: OrgOption[];
+        };
+      } | null;
 
       if (res.ok && body?.status === 'approved') {
         setPhase('approved');
@@ -129,9 +127,7 @@ export default function CliAuthApproval({ sessionId, apiUrl }: ApprovalProps) {
       ) : null}
 
       {error ? (
-        <div className="rounded-md border border-red-500/40 bg-red-500/5 p-2 text-sm">
-          {error}
-        </div>
+        <div className="rounded-md border border-red-500/40 bg-red-500/5 p-2 text-sm">{error}</div>
       ) : null}
 
       <div className="flex gap-2">

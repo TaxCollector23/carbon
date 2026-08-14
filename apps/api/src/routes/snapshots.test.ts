@@ -43,7 +43,10 @@ async function build() {
     (req as AuthenticatedRequest).apiKey = {
       id: 'key_1',
       orgId: 'org_1',
-      prefix: 'aa11bb22cc33', scopes: ['admin'], projectIds: null, expiresAt: null,
+      prefix: 'aa11bb22cc33',
+      scopes: ['admin'],
+      projectIds: null,
+      expiresAt: null,
     };
   });
   await registerSnapshotRoutes(app, makeCtx());
@@ -100,7 +103,10 @@ describe('snapshot routes', () => {
         { resource: 'user', id: 'u3', data: { name: 'c' }, createdAt: 1, updatedAt: 1 },
       ],
     };
-    for (const [name, snap] of [['a', snapA], ['b', snapB]] as const) {
+    for (const [name, snap] of [
+      ['a', snapA],
+      ['b', snapB],
+    ] as const) {
       const r = await app.inject({
         method: 'POST',
         url: '/v1/snapshots',

@@ -76,7 +76,7 @@ export default function BenchmarksPage() {
   const snapshot = results.results.snapshot;
   const memory = results.results.memory;
   return (
-    <div className="bg-background text-foreground dark min-h-dvh">
+    <div className="bg-background text-foreground min-h-dvh">
       <Nav />
       <main id="main" className="pt-16">
         <Section id="live-benchmarks" className="py-24">
@@ -106,9 +106,13 @@ function StatRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ThroughputCard({ throughput }: { throughput: NonNullable<BenchResults['results']['throughput']> }) {
+function ThroughputCard({
+  throughput,
+}: {
+  throughput: NonNullable<BenchResults['results']['throughput']>;
+}) {
   return (
-    <div className="border-border bg-background/40 rounded-lg border p-6">
+    <div className="border-border bg-background/40 border-y p-6">
       <h3 className="text-base font-semibold">HTTP throughput</h3>
       <p className="text-muted-foreground mt-1 text-sm">
         {throughput.connections} connections, {throughput.durationSeconds}s window.
@@ -125,9 +129,13 @@ function ThroughputCard({ throughput }: { throughput: NonNullable<BenchResults['
   );
 }
 
-function SnapshotCard({ snapshot }: { snapshot: NonNullable<BenchResults['results']['snapshot']> }) {
+function SnapshotCard({
+  snapshot,
+}: {
+  snapshot: NonNullable<BenchResults['results']['snapshot']>;
+}) {
   return (
-    <div className="border-border bg-background/40 rounded-lg border p-6">
+    <div className="border-border bg-background/40 border-y p-6">
       <h3 className="text-base font-semibold">Snapshot restore</h3>
       <p className="text-muted-foreground mt-1 text-sm">
         {fmtNumber(snapshot.totalRows)} rows / {fmtBytes(snapshot.snapshotBytes)} on disk.
@@ -135,7 +143,10 @@ function SnapshotCard({ snapshot }: { snapshot: NonNullable<BenchResults['result
       <div className="mt-4">
         <StatRow label="p50 (ms)" value={fmtNumber(snapshot.restoreMs.p50, 2)} />
         <StatRow label="p95 (ms)" value={fmtNumber(snapshot.restoreMs.p95, 2)} />
-        <StatRow label="min / max" value={`${fmtNumber(snapshot.restoreMs.min, 2)} / ${fmtNumber(snapshot.restoreMs.max, 2)}`} />
+        <StatRow
+          label="min / max"
+          value={`${fmtNumber(snapshot.restoreMs.min, 2)} / ${fmtNumber(snapshot.restoreMs.max, 2)}`}
+        />
       </div>
       <RestoreSparkline samples={snapshot.samples} />
     </div>
@@ -144,7 +155,7 @@ function SnapshotCard({ snapshot }: { snapshot: NonNullable<BenchResults['result
 
 function MemoryCard({ memory }: { memory: NonNullable<BenchResults['results']['memory']> }) {
   return (
-    <div className="border-border bg-background/40 rounded-lg border p-6">
+    <div className="border-border bg-background/40 border-y p-6">
       <h3 className="text-base font-semibold">Memory footprint</h3>
       <p className="text-muted-foreground mt-1 text-sm">
         After creating {fmtNumber(memory.rowsCreated)} rows in {fmtNumber(memory.elapsedMs, 1)} ms.

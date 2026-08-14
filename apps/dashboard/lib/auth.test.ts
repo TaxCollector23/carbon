@@ -1,5 +1,4 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
+import { describe, expect, it } from 'vitest';
 
 import { auth } from './auth';
 
@@ -14,25 +13,13 @@ import { auth } from './auth';
  */
 describe('dashboard auth handle', () => {
   it('exposes a Better Auth handler and api namespace', () => {
-    assert.equal(typeof auth.handler, 'function', 'auth.handler should be a function');
-    assert.equal(typeof auth.api, 'object', 'auth.api should be an object');
-    assert.equal(
-      typeof auth.api.getSession,
-      'function',
-      'auth.api.getSession should be callable',
-    );
+    expect(typeof auth.handler).toBe('function');
+    expect(typeof auth.api).toBe('object');
+    expect(typeof auth.api.getSession).toBe('function');
   });
 
   it('has the email/password sign-in and sign-up endpoints enabled', () => {
-    assert.equal(
-      typeof auth.api.signInEmail,
-      'function',
-      'signInEmail endpoint should be available',
-    );
-    assert.equal(
-      typeof auth.api.signUpEmail,
-      'function',
-      'signUpEmail endpoint should be available',
-    );
+    expect(typeof auth.api.signInEmail).toBe('function');
+    expect(typeof auth.api.signUpEmail).toBe('function');
   });
 });

@@ -22,7 +22,10 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   const cookie = req.cookies.get('sso_state')?.value;
   if (!cookie) {
-    return NextResponse.json({ error: 'sso_state cookie missing — restart the flow' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'sso_state cookie missing — restart the flow' },
+      { status: 400 },
+    );
   }
 
   const [cookieState, providerId, encodedNext] = cookie.split('.');
@@ -99,44 +102,56 @@ export async function GET(req: NextRequest): Promise<Response> {
   // Better Auth exposes createSession under $context.internalAdapter —
   // guarded here so a future version rename fails loudly with a clear
   // message instead of silently issuing an invalid cookie.
-  const ctx = await (auth as unknown as {
-    $context: Promise<{
-      internalAdapter: {
-        findUserByEmail: (email: string) => Promise<{ user: { id: string } } | null>;
-        createUser: (input: {
-          email: string;
-          name?: string;
-          emailVerified?: boolean;
-        }) => Promise<{ id: string }>;
-        createSession: (
-          userId: string,
-          request: Request,
-        ) => Promise<{ token: string; expiresAt: Date }>;
-      };
-      authCookies: { sessionToken: { name: string; attributes: unknown } };
-    }>;
-  }).$context;
+  const ctx = await (
+    auth as unknown as {
+      $context: Promise<{
+        internalAdapter: {
+          findUserByEmail: (email: string) => Promise<{ user: { id: string } } | null>;
+          createUser: (input: {
+            email: string;
+            name?: string;
+            emailVerified?: boolean;
+          }) => Promise<{ id: string }>;
+          createSession: (
+            userId: string,
+            request: Request,
+          ) => Promise<{ token: string; expiresAt: Date }>;
+        };
+        authCookies: { sessionToken: { name: string; attributes: unknown } };
+      }>;
+    }
+  ).$context;
   if (!ctx?.internalAdapter?.createSession) {
     return NextResponse.json(
-      { error: 'Better Auth internal adapter shape changed — swap this shim for @better-auth/plugin-sso.' },
+      {
+        error:
+          'Better Auth internal adapter shape changed — swap this shim for @better-auth/plugin-sso.',
+      },
       { status: 500 },
     );
   }
 
   const existing = await ctx.internalAdapter.findUserByEmail(email);
-  const userId = existing?.user.id
-    ?? (await ctx.internalAdapter.createUser({
-      email,
-      name: typeof claims.name === 'string' ? claims.name : undefined,
-      emailVerified: true,
-    })).id;
+  const userId =
+    existing?.user.id ??
+    (
+      await ctx.internalAdapter.createUser({
+        email,
+        name: typeof claims.name === 'string' ? claims.name : undefined,
+        emailVerified: true,
+      })
+    ).id;
 
   const session = await ctx.internalAdapter.createSession(userId, req as unknown as Request);
 
-  const res = NextResponse.redirect(new URL(next.startsWith('/') ? next : '/', req.nextUrl.origin), {
-    status: 302,
-  });
-  const cookieName = (ctx.authCookies?.sessionToken?.name as string | undefined) ?? 'better-auth.session_token';
+  const res = NextResponse.redirect(
+    new URL(next.startsWith('/') ? next : '/', req.nextUrl.origin),
+    {
+      status: 302,
+    },
+  );
+  const cookieName =
+    (ctx.authCookies?.sessionToken?.name as string | undefined) ?? 'better-auth.session_token';
   res.cookies.set(cookieName, session.token, {
     httpOnly: true,
     sameSite: 'lax',

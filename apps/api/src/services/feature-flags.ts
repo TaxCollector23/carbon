@@ -265,8 +265,7 @@ function pickEffective(
 ): boolean {
   const byPriority: FlagScope[] = ['user', 'org', 'plan'];
   for (const s of byPriority) {
-    const id =
-      s === 'user' ? scope.userId : s === 'org' ? scope.orgId : (scope.plan ?? undefined);
+    const id = s === 'user' ? scope.userId : s === 'org' ? scope.orgId : (scope.plan ?? undefined);
     if (!id) continue;
     const match = overrides.find((o) => o.scope === s && o.scopeId === id);
     if (match) return match.value;
@@ -287,9 +286,7 @@ let seededOnce = false;
  */
 export async function seedBuiltInFlags(ctx: AppContext): Promise<void> {
   if (seededOnce) return;
-  const existing = await ctx.db
-    .select({ key: schema.featureFlags.key })
-    .from(schema.featureFlags);
+  const existing = await ctx.db.select({ key: schema.featureFlags.key }).from(schema.featureFlags);
   const have = new Set(existing.map((r) => r.key));
   const missing = BUILT_IN_FLAGS.filter((f) => !have.has(f.key));
   if (missing.length > 0) {

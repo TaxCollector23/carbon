@@ -46,8 +46,8 @@ export interface IdempotencyOptions {
 export const DEFAULT_ALLOW_UNKEYED: readonly string[] = [
   '/v1/billing/webhook',
   '/v1/cli-auth/start',
-  '/v1/cli-auth/sessions/:sessionId/approve',
-  '/v1/cli-auth/sessions/:sessionId/deny',
+  '/v1/cli-auth/:sessionId/approve',
+  '/v1/cli-auth/:sessionId/deny',
   '/v1/invitations/accept',
   '/scim/v2/Users',
   '/scim/v2/Users/:id',
@@ -132,8 +132,7 @@ export async function registerIdempotency(
       reply.status(400).send({
         error: {
           code: 'CARBON_INVALID_INPUT',
-          message:
-            'Idempotency-Key must be 16-128 chars from the URL-safe set [A-Za-z0-9._~-]',
+          message: 'Idempotency-Key must be 16-128 chars from the URL-safe set [A-Za-z0-9._~-]',
         },
       });
       return reply;

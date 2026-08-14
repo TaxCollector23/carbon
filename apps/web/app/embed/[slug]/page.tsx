@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { galleryEntries } from '../../gallery/page';
+import { apiUrl } from '@/lib/urls';
 
 interface EmbedParams {
   readonly slug: string;
@@ -36,7 +37,6 @@ export default async function EmbedPage({ params }: { params: Promise<EmbedParam
   const { slug } = await params;
   const entry = galleryEntries.find((e) => e.slug === slug);
   if (!entry) notFound();
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.carbon.dev';
   const runInCarbonUrl = `/gallery`;
   return (
     <div
@@ -75,12 +75,12 @@ export default async function EmbedPage({ params }: { params: Promise<EmbedParam
       </header>
       <main style={{ padding: 16 }}>
         <div style={{ marginBottom: 12, color: '#a1a1a1', fontSize: 13 }}>
-          Requests to this replica are stateful and read-only for external viewers.
-          Source spec: <code style={{ color: '#eaeaea' }}>{entry.specUrl}</code>
+          Requests to this replica are stateful and read-only for external viewers. Source spec:{' '}
+          <code style={{ color: '#eaeaea' }}>{entry.specUrl}</code>
         </div>
         <iframe
           title={`Carbon live replica — ${entry.name}`}
-          src={`${apiUrl.replace(/\/$/, '')}/v1/embed/${entry.slug}/state`}
+          src={`${apiUrl()}/v1/embed/${entry.slug}/state`}
           style={{
             width: '100%',
             height: 'calc(100dvh - 140px)',

@@ -36,10 +36,16 @@ export function authPlugin(opts: AuthOptions = {}): RuntimePlugin {
       app.addHook('onRequest', async (req, reply) => {
         if (skip.has(req.url) || skip.has(req.url.split('?')[0] ?? '')) return;
 
-        const token = extractToken(req.headers as Record<string, string | string[] | undefined>, scheme, header);
+        const token = extractToken(
+          req.headers as Record<string, string | string[] | undefined>,
+          scheme,
+          header,
+        );
         if (!token) {
           if (mode === 'permissive') return;
-          reply.status(401).send({ error: { code: 'CARBON_UNAUTHENTICATED', message: 'Missing credentials' } });
+          reply
+            .status(401)
+            .send({ error: { code: 'CARBON_UNAUTHENTICATED', message: 'Missing credentials' } });
           return reply;
         }
         if (tokens.has(token)) return;
@@ -47,7 +53,9 @@ export function authPlugin(opts: AuthOptions = {}): RuntimePlugin {
         if (mode === 'permissive') return;
 
         ctx.logger.warn('runtime.auth_rejected', { url: req.url });
-        reply.status(401).send({ error: { code: 'CARBON_UNAUTHENTICATED', message: 'Invalid credentials' } });
+        reply
+          .status(401)
+          .send({ error: { code: 'CARBON_UNAUTHENTICATED', message: 'Invalid credentials' } });
         return reply;
       });
     },

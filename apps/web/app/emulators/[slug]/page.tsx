@@ -14,11 +14,7 @@ export function generateStaticParams(): Params[] {
   return CATALOG.map((entry) => ({ slug: entry.slug }));
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<Params>;
-}): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { slug } = await params;
   const entry = findEntry(slug);
   if (!entry) return {};
@@ -50,7 +46,7 @@ export default async function EmulatorPage({ params }: { params: Promise<Params>
   const isRest = entry.specFormat !== 'graphql';
 
   return (
-    <div className="bg-background text-foreground dark min-h-dvh">
+    <div className="bg-background text-foreground min-h-dvh">
       <Nav />
       <main id="main" className="pt-16">
         <Section bordered={false}>

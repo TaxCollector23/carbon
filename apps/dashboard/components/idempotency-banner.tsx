@@ -56,7 +56,7 @@ function BannerView({ onDismiss }: { onDismiss: () => void }) {
   return (
     <div
       role="alert"
-      className="border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200 fixed inset-x-0 top-0 z-50 flex items-start gap-3 border-b px-4 py-2.5 text-sm shadow-sm"
+      className="fixed inset-x-0 top-0 z-50 flex items-start gap-3 border-b border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-900 shadow-sm dark:text-amber-200"
     >
       <div className="flex-1">
         <p className="font-medium">Idempotency key required</p>
@@ -72,7 +72,7 @@ function BannerView({ onDismiss }: { onDismiss: () => void }) {
         type="button"
         aria-label="Dismiss"
         onClick={onDismiss}
-        className="hover:bg-black/5 dark:hover:bg-white/10 -mr-1 grid h-7 w-7 place-items-center rounded-md"
+        className="-mr-1 grid h-7 w-7 place-items-center rounded-md hover:bg-black/5 dark:hover:bg-white/10"
       >
         <X className="h-4 w-4" />
       </button>

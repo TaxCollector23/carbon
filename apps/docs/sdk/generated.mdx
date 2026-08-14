@@ -59,7 +59,7 @@ forwards `credentials: 'include'`:
 
 ```ts
 const carbon = createCarbonClient({
-  baseUrl: 'https://api.carbon.dev',
+  baseUrl: '<api-origin>',
   fetch: (input, init) =>
     fetch(input, { ...init, credentials: 'include' }),
 });

@@ -118,8 +118,7 @@ function EventsTable({
 }: {
   state: {
     data:
-      | { data: Array<{ id: string; kind: string; amount: number; occurredAt: string }> }
-      | undefined;
+      { data: Array<{ id: string; kind: string; amount: number; occurredAt: string }> } | undefined;
     error: Error | null;
     loading: boolean;
     refetch: () => Promise<void>;
@@ -214,14 +213,7 @@ function BarChart({ totals }: { totals: UsageAggregateRow[] }) {
           const y = height - padding.bottom - h;
           return (
             <g key={t.kind}>
-              <rect
-                x={x}
-                y={y}
-                width={barW}
-                height={h}
-                className="fill-emerald-500/70"
-                rx={2}
-              />
+              <rect x={x} y={y} width={barW} height={h} className="fill-emerald-500/70" rx={2} />
               <text
                 x={x + barW / 2}
                 y={y - 4}

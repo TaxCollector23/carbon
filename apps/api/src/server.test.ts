@@ -17,8 +17,7 @@ function makeCtx(): AppContext {
         chain.where = () => chain;
         chain.limit = async () => [];
         // Some queries `await` the chain directly without `.limit()`.
-        chain.then = (resolve: (rows: unknown[]) => unknown) =>
-          Promise.resolve([]).then(resolve);
+        chain.then = (resolve: (rows: unknown[]) => unknown) => Promise.resolve([]).then(resolve);
         return chain;
       },
     } as unknown as AppContext['db'],

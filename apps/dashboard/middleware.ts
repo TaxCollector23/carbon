@@ -30,9 +30,7 @@ import { getSessionCookie } from 'better-auth/cookies';
 const PUBLIC_PATH_PREFIXES = ['/sign-in', '/sign-up', '/cli-auth'];
 
 function isPublicPath(pathname: string): boolean {
-  return PUBLIC_PATH_PREFIXES.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`),
-  );
+  return PUBLIC_PATH_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
 function isDevBypass(): boolean {

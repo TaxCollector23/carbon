@@ -19,9 +19,7 @@ const SampleReportSchema = z.object({
   ok: z.boolean(),
   error: z.string().optional(),
   mismatches: z
-    .array(
-      z.object({ path: z.string(), expected: z.string(), got: z.string() }),
-    )
+    .array(z.object({ path: z.string(), expected: z.string(), got: z.string() }))
     .optional(),
 });
 
@@ -81,7 +79,11 @@ const WsCheck = z.object({
 const CheckBody = z.object({
   url: z.string().url(),
   timeoutMs: z.number().int().min(100).max(30_000).default(5_000),
-  sampleRequests: z.array(SampleRequest).min(1).max(50).default([{ method: 'GET', path: '/' }]),
+  sampleRequests: z
+    .array(SampleRequest)
+    .min(1)
+    .max(50)
+    .default([{ method: 'GET', path: '/' }]),
   wsChecks: z.array(WsCheck).max(10).optional(),
 });
 
@@ -129,8 +131,7 @@ async function runWsCheck(check: z.infer<typeof WsCheck>): Promise<WsCheckReport
       } catch {
         /* ignore */
       }
-      const framesOk =
-        frames.length >= check.expectFrames && frames.every((f) => f.ok);
+      const framesOk = frames.length >= check.expectFrames && frames.every((f) => f.ok);
       resolve({
         url: check.url,
         ok: framesOk && !error,
@@ -142,7 +143,10 @@ async function runWsCheck(check: z.infer<typeof WsCheck>): Promise<WsCheckReport
       });
     };
 
-    const timer = setTimeout(() => finish(frames.length < check.expectFrames ? 'timeout' : undefined), check.timeoutMs);
+    const timer = setTimeout(
+      () => finish(frames.length < check.expectFrames ? 'timeout' : undefined),
+      check.timeoutMs,
+    );
 
     try {
       ws = new WebSocket(check.url, check.protocols);
@@ -203,10 +207,7 @@ async function runWsCheck(check: z.infer<typeof WsCheck>): Promise<WsCheckReport
   });
 }
 
-export async function registerContractRoutes(
-  app: FastifyInstance,
-  ctx: AppContext,
-): Promise<void> {
+export async function registerContractRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
   app.post<{ Params: { id: string } }>(
     '/v1/projects/:id/contract-check',
     {
@@ -267,62 +268,62 @@ export async function registerContractRoutes(
       const reports: SampleReport[] = [];
       let passed = 0;
       for (const sample of body.sampleRequests) {
-            const url = `${baseUrl}${sample.path.startsWith('/') ? '' : '/'}${sample.path}`;
-            const started = Date.now();
-            try {
-              const controller = new AbortController();
-              const timeout = setTimeout(() => controller.abort(), body.timeoutMs);
+        const url = `${baseUrl}${sample.path.startsWith('/') ? '' : '/'}${sample.path}`;
+        const started = Date.now();
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), body.timeoutMs);
+          try {
+            const res = await fetch(url, {
+              method: sample.method,
+              headers: {
+                'content-type': 'application/json',
+                ...(sample.headers ?? {}),
+              },
+              body:
+                sample.body !== undefined && sample.method !== 'GET' && sample.method !== 'HEAD'
+                  ? JSON.stringify(sample.body)
+                  : undefined,
+              signal: controller.signal,
+            });
+            const durationMs = Date.now() - started;
+            let ok = res.ok;
+            let mismatches: SampleReport['mismatches'];
+            if (sample.expectedSchema) {
+              const text = await res.text();
+              let parsed: unknown;
               try {
-                const res = await fetch(url, {
-                  method: sample.method,
-                  headers: {
-                    'content-type': 'application/json',
-                    ...(sample.headers ?? {}),
-                  },
-                  body:
-                    sample.body !== undefined && sample.method !== 'GET' && sample.method !== 'HEAD'
-                      ? JSON.stringify(sample.body)
-                      : undefined,
-                  signal: controller.signal,
-                });
-                const durationMs = Date.now() - started;
-                let ok = res.ok;
-                let mismatches: SampleReport['mismatches'];
-                if (sample.expectedSchema) {
-                  const text = await res.text();
-                  let parsed: unknown;
-                  try {
-                    parsed = text.length > 0 ? JSON.parse(text) : null;
-                  } catch {
-                    parsed = text;
-                  }
-                  const result = validateAgainstSpec(sample.expectedSchema as JsonSchemaLike, parsed);
-                  mismatches = result.mismatches;
-                  ok = ok && result.ok;
-                }
-                if (ok) passed += 1;
-                reports.push({
-                  method: sample.method,
-                  path: sample.path,
-                  status: res.status,
-                  durationMs,
-                  ok,
-                  mismatches,
-                });
-              } finally {
-                clearTimeout(timeout);
+                parsed = text.length > 0 ? JSON.parse(text) : null;
+              } catch {
+                parsed = text;
               }
-            } catch (err) {
-              reports.push({
-                method: sample.method,
-                path: sample.path,
-                status: null,
-                durationMs: Date.now() - started,
-                ok: false,
-                error: err instanceof Error ? err.message : String(err),
-              });
+              const result = validateAgainstSpec(sample.expectedSchema as JsonSchemaLike, parsed);
+              mismatches = result.mismatches;
+              ok = ok && result.ok;
             }
+            if (ok) passed += 1;
+            reports.push({
+              method: sample.method,
+              path: sample.path,
+              status: res.status,
+              durationMs,
+              ok,
+              mismatches,
+            });
+          } finally {
+            clearTimeout(timeout);
           }
+        } catch (err) {
+          reports.push({
+            method: sample.method,
+            path: sample.path,
+            status: null,
+            durationMs: Date.now() - started,
+            ok: false,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
 
       let wsReports: WsCheckReport[] | undefined;
       if (body.wsChecks && body.wsChecks.length > 0) {

@@ -69,107 +69,119 @@ export async function registerBillingRoutes(
   const env: BillingEnv = opts.env ?? (process.env as unknown as BillingEnv);
   // Tests inject their own Stripe mock via `opts.stripe`; production reads
   // from env. `null` means billing is disabled — every route responds 501.
-  const stripe: Stripe | null =
-    opts.stripe !== undefined ? opts.stripe : getStripe(env);
+  const stripe: Stripe | null = opts.stripe !== undefined ? opts.stripe : getStripe(env);
   const enabled = stripe !== null && billingEnabled(env);
 
   const disabledReply = (reply: FastifyReply) =>
     reply.status(501).send({
       error: {
         code: 'CARBON_BILLING_DISABLED',
-        message:
-          'Billing is not configured on this deployment. Set STRIPE_SECRET_KEY to enable.',
+        message: 'Billing is not configured on this deployment. Set STRIPE_SECRET_KEY to enable.',
       },
     });
 
-  app.post('/v1/billing/checkout', {
-    preHandler: requireScope('admin'),
-    schema: {
-      summary: 'Create a Stripe Checkout session',
-      description:
-        'Start a Stripe Checkout flow for the caller\'s org. Returns the hosted-Checkout URL. 501 if billing is disabled (no STRIPE_SECRET_KEY). Enterprise plans are sales-only and return 400.',
-      body: zodBody(CheckoutBody),
-      response: { 200: zodResponse(UrlResponse) },
+  app.post(
+    '/v1/billing/checkout',
+    {
+      preHandler: requireScope('admin'),
+      schema: {
+        summary: 'Create a Stripe Checkout session',
+        description:
+          "Start a Stripe Checkout flow for the caller's org. Returns the hosted-Checkout URL. 501 if billing is disabled (no STRIPE_SECRET_KEY). Enterprise plans are sales-only and return 400.",
+        body: zodBody(CheckoutBody),
+        response: { 200: zodResponse(UrlResponse) },
+      },
     },
-  }, async (req, reply) => {
-    if (!enabled || !stripe) return disabledReply(reply);
-    const body = CheckoutBody.parse(req.body);
-    const orgId = resolveCallerOrg(req, { message: 'orgId is required — this route needs an authenticated API key.' });
-
-    if (body.plan === 'enterprise') {
-      // Enterprise plans are quoted, not self-serve; sending the caller to a
-      // Checkout URL for that tier would just produce a broken flow.
-      throw new CarbonError({
-        code: 'CARBON_INVALID_INPUT',
-        message: 'Enterprise plans are provisioned manually — contact sales.',
-        expose: true,
+    async (req, reply) => {
+      if (!enabled || !stripe) return disabledReply(reply);
+      const body = CheckoutBody.parse(req.body);
+      const orgId = resolveCallerOrg(req, {
+        message: 'orgId is required — this route needs an authenticated API key.',
       });
-    }
-    const priceId = env.STRIPE_PRICE_TEAM;
-    if (!priceId) {
-      throw new CarbonError({
-        code: 'CARBON_DEPENDENCY_UNAVAILABLE',
-        message: 'STRIPE_PRICE_TEAM is not set on this deployment.',
-        expose: true,
+
+      if (body.plan === 'enterprise') {
+        // Enterprise plans are quoted, not self-serve; sending the caller to a
+        // Checkout URL for that tier would just produce a broken flow.
+        throw new CarbonError({
+          code: 'CARBON_INVALID_INPUT',
+          message: 'Enterprise plans are provisioned manually — contact sales.',
+          expose: true,
+        });
+      }
+      const priceId = env.STRIPE_PRICE_TEAM;
+      if (!priceId) {
+        throw new CarbonError({
+          code: 'CARBON_DEPENDENCY_UNAVAILABLE',
+          message: 'STRIPE_PRICE_TEAM is not set on this deployment.',
+          expose: true,
+        });
+      }
+
+      const customerId = await ensureCustomer(stripe, ctx, orgId);
+
+      const session = await stripe.checkout.sessions.create({
+        mode: 'subscription',
+        customer: customerId,
+        line_items: [{ price: priceId, quantity: body.seats }],
+        success_url: body.successUrl,
+        cancel_url: body.cancelUrl,
+        // client_reference_id lets the webhook find the org even before the
+        // subscription row exists.
+        client_reference_id: orgId,
+        metadata: { orgId, plan: body.plan },
+        subscription_data: { metadata: { orgId, plan: body.plan } },
       });
-    }
 
-    const customerId = await ensureCustomer(stripe, ctx, orgId);
-
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      customer: customerId,
-      line_items: [{ price: priceId, quantity: body.seats }],
-      success_url: body.successUrl,
-      cancel_url: body.cancelUrl,
-      // client_reference_id lets the webhook find the org even before the
-      // subscription row exists.
-      client_reference_id: orgId,
-      metadata: { orgId, plan: body.plan },
-      subscription_data: { metadata: { orgId, plan: body.plan } },
-    });
-
-    return { url: session.url };
-  });
-
-  app.post('/v1/billing/portal', {
-    preHandler: requireScope('admin'),
-    schema: {
-      summary: 'Create a Stripe Billing Portal session',
-      description: 'Return a signed URL to the Stripe Billing Portal for the caller\'s org. 501 if billing is disabled; 404 if the org has no customer on file.',
-      body: zodBody(PortalBody),
-      response: { 200: zodResponse(UrlResponse) },
+      return { url: session.url };
     },
-  }, async (req, reply) => {
-    if (!enabled || !stripe) return disabledReply(reply);
-    const body = PortalBody.parse(req.body);
-    const orgId = resolveCallerOrg(req, { message: 'orgId is required — this route needs an authenticated API key.' });
+  );
 
-    const plan = await resolvePlan(orgId, ctx.db);
-    const customerId = await lookupCustomerId(ctx, orgId);
-    if (!customerId) {
-      throw new CarbonError({
-        code: 'CARBON_NOT_FOUND',
-        message: 'No Stripe customer on file for this organization.',
-        details: { orgId, plan: plan.plan },
-        expose: true,
+  app.post(
+    '/v1/billing/portal',
+    {
+      preHandler: requireScope('admin'),
+      schema: {
+        summary: 'Create a Stripe Billing Portal session',
+        description:
+          "Return a signed URL to the Stripe Billing Portal for the caller's org. 501 if billing is disabled; 404 if the org has no customer on file.",
+        body: zodBody(PortalBody),
+        response: { 200: zodResponse(UrlResponse) },
+      },
+    },
+    async (req, reply) => {
+      if (!enabled || !stripe) return disabledReply(reply);
+      const body = PortalBody.parse(req.body);
+      const orgId = resolveCallerOrg(req, {
+        message: 'orgId is required — this route needs an authenticated API key.',
       });
-    }
 
-    const portal = await stripe.billingPortal.sessions.create({
-      customer: customerId,
-      return_url: body.returnUrl,
-    });
-    return { url: portal.url };
-  });
+      const plan = await resolvePlan(orgId, ctx.db);
+      const customerId = await lookupCustomerId(ctx, orgId);
+      if (!customerId) {
+        throw new CarbonError({
+          code: 'CARBON_NOT_FOUND',
+          message: 'No Stripe customer on file for this organization.',
+          details: { orgId, plan: plan.plan },
+          expose: true,
+        });
+      }
+
+      const portal = await stripe.billingPortal.sessions.create({
+        customer: customerId,
+        return_url: body.returnUrl,
+      });
+      return { url: portal.url };
+    },
+  );
 
   app.get(
     '/v1/billing/subscription',
     {
       preHandler: requireScope('read'),
       schema: {
-        summary: 'Get the caller\'s current subscription',
-        description: 'Return the resolved plan tier, status, seat count, and current period end for the caller\'s org.',
+        summary: "Get the caller's current subscription",
+        description:
+          "Return the resolved plan tier, status, seat count, and current period end for the caller's org.",
         response: {
           200: zodResponseWithExample(SubscriptionResponse, {
             plan: {
@@ -183,7 +195,9 @@ export async function registerBillingRoutes(
       },
     },
     async (req) => {
-      const orgId = resolveCallerOrg(req, { message: 'orgId is required — this route needs an authenticated API key.' });
+      const orgId = resolveCallerOrg(req, {
+        message: 'orgId is required — this route needs an authenticated API key.',
+      });
       const plan = await resolvePlan(orgId, ctx.db);
       return { plan };
     },
@@ -193,10 +207,8 @@ export async function registerBillingRoutes(
   // a scoped child plugin whose JSON parser hands us a Buffer, so the rest
   // of the app keeps receiving parsed objects on other routes.
   await app.register(async (scoped) => {
-    scoped.addContentTypeParser(
-      'application/json',
-      { parseAs: 'buffer' },
-      (_req, body, done) => done(null, body),
+    scoped.addContentTypeParser('application/json', { parseAs: 'buffer' }, (_req, body, done) =>
+      done(null, body),
     );
     scoped.post('/v1/billing/webhook', async (req, reply) => {
       if (!enabled || !stripe) return disabledReply(reply);
@@ -211,9 +223,9 @@ export async function registerBillingRoutes(
       }
       const sig = req.headers['stripe-signature'];
       if (typeof sig !== 'string') {
-        return reply
-          .status(400)
-          .send({ error: { code: 'CARBON_INVALID_INPUT', message: 'Missing stripe-signature header' } });
+        return reply.status(400).send({
+          error: { code: 'CARBON_INVALID_INPUT', message: 'Missing stripe-signature header' },
+        });
       }
       const raw = req.body as Buffer;
 
@@ -253,11 +265,7 @@ export async function registerBillingRoutes(
  * mirroring the id into the `subscriptions` table so subsequent calls (and
  * webhook lookups) can find it without re-hitting Stripe.
  */
-async function ensureCustomer(
-  stripe: Stripe,
-  ctx: AppContext,
-  orgId: string,
-): Promise<string> {
+async function ensureCustomer(stripe: Stripe, ctx: AppContext, orgId: string): Promise<string> {
   const existing = await lookupCustomerId(ctx, orgId);
   if (existing) return existing;
 
@@ -408,11 +416,11 @@ async function handleEvent(event: Stripe.Event, ctx: AppContext): Promise<void> 
       const plan = readPlanFromMetadata(session.metadata) ?? 'team';
       const seats = readSeats(session);
       const customerId =
-        typeof session.customer === 'string' ? session.customer : session.customer?.id ?? null;
+        typeof session.customer === 'string' ? session.customer : (session.customer?.id ?? null);
       const subscriptionId =
         typeof session.subscription === 'string'
           ? session.subscription
-          : session.subscription?.id ?? null;
+          : (session.subscription?.id ?? null);
       await upsertSubscription(ctx, {
         orgId,
         stripeCustomerId: customerId,

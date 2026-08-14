@@ -6,12 +6,7 @@ import { buttonVariants, cn } from '@carbon/ui';
 import { Nav } from '@/components/nav';
 import { Footer } from '@/components/footer';
 import { Section, SectionHeading } from '@/components/section';
-import {
-  allCompetitorSlugs,
-  getCompetitor,
-  type Cell,
-  type Competitor,
-} from '@/lib/competitors';
+import { allCompetitorSlugs, getCompetitor, type Cell, type Competitor } from '@/lib/competitors';
 
 interface RouteParams {
   competitor: string;
@@ -45,7 +40,7 @@ export default async function VsCompetitorPage({ params }: PageProps) {
   const data = getCompetitor(competitor);
   if (!data) notFound();
   return (
-    <div className="bg-background text-foreground dark min-h-dvh">
+    <div className="bg-background text-foreground min-h-dvh">
       <Nav />
       <main id="main" className="pt-16">
         <VsHero data={data} />
@@ -169,17 +164,14 @@ function VsCta({ data }: { data: Competitor }) {
           Try Carbon against your own spec.
         </h2>
         <p className="text-muted-foreground mt-4 text-base leading-7">
-          One command turns any OpenAPI, GraphQL, HAR, Postman, or gRPC spec into a stateful
-          local server. See how it compares to {data.name} on the endpoints you actually ship.
+          One command turns any OpenAPI, GraphQL, HAR, Postman, or gRPC spec into a stateful local
+          server. See how it compares to {data.name} on the endpoints you actually ship.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link href="/gallery" className={cn(buttonVariants({ size: 'sm' }))}>
             Browse the emulator catalog
           </Link>
-          <Link
-            href="/#cli"
-            className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}
-          >
+          <Link href="/#cli" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
             See the install command
           </Link>
         </div>

@@ -3,20 +3,11 @@
 import { useState } from 'react';
 
 /**
- * Enterprise lead-capture form. POSTs directly to the API's public
- * `/v1/leads` route (rate-limited per IP). Kept as a client component so we
- * can render inline success/error state without a full navigation.
+ * Enterprise lead-capture form. POSTs to the web app's route handler so the
+ * deployed marketing site can accept leads without requiring a public API host.
  */
 type Status =
-  | { kind: 'idle' }
-  | { kind: 'submitting' }
-  | { kind: 'ok' }
-  | { kind: 'error'; message: string };
-
-function apiBase(): string {
-  const raw = process.env.NEXT_PUBLIC_API_URL;
-  return raw && raw.trim() !== '' ? raw.replace(/\/+$/, '') : 'http://localhost:4000';
-}
+  { kind: 'idle' } | { kind: 'submitting' } | { kind: 'ok' } | { kind: 'error'; message: string };
 
 export function ContactForm() {
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
@@ -27,7 +18,7 @@ export function ContactForm() {
     const data = new FormData(form);
     setStatus({ kind: 'submitting' });
     try {
-      const res = await fetch(`${apiBase()}/v1/leads`, {
+      const res = await fetch('/api/leads', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -40,9 +31,9 @@ export function ContactForm() {
         }),
       });
       if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as
-          | { error?: { message?: string } }
-          | null;
+        const body = (await res.json().catch(() => null)) as {
+          error?: { message?: string };
+        } | null;
         setStatus({
           kind: 'error',
           message:
@@ -63,11 +54,10 @@ export function ContactForm() {
 
   if (status.kind === 'ok') {
     return (
-      <div className="border-border bg-subtle/40 rounded-lg border p-8">
-        <h3 className="text-lg font-medium">Thanks — we&apos;ll be in touch shortly.</h3>
+      <div className="border-border bg-subtle/40 border-y p-8">
+        <h3 className="text-lg font-medium">Thanks. We&apos;ll be in touch shortly.</h3>
         <p className="text-muted-foreground mt-2 text-sm">
-          A member of the Carbon team will reply within one business day. If it&apos;s urgent,
-          email <span className="text-foreground">sales@carbon.dev</span>.
+          We received your note and will reply with pilot next steps.
         </p>
       </div>
     );
@@ -76,19 +66,12 @@ export function ContactForm() {
   const disabled = status.kind === 'submitting';
 
   return (
-    <form onSubmit={onSubmit} className="border-border bg-background rounded-lg border p-6 sm:p-8">
+    <form onSubmit={onSubmit} className="border-border bg-background border-y p-6 sm:p-8">
       <div className="grid gap-4">
         <Field label="Your name" name="name" required autoComplete="name" />
         <Field label="Work email" name="email" type="email" required autoComplete="email" />
         <Field label="Company" name="company" required autoComplete="organization" />
-        <Field
-          label="Seats you expect"
-          name="seats"
-          type="number"
-          min={1}
-          max={100000}
-          required
-        />
+        <Field label="Seats you expect" name="seats" type="number" min={1} max={100000} required />
         <label className="grid gap-1.5">
           <span className="text-sm font-medium">What are you trying to build?</span>
           <textarea
@@ -97,7 +80,7 @@ export function ContactForm() {
             rows={5}
             maxLength={2000}
             className="border-border bg-background focus:ring-foreground/40 rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
-            placeholder="A couple sentences on your use case — team size, target APIs, compliance needs."
+            placeholder="Team size, target APIs, compliance needs, or the integration tests you want to stabilize."
           />
         </label>
         {status.kind === 'error' ? (
@@ -110,7 +93,7 @@ export function ContactForm() {
           disabled={disabled}
           className="bg-foreground text-background mt-2 inline-flex items-center justify-center rounded-md px-4 py-2.5 text-sm font-medium transition hover:opacity-90 disabled:opacity-50"
         >
-          {disabled ? 'Sending…' : 'Send to sales'}
+          {disabled ? 'Sending...' : 'Send'}
         </button>
         <p className="text-muted-foreground text-xs">
           By submitting you agree to be contacted about Carbon Enterprise. We do not share your
@@ -121,11 +104,10 @@ export function ContactForm() {
   );
 }
 
-interface FieldProps
-  extends Pick<
-    React.InputHTMLAttributes<HTMLInputElement>,
-    'name' | 'type' | 'required' | 'min' | 'max' | 'autoComplete'
-  > {
+interface FieldProps extends Pick<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  'name' | 'type' | 'required' | 'min' | 'max' | 'autoComplete'
+> {
   label: string;
 }
 

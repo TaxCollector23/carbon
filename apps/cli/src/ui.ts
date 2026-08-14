@@ -3,17 +3,14 @@ import { consola } from 'consola';
 import type { CliCommandInfo } from './commands.js';
 import { getPrinter, isJson } from './lib/printer.js';
 
-// ANSI Shadow-family glyphs (Unicode block-drawing + shading). Rendered in
-// bright white with a cyan gradient hairline on the right so terminals that
-// support truecolor get an accent without breaking mono terminals — plain
-// braille dots look correct even without color support.
-const CARBON_GLYPHS = [
-  ' ██████╗  █████╗ ██████╗ ██████╗  ██████╗ ███╗   ██╗',
-  '██╔════╝ ██╔══██╗██╔══██╗██╔══██╗██╔═══██╗████╗  ██║',
-  '██║      ███████║██████╔╝██████╔╝██║   ██║██╔██╗ ██║',
-  '██║      ██╔══██║██╔══██╗██╔══██╗██║   ██║██║╚██╗██║',
-  '╚██████╗ ██║  ██║██║  ██║██████╔╝╚██████╔╝██║ ╚████║',
-  ' ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝  ╚═════╝ ╚═╝  ╚═══╝',
+// Plain ASCII wordmark. Keep it white-only so it renders predictably in
+// terminals without Unicode width quirks or truecolor support.
+const CARBON_ASCII = [
+  '  CCCCC    AAAAA   RRRRR   BBBBB    OOOOO   N   N',
+  ' C        A     A  R    R  B    B  O     O  NN  N',
+  ' C        AAAAAAA  RRRRR   BBBBB   O     O  N N N',
+  ' C        A     A  R   R   B    B  O     O  N  NN',
+  '  CCCCC   A     A  R    R  BBBBB    OOOOO   N   N',
 ];
 
 /**
@@ -60,27 +57,15 @@ export const ui = {
   },
   banner() {
     if (isJson()) return;
-    const lines = CARBON_GLYPHS.map((line, i) => {
-      // Fade the last three columns to cyan to signal "runtime". Everything
-      // else is bold white so the wordmark reads instantly in dark and light
-      // terminals.
-      const cut = Math.max(0, line.length - 20);
-      const head = line.slice(0, cut);
-      const tail = line.slice(cut);
-      const accent = i % 2 === 0 ? pc.cyan(tail) : pc.blue(tail);
-      return `${pc.white(pc.bold(head))}${accent}`;
-    });
-    process.stdout.write(`\n${lines.join('\n')}\n`);
+    process.stdout.write(`\n${CARBON_ASCII.map((line) => pc.white(pc.bold(line))).join('\n')}\n`);
   },
   welcome(version: string) {
     if (isJson()) {
       getPrinter().emit({ event: 'welcome', level: 'info', data: { version } });
       return;
     }
-    process.stdout.write(`\n${pc.dim(`carbon v${version}`)}\n`);
-    process.stdout.write(
-      `\n${pc.bold('Get started:')} ${pc.cyan('carbon init')} ${pc.dim('— scaffold a new project')}\n`,
-    );
+    ui.banner();
+    process.stdout.write(`\n${pc.white(pc.bold(`carbon v${version}`))}\n`);
   },
   footer(label: string, detail: string) {
     if (isJson()) return;
@@ -100,7 +85,11 @@ export const ui = {
    * machine-parseable tag (e.g. `replay` result category) without inventing a
    * new colored line format. In human mode a compact prefix line is printed.
    */
-  event(name: string, data: Record<string, unknown> = {}, level: 'info' | 'warn' | 'error' = 'info') {
+  event(
+    name: string,
+    data: Record<string, unknown> = {},
+    level: 'info' | 'warn' | 'error' = 'info',
+  ) {
     getPrinter().emit({ event: name, level, data });
     if (!isJson()) {
       const parts = Object.entries(data)

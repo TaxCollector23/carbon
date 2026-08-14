@@ -22,15 +22,19 @@ async function main() {
         payload: { name: 'Benchmark user' },
       }),
     );
-    const snapshot = await measure('snapshot + restore', Math.max(25, Math.floor(iterations / 20)), async () => {
-      const snap = await runtime.app.inject({ method: 'POST', url: '/__carbon/state/snapshot' });
-      await runtime.app.inject({ method: 'POST', url: '/__carbon/state/reset' });
-      return runtime.app.inject({
-        method: 'POST',
-        url: '/__carbon/state/restore',
-        payload: snap.json(),
-      });
-    });
+    const snapshot = await measure(
+      'snapshot + restore',
+      Math.max(25, Math.floor(iterations / 20)),
+      async () => {
+        const snap = await runtime.app.inject({ method: 'POST', url: '/__carbon/state/snapshot' });
+        await runtime.app.inject({ method: 'POST', url: '/__carbon/state/reset' });
+        return runtime.app.inject({
+          method: 'POST',
+          url: '/__carbon/state/restore',
+          payload: snap.json(),
+        });
+      },
+    );
 
     console.log(
       JSON.stringify(

@@ -120,7 +120,9 @@ export const memberships = pgTable(
     orgId: text('org_id')
       .notNull()
       .references(() => organizations.id, { onDelete: 'cascade' }),
-    role: text('role', { enum: ['owner', 'admin', 'member'] }).notNull().default('member'),
+    role: text('role', { enum: ['owner', 'admin', 'member'] })
+      .notNull()
+      .default('member'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({ userOrg: uniqueIndex('memberships_user_org_unique').on(t.userId, t.orgId) }),
@@ -160,7 +162,10 @@ export const artifacts = pgTable(
     meta: jsonb('meta').notNull().default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     /** Free-form tags for organizing snapshots/recordings (e.g. "ci-baseline"). */
-    tags: text('tags').array().notNull().default(sql`ARRAY[]::text[]`),
+    tags: text('tags')
+      .array()
+      .notNull()
+      .default(sql`ARRAY[]::text[]`),
     /** Generated tsvector for full-text search — see 0007_fulltext_search.sql. */
     searchTsv: text('search_tsv'),
   },
@@ -237,7 +242,9 @@ export const invitations = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: 'cascade' }),
     email: text('email').notNull(),
-    role: text('role', { enum: ['owner', 'admin', 'member'] }).notNull().default('member'),
+    role: text('role', { enum: ['owner', 'admin', 'member'] })
+      .notNull()
+      .default('member'),
     token: text('token').notNull(),
     invitedBy: text('invited_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -254,24 +261,23 @@ export const invitations = pgTable(
  * Stripe subscription mirror. Updated by the billing webhook — never
  * treat the API-side row as authoritative without checking Stripe's status.
  */
-export const subscriptions = pgTable(
-  'subscriptions',
-  {
-    id: text('id').primaryKey(),
-    orgId: text('org_id')
-      .notNull()
-      .references(() => organizations.id, { onDelete: 'cascade' })
-      .unique(),
-    stripeCustomerId: text('stripe_customer_id'),
-    stripeSubscriptionId: text('stripe_subscription_id'),
-    plan: text('plan', { enum: ['developer', 'team', 'enterprise'] }).notNull().default('developer'),
-    status: text('status').notNull().default('inactive'),
-    seats: integer('seats').notNull().default(1),
-    currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-);
+export const subscriptions = pgTable('subscriptions', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' })
+    .unique(),
+  stripeCustomerId: text('stripe_customer_id'),
+  stripeSubscriptionId: text('stripe_subscription_id'),
+  plan: text('plan', { enum: ['developer', 'team', 'enterprise'] })
+    .notNull()
+    .default('developer'),
+  status: text('status').notNull().default('inactive'),
+  seats: integer('seats').notNull().default(1),
+  currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
 
 /** Per-project ACL. Absence of any rows = org-wide access (backwards compat). */
 export const projectMembers = pgTable(
@@ -284,7 +290,9 @@ export const projectMembers = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    role: text('role', { enum: ['viewer', 'editor', 'admin'] }).notNull().default('viewer'),
+    role: text('role', { enum: ['viewer', 'editor', 'admin'] })
+      .notNull()
+      .default('viewer'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
@@ -308,17 +316,16 @@ export const artifactComments = pgTable(
 );
 
 /** Per-user preferences (theme, keybindings, misc). */
-export const userPreferences = pgTable(
-  'user_preferences',
-  {
-    userId: text('user_id')
-      .primaryKey()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    theme: text('theme', { enum: ['light', 'dark', 'system'] }).notNull().default('system'),
-    prefs: jsonb('prefs').notNull().default({}),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-);
+export const userPreferences = pgTable('user_preferences', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  theme: text('theme', { enum: ['light', 'dark', 'system'] })
+    .notNull()
+    .default('system'),
+  prefs: jsonb('prefs').notNull().default({}),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
 
 /**
  * Reusable chaos presets ("flaky network", "3rd-party outage"). Rules are a
@@ -376,7 +383,9 @@ export const driftChecks = pgTable(
     result: jsonb('result').notNull().default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => ({ projectCreatedIdx: index('drift_checks_project_created_idx').on(t.projectId, t.createdAt) }),
+  (t) => ({
+    projectCreatedIdx: index('drift_checks_project_created_idx').on(t.projectId, t.createdAt),
+  }),
 );
 
 /**

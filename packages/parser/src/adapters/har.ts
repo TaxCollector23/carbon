@@ -43,7 +43,11 @@ export class HarParser implements Parser {
     const doc = input.content as {
       log?: {
         entries?: Array<{
-          request: { method: string; url: string; queryString?: Array<{ name: string; value: string }> };
+          request: {
+            method: string;
+            url: string;
+            queryString?: Array<{ name: string; value: string }>;
+          };
           response: { status: number; content?: { text?: string; mimeType?: string } };
           time?: number;
         }>;
@@ -54,7 +58,10 @@ export class HarParser implements Parser {
 
     // 1. Group by method + segment-shape template
     const groups = new Map<string, Array<(typeof entries)[number]>>();
-    const templates = new Map<string, { method: HttpMethod; template: string; segments: string[] }>();
+    const templates = new Map<
+      string,
+      { method: HttpMethod; template: string; segments: string[] }
+    >();
 
     for (const entry of entries) {
       const method = entry.request.method.toUpperCase();
@@ -130,7 +137,9 @@ export class HarParser implements Parser {
       }
 
       const params: ParamDef[] = [];
-      for (const seg of tpl.template.split('/').filter((s) => s.startsWith('{') && s.endsWith('}'))) {
+      for (const seg of tpl.template
+        .split('/')
+        .filter((s) => s.startsWith('{') && s.endsWith('}'))) {
         const name = seg.slice(1, -1);
         params.push({ name, in: 'path', required: true, schema: { kind: 'string' } });
       }

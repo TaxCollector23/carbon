@@ -363,6 +363,21 @@ describe('idempotency', () => {
     expect(res.statusCode).toBe(200);
   });
 
+  it('allows CLI auth approval and denial without idempotency keys when requireKey is on', async () => {
+    const redis = new MemoryRedis() as unknown as Redis;
+    const app = Fastify();
+    await registerIdempotency(app, makeCtx(redis), { redis, requireKey: true });
+    app.post('/v1/cli-auth/:sessionId/approve', async () => ({ ok: true }));
+    app.post('/v1/cli-auth/:sessionId/deny', async () => ({ ok: true }));
+
+    expect(
+      (await app.inject({ method: 'POST', url: '/v1/cli-auth/session_1/approve' })).statusCode,
+    ).toBe(200);
+    expect(
+      (await app.inject({ method: 'POST', url: '/v1/cli-auth/session_1/deny' })).statusCode,
+    ).toBe(200);
+  });
+
   it('leaves GET requests untouched', async () => {
     const redis = new MemoryRedis() as unknown as Redis;
     const app = Fastify();

@@ -47,7 +47,9 @@ export default function EmulatorsSection() {
     <>
       <header className="flex items-center justify-between">
         <p className="text-muted-foreground text-sm">
-          {emulators.loading ? 'Loading…' : `${rows.length} running · polling every ${POLL_MS / 1000}s`}
+          {emulators.loading
+            ? 'Loading…'
+            : `${rows.length} running · polling every ${POLL_MS / 1000}s`}
         </p>
       </header>
 
@@ -375,7 +377,7 @@ function LoadTestModal({
             <select
               value={method}
               onChange={(e) => setMethod(e.target.value)}
-              className="border-input bg-background mt-1 block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="border-input bg-background focus-visible:ring-ring mt-1 block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2"
               data-testid="load-test-method-input"
             >
               {['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((m) => (
@@ -441,7 +443,9 @@ function PercentileChart({ p50, p95, p99 }: { p50: number; p95: number; p99: num
 
   return (
     <div className="border-border rounded-md border p-3">
-      <p className="text-muted-foreground mb-1 text-[10px] uppercase tracking-wide">Latency percentiles</p>
+      <p className="text-muted-foreground mb-1 text-[10px] uppercase tracking-wide">
+        Latency percentiles
+      </p>
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="text-primary h-auto w-full"

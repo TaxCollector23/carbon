@@ -115,117 +115,113 @@ export function createIngestionPipeline(deps: IngestionDeps): IngestionPipeline 
   };
 
   async function runIngest(req: IngestRequest): Promise<IngestResult> {
-      const warnings: string[] = [];
-      const ctx = createParserContext(deps.logger, req.origin);
-      const originalWarn = ctx.warn;
-      const captured = {
-        ...ctx,
-        warn(message: string, details?: Record<string, unknown>) {
-          warnings.push(message);
-          originalWarn(message, details);
-        },
-      };
+    const warnings: string[] = [];
+    const ctx = createParserContext(deps.logger, req.origin);
+    const originalWarn = ctx.warn;
+    const captured = {
+      ...ctx,
+      warn(message: string, details?: Record<string, unknown>) {
+        warnings.push(message);
+        originalWarn(message, details);
+      },
+    };
 
-      const parsedIr = await withSpan('ingest.parse', {}, () =>
-        deps.parsers.parse(req.input, captured),
-      );
-      let ir: IntermediateRepresentation = {
-        ...parsedIr,
-        api: {
-          ...parsedIr.api,
-          source: { ...parsedIr.api.source, ingestedAt: clock() },
-        },
-      };
+    const parsedIr = await withSpan('ingest.parse', {}, () =>
+      deps.parsers.parse(req.input, captured),
+    );
+    let ir: IntermediateRepresentation = {
+      ...parsedIr,
+      api: {
+        ...parsedIr.api,
+        source: { ...parsedIr.api.source, ingestedAt: clock() },
+      },
+    };
 
-      let judge: IngestJudgeReport | undefined;
-      if (req.enrich && deps.ai) {
-        try {
-          const enrichedResources = await withSpan('ingest.infer.resources', {}, () =>
-            deps.ai!.inferResources({ ir }, req.context),
-          );
-          ir = { ...ir, resources: enrichedResources };
-          const enrichedRelationships = await withSpan(
-            'ingest.infer.relationships',
-            {},
-            () =>
-              deps.ai!.inferRelationships(
-                { ir, resources: enrichedResources },
+    let judge: IngestJudgeReport | undefined;
+    if (req.enrich && deps.ai) {
+      try {
+        const enrichedResources = await withSpan('ingest.infer.resources', {}, () =>
+          deps.ai!.inferResources({ ir }, req.context),
+        );
+        ir = { ...ir, resources: enrichedResources };
+        const enrichedRelationships = await withSpan('ingest.infer.relationships', {}, () =>
+          deps.ai!.inferRelationships({ ir, resources: enrichedResources }, req.context),
+        );
+        ir = { ...ir, relationships: enrichedRelationships };
+        if (deps.judge) {
+          // The judge takes the *final* enriched IR + the proposals so it can
+          // cross-reference the two sources of truth (endpoints vs.
+          // inference output). Failures inside the judge fall through to
+          // its own fallback verdict — we never let it break ingestion.
+          const [resVerdict, relVerdict] = await withSpan('ingest.judge', {}, () =>
+            Promise.all([
+              deps.judge!.judgeResourceInference(
+                { ir, proposedResources: enrichedResources },
                 req.context,
               ),
+              deps.judge!.judgeRelationshipInference(
+                { ir, proposedRelationships: enrichedRelationships },
+                req.context,
+              ),
+            ]),
           );
-          ir = { ...ir, relationships: enrichedRelationships };
-          if (deps.judge) {
-            // The judge takes the *final* enriched IR + the proposals so it can
-            // cross-reference the two sources of truth (endpoints vs.
-            // inference output). Failures inside the judge fall through to
-            // its own fallback verdict — we never let it break ingestion.
-            const [resVerdict, relVerdict] = await withSpan('ingest.judge', {}, () =>
-              Promise.all([
-                deps.judge!.judgeResourceInference(
-                  { ir, proposedResources: enrichedResources },
-                  req.context,
-                ),
-                deps.judge!.judgeRelationshipInference(
-                  { ir, proposedRelationships: enrichedRelationships },
-                  req.context,
-                ),
-              ]),
-            );
-            judge = { resources: resVerdict, relationships: relVerdict };
-          }
-        } catch (err) {
-          // Distinguish a tripped circuit — a signal the upstream has been
-          // failing consistently — from an ordinary transient error. Both
-          // outcomes still ship the deterministic graph; only the log line
-          // and the warning differ so operators can tell one from the other.
-          const message = (err as Error).message;
-          const circuitOpen = /circuit open/i.test(message);
-          if (circuitOpen) {
-            deps.logger.warn('ingestion.ai_skipped_breaker_open', { message });
-            warnings.push(
-              'AI enrichment skipped (upstream breaker open) — proceeding with mechanically-derived graph',
-            );
-          } else {
-            deps.logger.warn('ingestion.ai_enrichment_failed', { message });
-            warnings.push('AI enrichment failed — proceeding with mechanically-derived graph');
-          }
+          judge = { resources: resVerdict, relationships: relVerdict };
+        }
+      } catch (err) {
+        // Distinguish a tripped circuit — a signal the upstream has been
+        // failing consistently — from an ordinary transient error. Both
+        // outcomes still ship the deterministic graph; only the log line
+        // and the warning differ so operators can tell one from the other.
+        const message = (err as Error).message;
+        const circuitOpen = /circuit open/i.test(message);
+        if (circuitOpen) {
+          deps.logger.warn('ingestion.ai_skipped_breaker_open', { message });
+          warnings.push(
+            'AI enrichment skipped (upstream breaker open) — proceeding with mechanically-derived graph',
+          );
+        } else {
+          deps.logger.warn('ingestion.ai_enrichment_failed', { message });
+          warnings.push('AI enrichment failed — proceeding with mechanically-derived graph');
         }
       }
+    }
 
-      const graph = await withSpan('ingest.build_graph', {}, async () => builder.build(ir));
-      const irId = makeId('ir');
-      const graphId = makeId('grf');
+    const graph = await withSpan('ingest.build_graph', {}, async () => builder.build(ir));
+    const irId = makeId('ir');
+    const graphId = makeId('grf');
 
-      await withSpan('ingest.persist', { 'carbon.ir_id': irId, 'carbon.graph_id': graphId }, async () => {
+    await withSpan(
+      'ingest.persist',
+      { 'carbon.ir_id': irId, 'carbon.graph_id': graphId },
+      async () => {
         await deps.storage.put(StorageKeys.ir(req.projectSlug, irId), JSON.stringify(ir), {
           contentType: 'application/json',
         });
-        await deps.storage.put(
-          StorageKeys.graph(req.projectSlug, graphId),
-          JSON.stringify(graph),
-          { contentType: 'application/json' },
-        );
-      });
-      if (judge) {
-        // Persist the judge report alongside the IR so `/v1/projects/:slug/ir/:id`
-        // consumers can fetch review context by convention. This is the "meta"
-        // surface for the IR artifact — the DB `artifacts` table doesn't hold
-        // rows for IR/graph, so storage is the durable home for the verdict.
-        await deps.storage.put(
-          `projects/${req.projectSlug}/judge/${irId}.json`,
-          JSON.stringify(judge),
-          { contentType: 'application/json' },
-        );
-      }
+        await deps.storage.put(StorageKeys.graph(req.projectSlug, graphId), JSON.stringify(graph), {
+          contentType: 'application/json',
+        });
+      },
+    );
+    if (judge) {
+      // Persist the judge report alongside the IR so `/v1/projects/:slug/ir/:id`
+      // consumers can fetch review context by convention. This is the "meta"
+      // surface for the IR artifact — the DB `artifacts` table doesn't hold
+      // rows for IR/graph, so storage is the durable home for the verdict.
+      await deps.storage.put(
+        `projects/${req.projectSlug}/judge/${irId}.json`,
+        JSON.stringify(judge),
+        { contentType: 'application/json' },
+      );
+    }
 
-      return {
-        irId,
-        graphId,
-        ir,
-        graph,
-        warnings,
-        judge,
-        judgeThreshold: deps.judge?.threshold,
-      };
+    return {
+      irId,
+      graphId,
+      ir,
+      graph,
+      warnings,
+      judge,
+      judgeThreshold: deps.judge?.threshold,
+    };
   }
 }

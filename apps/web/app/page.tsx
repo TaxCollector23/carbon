@@ -17,7 +17,7 @@ import { Workflow } from '@/components/workflow';
 
 export default function LandingPage() {
   return (
-    <div className="bg-background text-foreground dark min-h-dvh">
+    <div className="bg-background text-foreground min-h-dvh">
       <Nav />
       {/*
        * Landing sections are ordered as a narrative:

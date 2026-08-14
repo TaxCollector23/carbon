@@ -25,9 +25,7 @@ describe.skipIf(!shouldRunIntegration())('ai-quality (integration)', () => {
       verdicts: {
         resources: {
           score: 0.88,
-          issues: [
-            { severity: 'info', targetType: 'field', targetId: 'user.name', reason: 'nit' },
-          ],
+          issues: [{ severity: 'info', targetType: 'field', targetId: 'user.name', reason: 'nit' }],
           model: 'test-model',
         },
         relationships: {

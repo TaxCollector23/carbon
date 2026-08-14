@@ -3,6 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { schema } from '@carbon/database';
 import { StorageKeys } from '@carbon/storage';
+import type { IngestJobPayload } from '@carbon/workers';
 import type { AppContext } from '../context.js';
 import { requireScope } from '../plugins/scopes.js';
 import { zodBody, zodQuery, zodResponse } from '../plugins/schema-helpers.js';
@@ -89,10 +90,7 @@ export async function registerIngestRoutes(app: FastifyInstance, ctx: AppContext
           projectSlug: project.slug,
           origin: body.origin,
         });
-        // Hand off to BullMQ so the work survives a SIGTERM of this API
-        // process and gets retried on failure. See packages/workers for the
-        // shared queue/worker plumbing.
-        await ctx.ingestionQueue.add('ingest', {
+        const payload: IngestJobPayload = {
           statusJobId: job.id,
           orgId: project.orgId,
           projectSlug: project.storageSlug,
@@ -100,7 +98,17 @@ export async function registerIngestRoutes(app: FastifyInstance, ctx: AppContext
           source: body.source,
           origin: body.origin,
           enrich: body.enrich,
+        };
+        await ctx.jobs.setMeta(job.id, {
+          orgId: project.orgId,
+          projectSlug: project.slug,
+          origin: body.origin,
+          payload,
         });
+        // Hand off to BullMQ so the work survives a SIGTERM of this API
+        // process and gets retried on failure. See packages/workers for the
+        // shared queue/worker plumbing.
+        await ctx.ingestionQueue.add('ingest', payload);
         if (project.orgId) {
           const actor = getActor(req);
           await recordEvent(ctx, {
@@ -171,10 +179,7 @@ export async function registerIngestRoutes(app: FastifyInstance, ctx: AppContext
             .select({ id: schema.projects.id })
             .from(schema.projects)
             .where(
-              and(
-                eq(schema.projects.orgId, project.orgId),
-                eq(schema.projects.slug, project.slug),
-              ),
+              and(eq(schema.projects.orgId, project.orgId), eq(schema.projects.slug, project.slug)),
             )
             .limit(1);
           if (projectRow) {
@@ -215,7 +220,8 @@ export async function registerIngestRoutes(app: FastifyInstance, ctx: AppContext
       preHandler: requireScope('write'),
       schema: {
         summary: 'Ingest a raw Postman collection',
-        description: 'Shortcut that accepts a raw Postman collection JSON body (any content) and routes it through the Postman adapter. Target project is picked via `?projectSlug=`.',
+        description:
+          'Shortcut that accepts a raw Postman collection JSON body (any content) and routes it through the Postman adapter. Target project is picked via `?projectSlug=`.',
         querystring: zodQuery(PostmanQuery),
         response: { 201: zodResponse(IngestSyncResponse) },
       },
@@ -272,4 +278,3 @@ export async function registerIngestRoutes(app: FastifyInstance, ctx: AppContext
     },
   );
 }
-

@@ -10,16 +10,19 @@ export function Hero() {
         <div className="grid min-h-[calc(100svh-4rem)] gap-12 py-14 sm:py-20 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
           <div className="animate-rise max-w-3xl">
             <h1 className="max-w-4xl text-balance text-5xl font-medium tracking-tight sm:text-7xl lg:text-[5.25rem] lg:leading-[0.92]">
-              A local mock server that actually remembers.
+              Carbon runs a stateful replica of your API.
             </h1>
             <p className="text-muted-foreground mt-7 max-w-2xl text-pretty text-lg leading-8 sm:text-xl">
-              Run <code className="font-mono text-base">carbon emulate --from spec.yaml --port 8787</code> and get a stateful
-              copy of your API on localhost. POSTs create real records, GETs return them, and snapshots
-              reset the whole thing between tests. Works from OpenAPI, GraphQL, gRPC, AsyncAPI, HAR, or Postman.
+              Run{' '}
+              <code className="font-mono text-base">
+                carbon emulate --from spec.yaml --port 8787
+              </code>{' '}
+              and get a deterministic local server for development and CI. POSTs create records,
+              GETs return them, and snapshots reset the runtime between tests.
             </p>
             <p className="text-muted-foreground/80 mt-4 max-w-2xl text-sm leading-6">
-              Unlike Prism, WireMock, or Postman mocks, Carbon keeps state across requests — the pretend server behaves
-              like a real backend, not a lookup table of canned responses.
+              Carbon compiles OpenAPI, AsyncAPI, GraphQL, HAR, Postman, protobuf descriptors, and
+              gRPC service contracts into the same stateful HTTP runtime.
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link href="/dashboard" className={cn(buttonVariants({ size: 'lg' }), 'group gap-2')}>
@@ -45,8 +48,8 @@ export function Hero() {
             <div className="border-border mt-8 grid max-w-xl grid-cols-3 border-y text-sm">
               {[
                 ['0', 'network calls to the real API during tests'],
-                ['<1s', 'to boot a running server from a spec'],
-                ['1 cmd', 'to snapshot and rewind state'],
+                ['6/6', 'stateful consistency checks passed'],
+                ['7.9 ms', 'p50 restore for a 10k-row snapshot'],
               ].map(([value, label], index) => (
                 <div key={label} className={cn('py-4', index > 0 && 'border-border border-l pl-5')}>
                   <div className="text-foreground font-mono text-base">{value}</div>
@@ -58,7 +61,7 @@ export function Hero() {
           <div className="animate-rise relative [animation-delay:120ms]">
             <div className="border-border text-muted-foreground mb-4 flex items-center justify-between border-y py-3 text-xs">
               <span className="font-mono">carbon emulate --port 8787</span>
-              <span className="text-foreground font-mono">stateful runtime</span>
+              <span className="text-foreground font-mono">example output</span>
             </div>
             <TerminalDemo className="terminal-float" />
             <div className="border-border bg-border mt-4 grid grid-cols-3 gap-px overflow-hidden border text-xs">
@@ -77,7 +80,7 @@ export function Hero() {
         <div className="border-border text-muted-foreground flex flex-wrap items-center gap-x-8 gap-y-3 border-t py-5 text-xs uppercase tracking-widest">
           <span>OpenAPI</span>
           <span>AsyncAPI</span>
-          <span>gRPC</span>
+          <span>gRPC descriptors</span>
           <span>Protobuf</span>
           <span>HAR</span>
           <span>GraphQL</span>

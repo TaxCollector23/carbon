@@ -197,107 +197,112 @@ export async function registerOrganizationRoutes(
   // key is scoped to; session users see every org they belong to; auth-
   // disabled dev callers see every org in the store (optionally narrowed by
   // ?userId=). Registered before /:id so the radix router keeps them distinct.
-  app.get('/v1/organizations', {
-    preHandler: requireScope('read'),
-    schema: {
-      summary: 'List organizations for the caller',
-      description:
-        'Return every org the caller can see. API-key callers see the single org their key is scoped to; ' +
-        'session users see every org they belong to.',
-      response: { 200: zodResponse(OrgListResponse) },
+  app.get(
+    '/v1/organizations',
+    {
+      preHandler: requireScope('read'),
+      schema: {
+        summary: 'List organizations for the caller',
+        description:
+          'Return every org the caller can see. API-key callers see the single org their key is scoped to; ' +
+          'session users see every org they belong to.',
+        response: { 200: zodResponse(OrgListResponse) },
+      },
     },
-  }, async (req) => {
-    const query = z
-      .object({ userId: z.string().min(1).optional() })
-      .parse(req.query);
-    const apiKey = (req as AuthenticatedRequest).apiKey;
-    const session = (req as SessionAuthenticatedRequest).sessionUser;
-    if (apiKey) {
-      const [row] = await ctx.db
-        .select({
-          id: schema.organizations.id,
-          name: schema.organizations.name,
-          slug: schema.organizations.slug,
-        })
-        .from(schema.organizations)
-        .where(eq(schema.organizations.id, apiKey.orgId))
-        .limit(1);
-      return { data: row ? [row] : [] };
-    }
-    if (session?.id) {
+    async (req) => {
+      const query = z.object({ userId: z.string().min(1).optional() }).parse(req.query);
+      const apiKey = (req as AuthenticatedRequest).apiKey;
+      const session = (req as SessionAuthenticatedRequest).sessionUser;
+      if (apiKey) {
+        const [row] = await ctx.db
+          .select({
+            id: schema.organizations.id,
+            name: schema.organizations.name,
+            slug: schema.organizations.slug,
+          })
+          .from(schema.organizations)
+          .where(eq(schema.organizations.id, apiKey.orgId))
+          .limit(1);
+        return { data: row ? [row] : [] };
+      }
+      if (session?.id) {
+        const rows = await ctx.db
+          .select({
+            id: schema.organizations.id,
+            name: schema.organizations.name,
+            slug: schema.organizations.slug,
+            role: schema.memberships.role,
+          })
+          .from(schema.memberships)
+          .innerJoin(schema.organizations, eq(schema.organizations.id, schema.memberships.orgId))
+          .where(eq(schema.memberships.userId, session.id));
+        return { data: rows };
+      }
+      // Auth-disabled dev: return every org (optionally scoped by ?userId=).
+      if (query.userId) {
+        const rows = await ctx.db
+          .select({
+            id: schema.organizations.id,
+            name: schema.organizations.name,
+            slug: schema.organizations.slug,
+            role: schema.memberships.role,
+          })
+          .from(schema.memberships)
+          .innerJoin(schema.organizations, eq(schema.organizations.id, schema.memberships.orgId))
+          .where(eq(schema.memberships.userId, query.userId));
+        return { data: rows };
+      }
       const rows = await ctx.db
         .select({
           id: schema.organizations.id,
           name: schema.organizations.name,
           slug: schema.organizations.slug,
-          role: schema.memberships.role,
         })
-        .from(schema.memberships)
-        .innerJoin(
-          schema.organizations,
-          eq(schema.organizations.id, schema.memberships.orgId),
-        )
-        .where(eq(schema.memberships.userId, session.id));
+        .from(schema.organizations);
       return { data: rows };
-    }
-    // Auth-disabled dev: return every org (optionally scoped by ?userId=).
-    if (query.userId) {
-      const rows = await ctx.db
-        .select({
-          id: schema.organizations.id,
-          name: schema.organizations.name,
-          slug: schema.organizations.slug,
-          role: schema.memberships.role,
-        })
-        .from(schema.memberships)
-        .innerJoin(
-          schema.organizations,
-          eq(schema.organizations.id, schema.memberships.orgId),
-        )
-        .where(eq(schema.memberships.userId, query.userId));
-      return { data: rows };
-    }
-    const rows = await ctx.db
-      .select({
-        id: schema.organizations.id,
-        name: schema.organizations.name,
-        slug: schema.organizations.slug,
-      })
-      .from(schema.organizations);
-    return { data: rows };
-  });
+    },
+  );
 
   // Resolves the caller's "current" org — the api key's org, the session
   // user's first membership, or (auth-disabled dev) an ?orgId= query param.
   // Registered before /:id so Fastify's radix router routes /current here.
-  app.get('/v1/organizations/current', {
-    preHandler: requireScope('read'),
-    schema: {
-      summary: 'Get the caller\'s current organization',
-      description: 'Resolve the caller\'s "current" org — the API key\'s org, the session user\'s first membership, or an `orgId` query param when auth is disabled.',
-      response: {
-        200: zodResponseWithExample(OrgFull, {
-          id: 'org_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
-          name: 'Acme Corp',
-          slug: 'acme-corp',
-          retentionDays: 90,
-          settings: { slackWebhook: 'https://hooks.slack.com/services/T000/B000/xxx' },
-          createdAt: '2025-09-01T12:00:00.000Z',
-        }),
-        404: zodResponse(z.object({ error: z.object({ code: z.string(), message: z.string() }) })),
+  app.get(
+    '/v1/organizations/current',
+    {
+      preHandler: requireScope('read'),
+      schema: {
+        summary: "Get the caller's current organization",
+        description:
+          "Resolve the caller's \"current\" org — the API key's org, the session user's first membership, or an `orgId` query param when auth is disabled.",
+        response: {
+          200: zodResponseWithExample(OrgFull, {
+            id: 'org_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+            name: 'Acme Corp',
+            slug: 'acme-corp',
+            retentionDays: 90,
+            settings: { slackWebhook: 'https://hooks.slack.com/services/T000/B000/xxx' },
+            createdAt: '2025-09-01T12:00:00.000Z',
+          }),
+          404: zodResponse(
+            z.object({ error: z.object({ code: z.string(), message: z.string() }) }),
+          ),
+        },
       },
     },
-  }, async (req, reply) => {
-    const query = z.object({ orgId: z.string().min(1).optional() }).parse(req.query);
-    const apiKey = (req as AuthenticatedRequest).apiKey;
-    const session = (req as SessionAuthenticatedRequest).sessionUser;
-    const orgId = apiKey?.orgId ?? session?.orgId ?? query.orgId;
-    if (!orgId) {
-      reply.status(404);
-      return { error: { code: 'CARBON_NOT_FOUND', message: 'No current organization for this caller' } };
-    }
-    return loadOrgOr404(ctx, orgId);
-  });
+    async (req, reply) => {
+      const query = z.object({ orgId: z.string().min(1).optional() }).parse(req.query);
+      const apiKey = (req as AuthenticatedRequest).apiKey;
+      const session = (req as SessionAuthenticatedRequest).sessionUser;
+      const orgId = apiKey?.orgId ?? session?.orgId ?? query.orgId;
+      if (!orgId) {
+        reply.status(404);
+        return {
+          error: { code: 'CARBON_NOT_FOUND', message: 'No current organization for this caller' },
+        };
+      }
+      return loadOrgOr404(ctx, orgId);
+    },
+  );
 
   app.get<{ Params: { id: string } }>(
     '/v1/organizations/:id',
@@ -305,7 +310,8 @@ export async function registerOrganizationRoutes(
       preHandler: requireScope('read'),
       schema: {
         summary: 'Get an organization by id',
-        description: 'Fetch a single organization. The caller must be a member (or hold an API key scoped to it).',
+        description:
+          'Fetch a single organization. The caller must be a member (or hold an API key scoped to it).',
         response: { 200: zodResponse(OrgFull) },
       },
     },
@@ -321,7 +327,8 @@ export async function registerOrganizationRoutes(
       preHandler: requireScope('admin'),
       schema: {
         summary: 'Update an organization',
-        description: 'Owner/admin only. Fields not present in the body are left untouched; `settings` is shallow-merged over the current value.',
+        description:
+          'Owner/admin only. Fields not present in the body are left untouched; `settings` is shallow-merged over the current value.',
         body: zodBody(PatchOrgBody),
         response: { 200: zodResponse(OrgFull) },
       },
@@ -366,7 +373,8 @@ export async function registerOrganizationRoutes(
       preHandler: requireScope('read'),
       schema: {
         summary: 'List organization members',
-        description: 'Return every user with a membership row on this org, joined with the users table for display name/email.',
+        description:
+          'Return every user with a membership row on this org, joined with the users table for display name/email.',
         response: {
           200: zodResponseWithExample(OrgMemberListResponse, {
             data: [
@@ -412,7 +420,8 @@ export async function registerOrganizationRoutes(
       preHandler: requireScope('admin'),
       schema: {
         summary: 'Invite a user to the organization',
-        description: 'Owner/admin only. Creates an invitation with a signed accept URL that the invitee opens to join.',
+        description:
+          'Owner/admin only. Creates an invitation with a signed accept URL that the invitee opens to join.',
         body: zodBody(InviteBody),
         response: { 201: zodResponse(InvitationResponse) },
       },
@@ -455,8 +464,9 @@ export async function registerOrganizationRoutes(
     {
       preHandler: requireScope('admin'),
       schema: {
-        summary: 'Change a member\'s role',
-        description: 'Owner/admin only. Demoting the last remaining owner is rejected with 409 so the org cannot be stranded without an admin path back in.',
+        summary: "Change a member's role",
+        description:
+          'Owner/admin only. Demoting the last remaining owner is rejected with 409 so the org cannot be stranded without an admin path back in.',
         body: zodBody(PatchMemberBody),
         response: {
           200: zodResponse(z.object({ userId: z.string(), role: RoleEnum })),
@@ -561,76 +571,81 @@ export async function registerOrganizationRoutes(
   // Invitation acceptance is public in the "no org scope" sense: any
   // authenticated user (Firebase) can accept an invite addressed to them.
   // API-key callers have no user identity, so they can't accept.
-  app.post('/v1/invitations/accept', {
-    schema: {
-      summary: 'Accept an organization invitation',
-      description: 'Consume an invitation token and create the corresponding membership. Requires a signed-in session user.',
-      body: zodBody(AcceptBody),
-      response: { 200: zodResponse(AcceptResponse) },
+  app.post(
+    '/v1/invitations/accept',
+    {
+      schema: {
+        summary: 'Accept an organization invitation',
+        description:
+          'Consume an invitation token and create the corresponding membership. Requires a signed-in session user.',
+        body: zodBody(AcceptBody),
+        response: { 200: zodResponse(AcceptResponse) },
+      },
     },
-  }, async (req) => {
-    const body = AcceptBody.parse(req.body ?? {});
-    const sessionUser = (req as SessionAuthenticatedRequest).sessionUser;
-    if (!sessionUser) {
-      throw new CarbonError({
-        code: 'CARBON_UNAUTHENTICATED',
-        message: 'Sign in to accept an invitation',
-        expose: true,
-      });
-    }
+    async (req) => {
+      const body = AcceptBody.parse(req.body ?? {});
+      const sessionUser = (req as SessionAuthenticatedRequest).sessionUser;
+      if (!sessionUser) {
+        throw new CarbonError({
+          code: 'CARBON_UNAUTHENTICATED',
+          message: 'Sign in to accept an invitation',
+          expose: true,
+        });
+      }
 
-    const [invite] = await ctx.db
-      .select()
-      .from(schema.invitations)
-      .where(eq(schema.invitations.token, body.token))
-      .limit(1);
-    if (!invite) throw new NotFoundError('invitation', body.token);
-    if (invite.acceptedAt) {
-      throw new CarbonError({
-        code: 'CARBON_CONFLICT',
-        message: 'Invitation already accepted',
-        expose: true,
-      });
-    }
-    if (invite.expiresAt.getTime() <= Date.now()) {
-      throw new CarbonError({
-        code: 'CARBON_CONFLICT',
-        message: 'Invitation expired',
-        details: { expiredAt: invite.expiresAt.toISOString() },
-        expose: true,
-      });
-    }
+      const [invite] = await ctx.db
+        .select()
+        .from(schema.invitations)
+        .where(eq(schema.invitations.token, body.token))
+        .limit(1);
+      if (!invite) throw new NotFoundError('invitation', body.token);
+      if (invite.acceptedAt) {
+        throw new CarbonError({
+          code: 'CARBON_CONFLICT',
+          message: 'Invitation already accepted',
+          expose: true,
+        });
+      }
+      if (invite.expiresAt.getTime() <= Date.now()) {
+        throw new CarbonError({
+          code: 'CARBON_CONFLICT',
+          message: 'Invitation expired',
+          details: { expiredAt: invite.expiresAt.toISOString() },
+          expose: true,
+        });
+      }
 
-    // Idempotent: if a membership already exists (e.g. the user was added
-    // out-of-band), skip the insert. Either way, mark the invite consumed.
-    const [existing] = await ctx.db
-      .select({ id: schema.memberships.id })
-      .from(schema.memberships)
-      .where(
-        and(
-          eq(schema.memberships.userId, sessionUser.id),
-          eq(schema.memberships.orgId, invite.orgId),
-        ),
-      )
-      .limit(1);
-    if (!existing) {
-      await ctx.db.insert(schema.memberships).values({
-        id: randomUUID(),
-        userId: sessionUser.id,
+      // Idempotent: if a membership already exists (e.g. the user was added
+      // out-of-band), skip the insert. Either way, mark the invite consumed.
+      const [existing] = await ctx.db
+        .select({ id: schema.memberships.id })
+        .from(schema.memberships)
+        .where(
+          and(
+            eq(schema.memberships.userId, sessionUser.id),
+            eq(schema.memberships.orgId, invite.orgId),
+          ),
+        )
+        .limit(1);
+      if (!existing) {
+        await ctx.db.insert(schema.memberships).values({
+          id: randomUUID(),
+          userId: sessionUser.id,
+          orgId: invite.orgId,
+          role: invite.role,
+        });
+      }
+
+      await ctx.db
+        .update(schema.invitations)
+        .set({ acceptedAt: new Date() })
+        .where(eq(schema.invitations.id, invite.id));
+
+      return {
         orgId: invite.orgId,
         role: invite.role,
-      });
-    }
-
-    await ctx.db
-      .update(schema.invitations)
-      .set({ acceptedAt: new Date() })
-      .where(eq(schema.invitations.id, invite.id));
-
-    return {
-      orgId: invite.orgId,
-      role: invite.role,
-      accepted: true,
-    };
-  });
+        accepted: true,
+      };
+    },
+  );
 }

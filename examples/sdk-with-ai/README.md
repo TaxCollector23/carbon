@@ -26,7 +26,7 @@ downstream is identical.
 - **Provider swap** — construct whichever provider you want (Anthropic,
   OpenAI, OpenRouter, Gemini, Local, or your own) and hand it to
   `AiCapabilities` + `AiJudge`.
-- **`ai:` in `emulate()`** — enrichment runs *before* the graph is built,
+- **`ai:` in `emulate()`** — enrichment runs _before_ the graph is built,
   so inferred resources flow through the rest of the pipeline unchanged.
 - **`replica.assertQuality(threshold?)`** — throws `CarbonError` with
   code `CARBON_AI_QUALITY_BELOW_THRESHOLD` when the judge's minimum score

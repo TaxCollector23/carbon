@@ -44,9 +44,8 @@ export async function startTracing(opts: StartTracingOptions): Promise<TracingHa
   try {
     const { NodeSDK } = await import('@opentelemetry/sdk-node');
     const { OTLPTraceExporter } = await import('@opentelemetry/exporter-trace-otlp-http');
-    const { getNodeAutoInstrumentations } = await import(
-      '@opentelemetry/auto-instrumentations-node'
-    );
+    const { getNodeAutoInstrumentations } =
+      await import('@opentelemetry/auto-instrumentations-node');
     const { resourceFromAttributes } = await import('@opentelemetry/resources');
     const { ATTR_SERVICE_NAME } = await import('@opentelemetry/semantic-conventions');
 

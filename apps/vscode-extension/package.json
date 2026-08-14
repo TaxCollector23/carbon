@@ -9,7 +9,9 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other"],
+  "categories": [
+    "Other"
+  ],
   "main": "./dist/extension.cjs",
   "activationEvents": [
     "onCommand:carbon.emulate",
@@ -20,11 +22,26 @@
   ],
   "contributes": {
     "commands": [
-      { "command": "carbon.emulate", "title": "Carbon: Emulate current spec" },
-      { "command": "carbon.stopEmulate", "title": "Carbon: Stop emulator" },
-      { "command": "carbon.inspectGraph", "title": "Carbon: Inspect behavior graph" },
-      { "command": "carbon.newProject", "title": "Carbon: New project" },
-      { "command": "carbon.viewLogs", "title": "Carbon: View logs" }
+      {
+        "command": "carbon.emulate",
+        "title": "Carbon: Emulate current spec"
+      },
+      {
+        "command": "carbon.stopEmulate",
+        "title": "Carbon: Stop emulator"
+      },
+      {
+        "command": "carbon.inspectGraph",
+        "title": "Carbon: Inspect behavior graph"
+      },
+      {
+        "command": "carbon.newProject",
+        "title": "Carbon: New project"
+      },
+      {
+        "command": "carbon.viewLogs",
+        "title": "Carbon: View logs"
+      }
     ],
     "configuration": {
       "title": "Carbon",

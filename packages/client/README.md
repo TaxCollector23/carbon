@@ -1,7 +1,7 @@
 # @carbon/client
 
 Officially-generated, typed TypeScript/JavaScript client for the
-[Carbon](https://carbon.dev) control-plane API. Every method and every
+[Carbon](https://carbon-web-psi.vercel.app) control-plane API. Every method and every
 response shape derives directly from the server's OpenAPI spec — there
 are no hand-written per-endpoint methods, so the client is always in
 lockstep with the API.
@@ -66,8 +66,7 @@ Raw wire types are re-exported for advanced use cases:
 ```ts
 import type { paths, components } from '@carbon/client';
 
-type Project =
-  components['schemas']['Project'];
+type Project = components['schemas']['Project'];
 type ListProjectsResp =
   paths['/v1/projects']['get']['responses']['200']['content']['application/json'];
 ```

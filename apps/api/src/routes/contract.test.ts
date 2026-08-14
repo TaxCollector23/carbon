@@ -50,7 +50,12 @@ async function build() {
   });
   app.addHook('onRequest', async (req) => {
     (req as AuthenticatedRequest).apiKey = {
-      id: 'k', orgId: 'org_1', prefix: 'aa', scopes: ['write'], projectIds: null, expiresAt: null,
+      id: 'k',
+      orgId: 'org_1',
+      prefix: 'aa',
+      scopes: ['write'],
+      projectIds: null,
+      expiresAt: null,
     };
   });
   await registerContractRoutes(app, makeCtx());
@@ -64,10 +69,12 @@ afterEach(() => {
 
 describe('contract-check route', () => {
   it('reports ok=true for a passing sample against a matching expectedSchema', async () => {
-    globalThis.fetch = vi.fn(async () =>
-      new Response(JSON.stringify({ id: '1', name: 'Alice' }), {
-        status: 200, headers: { 'content-type': 'application/json' },
-      }),
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ id: '1', name: 'Alice' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
     ) as unknown as typeof fetch;
 
     const app = await build();
@@ -76,14 +83,17 @@ describe('contract-check route', () => {
       url: '/v1/projects/proj_1/contract-check',
       payload: {
         url: 'https://api.example.com',
-        sampleRequests: [{
-          method: 'GET', path: '/users/1',
-          expectedSchema: {
-            type: 'object',
-            properties: { id: { type: 'string' }, name: { type: 'string' } },
-            required: ['id', 'name'],
+        sampleRequests: [
+          {
+            method: 'GET',
+            path: '/users/1',
+            expectedSchema: {
+              type: 'object',
+              properties: { id: { type: 'string' }, name: { type: 'string' } },
+              required: ['id', 'name'],
+            },
           },
-        }],
+        ],
       },
     });
     expect(res.statusCode).toBe(200);
@@ -97,10 +107,12 @@ describe('contract-check route', () => {
   });
 
   it('reports mismatches when the response body diverges from expectedSchema', async () => {
-    globalThis.fetch = vi.fn(async () =>
-      new Response(JSON.stringify({ id: 42 }), {
-        status: 200, headers: { 'content-type': 'application/json' },
-      }),
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ id: 42 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
     ) as unknown as typeof fetch;
 
     const app = await build();
@@ -109,14 +121,17 @@ describe('contract-check route', () => {
       url: '/v1/projects/proj_1/contract-check',
       payload: {
         url: 'https://api.example.com/',
-        sampleRequests: [{
-          method: 'GET', path: '/users/1',
-          expectedSchema: {
-            type: 'object',
-            properties: { id: { type: 'string' }, name: { type: 'string' } },
-            required: ['id', 'name'],
+        sampleRequests: [
+          {
+            method: 'GET',
+            path: '/users/1',
+            expectedSchema: {
+              type: 'object',
+              properties: { id: { type: 'string' }, name: { type: 'string' } },
+              required: ['id', 'name'],
+            },
           },
-        }],
+        ],
       },
     });
     expect(res.statusCode).toBe(200);
@@ -151,7 +166,12 @@ describe('contract-check route', () => {
     });
     app.addHook('onRequest', async (req) => {
       (req as AuthenticatedRequest).apiKey = {
-        id: 'k', orgId: 'org_1', prefix: 'aa', scopes: ['write'], projectIds: null, expiresAt: null,
+        id: 'k',
+        orgId: 'org_1',
+        prefix: 'aa',
+        scopes: ['write'],
+        projectIds: null,
+        expiresAt: null,
       };
     });
     await registerContractRoutes(app, ctx);
@@ -241,4 +261,3 @@ describe('contract-check wsChecks', () => {
     expect(body.ws?.[0]?.error).toBeTruthy();
   });
 });
-

@@ -33,9 +33,11 @@ describe.skipIf(!shouldRunIntegration())('events (integration)', () => {
       headers: h.authHeaders,
     });
     expect(list.statusCode).toBe(200);
-    const rows = (list.json() as {
-      data: Array<{ action: string; projectId: string | null; actorType: string }>;
-    }).data;
+    const rows = (
+      list.json() as {
+        data: Array<{ action: string; projectId: string | null; actorType: string }>;
+      }
+    ).data;
     const created = rows.find((r) => r.action === 'project.created');
     expect(created).toBeDefined();
     expect(created?.projectId).toBe(projectId);

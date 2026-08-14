@@ -4,7 +4,10 @@ import type { PutOptions, Storage, StorageObject } from './storage.js';
 /** In-memory storage — for tests and ephemeral SDK sessions. */
 export class MemoryStorage implements Storage {
   readonly kind = 'memory' as const;
-  private readonly data = new Map<string, { value: Uint8Array; modifiedAt: number; contentType?: string }>();
+  private readonly data = new Map<
+    string,
+    { value: Uint8Array; modifiedAt: number; contentType?: string }
+  >();
 
   async get(key: string): Promise<Uint8Array | null> {
     return this.data.get(key)?.value ?? null;
@@ -25,14 +28,24 @@ export class MemoryStorage implements Storage {
   async *list(prefix: string): AsyncIterable<StorageObject> {
     for (const [key, entry] of this.data.entries()) {
       if (!key.startsWith(prefix)) continue;
-      yield { key, size: entry.value.byteLength, modifiedAt: entry.modifiedAt, contentType: entry.contentType };
+      yield {
+        key,
+        size: entry.value.byteLength,
+        modifiedAt: entry.modifiedAt,
+        contentType: entry.contentType,
+      };
     }
   }
 
   async head(key: string): Promise<StorageObject | null> {
     const entry = this.data.get(key);
     return entry
-      ? { key, size: entry.value.byteLength, modifiedAt: entry.modifiedAt, contentType: entry.contentType }
+      ? {
+          key,
+          size: entry.value.byteLength,
+          modifiedAt: entry.modifiedAt,
+          contentType: entry.contentType,
+        }
       : null;
   }
 }

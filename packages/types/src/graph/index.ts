@@ -39,9 +39,24 @@ export interface LifecycleMachine {
 }
 
 export type BehaviorEdge =
-  | { readonly kind: 'owns'; readonly from: ResourceId; readonly to: ResourceId; readonly via: string }
-  | { readonly kind: 'belongs-to'; readonly from: ResourceId; readonly to: ResourceId; readonly via: string }
-  | { readonly kind: 'references'; readonly from: ResourceId; readonly to: ResourceId; readonly via: string }
+  | {
+      readonly kind: 'owns';
+      readonly from: ResourceId;
+      readonly to: ResourceId;
+      readonly via: string;
+    }
+  | {
+      readonly kind: 'belongs-to';
+      readonly from: ResourceId;
+      readonly to: ResourceId;
+      readonly via: string;
+    }
+  | {
+      readonly kind: 'references';
+      readonly from: ResourceId;
+      readonly to: ResourceId;
+      readonly via: string;
+    }
   | { readonly kind: 'cascades-delete'; readonly from: ResourceId; readonly to: ResourceId };
 
 /**
@@ -76,4 +91,9 @@ export interface Selector {
 export type ConstraintRule =
   | { readonly kind: 'unique'; readonly resource: ResourceId; readonly fields: readonly string[] }
   | { readonly kind: 'required'; readonly resource: ResourceId; readonly fields: readonly string[] }
-  | { readonly kind: 'foreign-key'; readonly from: ResourceId; readonly field: string; readonly to: ResourceId };
+  | {
+      readonly kind: 'foreign-key';
+      readonly from: ResourceId;
+      readonly field: string;
+      readonly to: ResourceId;
+    };

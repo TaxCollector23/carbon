@@ -22,19 +22,27 @@ test.describe('Snapshots section', () => {
     await Promise.race([
       selectProject.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => null),
       noSnapshots.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => null),
-      table.first().waitFor({ state: 'visible', timeout: 15_000 }).catch(() => null),
+      table
+        .first()
+        .waitFor({ state: 'visible', timeout: 15_000 })
+        .catch(() => null),
       noProjects.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => null),
     ]);
 
     const anyVisible =
       (await selectProject.isVisible().catch(() => false)) ||
       (await noSnapshots.isVisible().catch(() => false)) ||
-      (await table.first().isVisible().catch(() => false)) ||
+      (await table
+        .first()
+        .isVisible()
+        .catch(() => false)) ||
       (await noProjects.isVisible().catch(() => false));
     expect(anyVisible).toBeTruthy();
   });
 
-  test('with a seeded project the snapshots panel renders empty state or rows', async ({ page }) => {
+  test('with a seeded project the snapshots panel renders empty state or rows', async ({
+    page,
+  }) => {
     // Seed one project via the real API so the picker has something to pick.
     const ctx = await pwRequest.newContext();
     const slug = `e2e-snap-${Date.now().toString(36)}`;
@@ -53,11 +61,17 @@ test.describe('Snapshots section', () => {
     const table = page.locator('table');
     await Promise.race([
       noSnapshots.waitFor({ state: 'visible', timeout: 20_000 }).catch(() => null),
-      table.first().waitFor({ state: 'visible', timeout: 20_000 }).catch(() => null),
+      table
+        .first()
+        .waitFor({ state: 'visible', timeout: 20_000 })
+        .catch(() => null),
     ]);
     const ok =
       (await noSnapshots.isVisible().catch(() => false)) ||
-      (await table.first().isVisible().catch(() => false));
+      (await table
+        .first()
+        .isVisible()
+        .catch(() => false));
     expect(ok).toBeTruthy();
   });
 });

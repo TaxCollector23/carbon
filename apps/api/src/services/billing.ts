@@ -60,10 +60,7 @@ export function billingEnabled(env: BillingEnv): boolean {
 }
 
 /** Read the mirrored subscription row, defaulting to the free tier. */
-export async function resolvePlan(
-  orgId: string,
-  db: AppContext['db'],
-): Promise<ResolvedPlan> {
+export async function resolvePlan(orgId: string, db: AppContext['db']): Promise<ResolvedPlan> {
   const rows = await db
     .select({
       plan: schema.subscriptions.plan,

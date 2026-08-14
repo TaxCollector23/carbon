@@ -19,11 +19,7 @@ const NarrowSchema = z.object({ carbonSpecific: z.literal('only-thing-that-fits'
 
 const IR = {
   ir: {
-    endpoints: [
-      { path: '/pets' },
-      { path: '/pets/{id}/tags' },
-      { path: '/api/v1/categories' },
-    ],
+    endpoints: [{ path: '/pets' }, { path: '/pets/{id}/tags' }, { path: '/api/v1/categories' }],
   },
 };
 

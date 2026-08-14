@@ -45,105 +45,105 @@ const QuotaResponse = z.object({
  * this deployment (e.g. no metrics scrape sink is exposed to routes).
  */
 export async function registerQuotaRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
-  app.get('/v1/quota', {
-    preHandler: requireScope('read'),
-    schema: {
-      summary: 'Per-org plan limits and current usage',
-      description:
-        'Return the caller org\'s plan tier, per-plan ceilings, and current usage counters. ' +
-        'Powers the dashboard Settings page\'s "Usage & limits" card. `null` limits mean unlimited.',
-      response: {
-        200: zodResponseWithExample(QuotaResponse, {
-          orgId: 'org_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
-          plan: 'developer',
-          limits: {
-            emulatorsMax: 1,
-            requestsPerMinute: 60,
-            aiIngestsPerMonth: 10,
-          },
-          current: {
-            emulators: 0,
-            requestsLast1m: null,
-            aiIngestsThisMonth: 3,
-          },
-        }),
+  app.get(
+    '/v1/quota',
+    {
+      preHandler: requireScope('read'),
+      schema: {
+        summary: 'Per-org plan limits and current usage',
+        description:
+          "Return the caller org's plan tier, per-plan ceilings, and current usage counters. " +
+          'Powers the dashboard Settings page\'s "Usage & limits" card. `null` limits mean unlimited.',
+        response: {
+          200: zodResponseWithExample(QuotaResponse, {
+            orgId: 'org_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+            plan: 'developer',
+            limits: {
+              emulatorsMax: 1,
+              requestsPerMinute: 60,
+              aiIngestsPerMonth: 10,
+            },
+            current: {
+              emulators: 0,
+              requestsLast1m: null,
+              aiIngestsThisMonth: 3,
+            },
+          }),
+        },
       },
     },
-  }, async (req) => {
-    const orgId = resolveCallerOrg(req, {
-      mode: 'throw',
-      message: 'quota is org-scoped — attach an API key or authenticated session',
-    });
-    const plan = (await resolvePlan(orgId, ctx.db)).plan;
+    async (req) => {
+      const orgId = resolveCallerOrg(req, {
+        mode: 'throw',
+        message: 'quota is org-scoped — attach an API key or authenticated session',
+      });
+      const plan = (await resolvePlan(orgId, ctx.db)).plan;
 
-    // Env override wins over plan defaults so a self-hosted operator can pin
-    // the emulator cap uniformly — matches the enforcement logic in
-    // `createEmulatorRegistry`.
-    const envOverrideRaw = process.env.CARBON_MAX_EMULATORS_PER_ORG;
-    const envOverride =
-      envOverrideRaw && Number.isFinite(Number(envOverrideRaw))
-        ? Number(envOverrideRaw)
-        : undefined;
-    const planCeiling = PLAN_EMULATOR_CEILING[plan];
-    const emulatorsMax =
-      envOverride !== undefined
-        ? envOverride
-        : Number.isFinite(planCeiling)
-          ? planCeiling
-          : null;
+      // Env override wins over plan defaults so a self-hosted operator can pin
+      // the emulator cap uniformly — matches the enforcement logic in
+      // `createEmulatorRegistry`.
+      const envOverrideRaw = process.env.CARBON_MAX_EMULATORS_PER_ORG;
+      const envOverride =
+        envOverrideRaw && Number.isFinite(Number(envOverrideRaw))
+          ? Number(envOverrideRaw)
+          : undefined;
+      const planCeiling = PLAN_EMULATOR_CEILING[plan];
+      const emulatorsMax =
+        envOverride !== undefined ? envOverride : Number.isFinite(planCeiling) ? planCeiling : null;
 
-    const requestsPerMinute = PLAN_RATE_LIMITS[plan] ?? null;
-    const aiIngestsPerMonth = PLAN_AI_INGEST_CEILING[plan];
+      const requestsPerMinute = PLAN_RATE_LIMITS[plan] ?? null;
+      const aiIngestsPerMonth = PLAN_AI_INGEST_CEILING[plan];
 
-    // Emulator count is O(entries) in-memory — cheap.
-    let emulators = 0;
-    try {
-      emulators = ctx.emulators.getCountForOrg(orgId);
-    } catch {
-      emulators = 0;
-    }
+      // Emulator count is O(entries) in-memory — cheap.
+      let emulators = 0;
+      try {
+        emulators = ctx.emulators.getCountForOrg(orgId);
+      } catch {
+        emulators = 0;
+      }
 
-    // requestsLast1m: cheap counter is not surfaced through ctx today; the
-    // rate-limit Redis key is per-identity, not per-org. Return null so the
-    // UI can hide/annotate the row rather than lie.
-    const requestsLast1m: number | null = null;
+      // requestsLast1m: cheap counter is not surfaced through ctx today; the
+      // rate-limit Redis key is per-identity, not per-org. Return null so the
+      // UI can hide/annotate the row rather than lie.
+      const requestsLast1m: number | null = null;
 
-    // AI ingests this month: SUM(amount) FROM usage_events WHERE
-    // kind='ai_call' AND occurredAt >= monthStart. Mirrors the developer-tier
-    // paywall the CLI enforces before calling ingest.
-    const monthStart = new Date();
-    monthStart.setUTCDate(1);
-    monthStart.setUTCHours(0, 0, 0, 0);
-    let aiIngestsThisMonth = 0;
-    try {
-      const conditions: SQL[] = [
-        eq(schema.usageEvents.orgId, orgId),
-        eq(schema.usageEvents.kind, 'ai_call'),
-        gte(schema.usageEvents.occurredAt, monthStart),
-      ];
-      const rows = await ctx.db
-        .select({ total: sum(schema.usageEvents.amount) })
-        .from(schema.usageEvents)
-        .where(and(...conditions));
-      const row = rows[0];
-      aiIngestsThisMonth = row?.total != null ? Number(row.total) : 0;
-    } catch {
-      aiIngestsThisMonth = 0;
-    }
+      // AI ingests this month: SUM(amount) FROM usage_events WHERE
+      // kind='ai_call' AND occurredAt >= monthStart. Mirrors the developer-tier
+      // paywall the CLI enforces before calling ingest.
+      const monthStart = new Date();
+      monthStart.setUTCDate(1);
+      monthStart.setUTCHours(0, 0, 0, 0);
+      let aiIngestsThisMonth = 0;
+      try {
+        const conditions: SQL[] = [
+          eq(schema.usageEvents.orgId, orgId),
+          eq(schema.usageEvents.kind, 'ai_call'),
+          gte(schema.usageEvents.occurredAt, monthStart),
+        ];
+        const rows = await ctx.db
+          .select({ total: sum(schema.usageEvents.amount) })
+          .from(schema.usageEvents)
+          .where(and(...conditions));
+        const row = rows[0];
+        aiIngestsThisMonth = row?.total != null ? Number(row.total) : 0;
+      } catch {
+        aiIngestsThisMonth = 0;
+      }
 
-    return {
-      orgId,
-      plan,
-      limits: {
-        emulatorsMax,
-        requestsPerMinute,
-        aiIngestsPerMonth,
-      },
-      current: {
-        emulators,
-        requestsLast1m,
-        aiIngestsThisMonth,
-      },
-    };
-  });
+      return {
+        orgId,
+        plan,
+        limits: {
+          emulatorsMax,
+          requestsPerMinute,
+          aiIngestsPerMonth,
+        },
+        current: {
+          emulators,
+          requestsLast1m,
+          aiIngestsThisMonth,
+        },
+      };
+    },
+  );
 }

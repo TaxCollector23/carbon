@@ -8,35 +8,75 @@
   "servers": [{ "url": "https://api.github.com" }],
   "paths": {
     "/user": {
-      "get": { "tags": ["users"], "summary": "Get the authenticated user", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["users"],
+        "summary": "Get the authenticated user",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/users/{username}": {
-      "parameters": [{ "name": "username", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "get": { "tags": ["users"], "summary": "Get a user", "responses": { "200": { "description": "ok" }, "404": { "description": "not found" } } }
+      "parameters": [
+        { "name": "username", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "tags": ["users"],
+        "summary": "Get a user",
+        "responses": { "200": { "description": "ok" }, "404": { "description": "not found" } }
+      }
     },
     "/users/{username}/repos": {
-      "parameters": [{ "name": "username", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "get": { "tags": ["repos"], "summary": "List repositories for a user", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "username", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "tags": ["repos"],
+        "summary": "List repositories for a user",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/user/repos": {
-      "get": { "tags": ["repos"], "summary": "List repos for the authenticated user", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["repos"], "summary": "Create a repo for the authenticated user", "responses": { "201": { "description": "created" } } }
+      "get": {
+        "tags": ["repos"],
+        "summary": "List repos for the authenticated user",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["repos"],
+        "summary": "Create a repo for the authenticated user",
+        "responses": { "201": { "description": "created" } }
+      }
     },
     "/repos/{owner}/{repo}": {
       "parameters": [
         { "name": "owner", "in": "path", "required": true, "schema": { "type": "string" } },
         { "name": "repo", "in": "path", "required": true, "schema": { "type": "string" } }
       ],
-      "get": { "tags": ["repos"], "summary": "Get a repository", "responses": { "200": { "description": "ok" }, "404": { "description": "not found" } } },
-      "patch": { "tags": ["repos"], "summary": "Update a repository", "responses": { "200": { "description": "ok" } } },
-      "delete": { "tags": ["repos"], "summary": "Delete a repository", "responses": { "204": { "description": "deleted" } } }
+      "get": {
+        "tags": ["repos"],
+        "summary": "Get a repository",
+        "responses": { "200": { "description": "ok" }, "404": { "description": "not found" } }
+      },
+      "patch": {
+        "tags": ["repos"],
+        "summary": "Update a repository",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "delete": {
+        "tags": ["repos"],
+        "summary": "Delete a repository",
+        "responses": { "204": { "description": "deleted" } }
+      }
     },
     "/repos/{owner}/{repo}/branches": {
       "parameters": [
         { "name": "owner", "in": "path", "required": true, "schema": { "type": "string" } },
         { "name": "repo", "in": "path", "required": true, "schema": { "type": "string" } }
       ],
-      "get": { "tags": ["repos"], "summary": "List branches", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["repos"],
+        "summary": "List branches",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/repos/{owner}/{repo}/branches/{branch}": {
       "parameters": [
@@ -44,14 +84,22 @@
         { "name": "repo", "in": "path", "required": true, "schema": { "type": "string" } },
         { "name": "branch", "in": "path", "required": true, "schema": { "type": "string" } }
       ],
-      "get": { "tags": ["repos"], "summary": "Get a branch", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["repos"],
+        "summary": "Get a branch",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/repos/{owner}/{repo}/commits": {
       "parameters": [
         { "name": "owner", "in": "path", "required": true, "schema": { "type": "string" } },
         { "name": "repo", "in": "path", "required": true, "schema": { "type": "string" } }
       ],
-      "get": { "tags": ["repos"], "summary": "List commits", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["repos"],
+        "summary": "List commits",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/repos/{owner}/{repo}/commits/{sha}": {
       "parameters": [
@@ -59,7 +107,11 @@
         { "name": "repo", "in": "path", "required": true, "schema": { "type": "string" } },
         { "name": "sha", "in": "path", "required": true, "schema": { "type": "string" } }
       ],
-      "get": { "tags": ["repos"], "summary": "Get a commit", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["repos"],
+        "summary": "Get a commit",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/repos/{owner}/{repo}/contents/{path}": {
       "parameters": [
@@ -67,17 +119,37 @@
         { "name": "repo", "in": "path", "required": true, "schema": { "type": "string" } },
         { "name": "path", "in": "path", "required": true, "schema": { "type": "string" } }
       ],
-      "get": { "tags": ["repos"], "summary": "Get repository content", "responses": { "200": { "description": "ok" } } },
-      "put": { "tags": ["repos"], "summary": "Create or update file contents", "responses": { "200": { "description": "ok" } } },
-      "delete": { "tags": ["repos"], "summary": "Delete a file", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["repos"],
+        "summary": "Get repository content",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "put": {
+        "tags": ["repos"],
+        "summary": "Create or update file contents",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "delete": {
+        "tags": ["repos"],
+        "summary": "Delete a file",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/repos/{owner}/{repo}/issues": {
       "parameters": [
         { "name": "owner", "in": "path", "required": true, "schema": { "type": "string" } },
         { "name": "repo", "in": "path", "required": true, "schema": { "type": "string" } }
       ],
-      "get": { "tags": ["issues"], "summary": "List repository issues", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["issues"], "summary": "Create an issue", "responses": { "201": { "description": "created" } } }
+      "get": {
+        "tags": ["issues"],
+        "summary": "List repository issues",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["issues"],
+        "summary": "Create an issue",
+        "responses": { "201": { "description": "created" } }
+      }
     },
     "/repos/{owner}/{repo}/issues/{number}": {
       "parameters": [
@@ -85,8 +157,16 @@
         { "name": "repo", "in": "path", "required": true, "schema": { "type": "string" } },
         { "name": "number", "in": "path", "required": true, "schema": { "type": "integer" } }
       ],
-      "get": { "tags": ["issues"], "summary": "Get an issue", "responses": { "200": { "description": "ok" } } },
-      "patch": { "tags": ["issues"], "summary": "Update an issue", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["issues"],
+        "summary": "Get an issue",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "patch": {
+        "tags": ["issues"],
+        "summary": "Update an issue",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/repos/{owner}/{repo}/issues/{number}/comments": {
       "parameters": [
@@ -94,16 +174,32 @@
         { "name": "repo", "in": "path", "required": true, "schema": { "type": "string" } },
         { "name": "number", "in": "path", "required": true, "schema": { "type": "integer" } }
       ],
-      "get": { "tags": ["issues"], "summary": "List issue comments", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["issues"], "summary": "Create an issue comment", "responses": { "201": { "description": "created" } } }
+      "get": {
+        "tags": ["issues"],
+        "summary": "List issue comments",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["issues"],
+        "summary": "Create an issue comment",
+        "responses": { "201": { "description": "created" } }
+      }
     },
     "/repos/{owner}/{repo}/pulls": {
       "parameters": [
         { "name": "owner", "in": "path", "required": true, "schema": { "type": "string" } },
         { "name": "repo", "in": "path", "required": true, "schema": { "type": "string" } }
       ],
-      "get": { "tags": ["pulls"], "summary": "List pull requests", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["pulls"], "summary": "Create a pull request", "responses": { "201": { "description": "created" } } }
+      "get": {
+        "tags": ["pulls"],
+        "summary": "List pull requests",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["pulls"],
+        "summary": "Create a pull request",
+        "responses": { "201": { "description": "created" } }
+      }
     },
     "/repos/{owner}/{repo}/pulls/{number}": {
       "parameters": [
@@ -111,8 +207,16 @@
         { "name": "repo", "in": "path", "required": true, "schema": { "type": "string" } },
         { "name": "number", "in": "path", "required": true, "schema": { "type": "integer" } }
       ],
-      "get": { "tags": ["pulls"], "summary": "Get a pull request", "responses": { "200": { "description": "ok" } } },
-      "patch": { "tags": ["pulls"], "summary": "Update a pull request", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["pulls"],
+        "summary": "Get a pull request",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "patch": {
+        "tags": ["pulls"],
+        "summary": "Update a pull request",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/repos/{owner}/{repo}/pulls/{number}/merge": {
       "parameters": [
@@ -120,7 +224,11 @@
         { "name": "repo", "in": "path", "required": true, "schema": { "type": "string" } },
         { "name": "number", "in": "path", "required": true, "schema": { "type": "integer" } }
       ],
-      "put": { "tags": ["pulls"], "summary": "Merge a pull request", "responses": { "200": { "description": "ok" } } }
+      "put": {
+        "tags": ["pulls"],
+        "summary": "Merge a pull request",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/repos/{owner}/{repo}/pulls/{number}/reviews": {
       "parameters": [
@@ -128,23 +236,43 @@
         { "name": "repo", "in": "path", "required": true, "schema": { "type": "string" } },
         { "name": "number", "in": "path", "required": true, "schema": { "type": "integer" } }
       ],
-      "get": { "tags": ["pulls"], "summary": "List reviews on a pull request", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["pulls"], "summary": "Create a review", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["pulls"],
+        "summary": "List reviews on a pull request",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["pulls"],
+        "summary": "Create a review",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/repos/{owner}/{repo}/labels": {
       "parameters": [
         { "name": "owner", "in": "path", "required": true, "schema": { "type": "string" } },
         { "name": "repo", "in": "path", "required": true, "schema": { "type": "string" } }
       ],
-      "get": { "tags": ["issues"], "summary": "List labels", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["issues"], "summary": "Create a label", "responses": { "201": { "description": "created" } } }
+      "get": {
+        "tags": ["issues"],
+        "summary": "List labels",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["issues"],
+        "summary": "Create a label",
+        "responses": { "201": { "description": "created" } }
+      }
     },
     "/repos/{owner}/{repo}/actions/runs": {
       "parameters": [
         { "name": "owner", "in": "path", "required": true, "schema": { "type": "string" } },
         { "name": "repo", "in": "path", "required": true, "schema": { "type": "string" } }
       ],
-      "get": { "tags": ["actions"], "summary": "List workflow runs", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["actions"],
+        "summary": "List workflow runs",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/repos/{owner}/{repo}/actions/runs/{run_id}": {
       "parameters": [
@@ -152,13 +280,25 @@
         { "name": "repo", "in": "path", "required": true, "schema": { "type": "string" } },
         { "name": "run_id", "in": "path", "required": true, "schema": { "type": "integer" } }
       ],
-      "get": { "tags": ["actions"], "summary": "Get a workflow run", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["actions"],
+        "summary": "Get a workflow run",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/search/repositories": {
-      "get": { "tags": ["search"], "summary": "Search repositories", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["search"],
+        "summary": "Search repositories",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/search/issues": {
-      "get": { "tags": ["search"], "summary": "Search issues", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["search"],
+        "summary": "Search issues",
+        "responses": { "200": { "description": "ok" } }
+      }
     }
   }
 }

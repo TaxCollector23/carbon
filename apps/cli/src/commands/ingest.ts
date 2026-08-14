@@ -25,9 +25,8 @@ export const ingestCommand = defineCommand({
       args['api-url'] as string | undefined,
     );
     const isRemote = /^https?:\/\//.test(args.source);
-    const isCarbonRemote = isRemote && resolved?.apiUrl
-      ? args.source.startsWith(resolved.apiUrl)
-      : false;
+    const isCarbonRemote =
+      isRemote && resolved?.apiUrl ? args.source.startsWith(resolved.apiUrl) : false;
     if (isCarbonRemote && !resolved) {
       ui.error('No API credentials found. Run `carbon login` first, or pass --api-key.');
       process.exitCode = 1;

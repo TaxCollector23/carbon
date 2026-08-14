@@ -87,7 +87,7 @@ services:
   workers:
     build:
       context: .
-      dockerfile: apps/api/Dockerfile
+      dockerfile: apps/workers/Dockerfile
     restart: unless-stopped
     depends_on:
       postgres:

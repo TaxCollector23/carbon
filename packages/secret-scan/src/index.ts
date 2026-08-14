@@ -150,7 +150,8 @@ export async function scan(opts: ScanOptions): Promise<Finding[]> {
 // Substring the file must contain for *any* pattern above to possibly match.
 // Keep in lock-step with SECRET_PATTERNS — if a new prefix is added, add it
 // here too or the fast-reject will silently hide it.
-const QUICK_REJECT = /sk[-_]|ck_live_|xox[abpsr]-|gh[pousr]_|AKIA|ASIA|BEGIN[^\n]*PRIVATE KEY|:\/\//;
+const QUICK_REJECT =
+  /sk[-_]|ck_live_|xox[abpsr]-|gh[pousr]_|AKIA|ASIA|BEGIN[^\n]*PRIVATE KEY|:\/\//;
 
 async function expandPaths(
   paths: readonly string[],

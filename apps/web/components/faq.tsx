@@ -16,7 +16,7 @@ const groups: readonly FaqGroup[] = [
     items: [
       {
         q: 'What actually is Carbon?',
-        a: 'A CLI + runtime that turns any API spec (OpenAPI, GraphQL SDL, Postman, HAR, protobuf, AsyncAPI) into a stateful pretend copy of that API you can develop and test against. If you POST /customers to Carbon, the next GET /customers/:id returns what you just created — it isn\'t a canned mock.',
+        a: 'A CLI + runtime that turns any API spec (OpenAPI, GraphQL SDL, Postman, HAR, protobuf, AsyncAPI) into a stateful local replica you can develop and test against. If you POST /customers to Carbon, the next GET /customers/:id returns what you just created — it is not a canned mock.',
       },
       {
         q: 'How is this different from MSW, nock, or WireMock?',
@@ -44,7 +44,7 @@ const groups: readonly FaqGroup[] = [
         a: 'No. `carbon record` proxies traffic once to capture it (on 127.0.0.1, with auth headers redacted by default). After that the runtime is entirely local. Opt-in anonymous telemetry (`CARBON_TELEMETRY=1`) records command name + success only.',
       },
       {
-        q: 'The emulator hangs sometimes — what\'s up?',
+        q: "The emulator hangs sometimes — what's up?",
         a: 'Round 18 fixed the two common causes: a port-in-use crash that printed nothing, and a Fastify boot pause that looked like a freeze. `carbon emulate` now preflights the port, prints a `Starting emulator…` line immediately, and hard-times-out at 20s with a friendly error.',
       },
     ],
@@ -62,7 +62,7 @@ const groups: readonly FaqGroup[] = [
       },
       {
         q: 'How does SSO / SAML work?',
-        a: 'OIDC is live today via the sign-in page\'s email-domain match. SAML is captured in the SSO provider CRUD but the sign-in shim currently 501s for SAML — the full SAML flow lands when the Better Auth SSO plugin ships.',
+        a: "OIDC is live today via the sign-in page's email-domain match. SAML is captured in the SSO provider CRUD but the sign-in shim currently 501s for SAML — the full SAML flow lands when the Better Auth SSO plugin ships.",
       },
     ],
   },
@@ -71,11 +71,11 @@ const groups: readonly FaqGroup[] = [
     items: [
       {
         q: 'How well does it handle GraphQL?',
-        a: 'The parser turns SDL types into resources and Query/Mutation fields into endpoints. It also emits REST shims at `/rest/<plural>` so GraphQL and REST clients share the same state. Subscriptions are recognized but not yet streamed — that\'s on the roadmap.',
+        a: "The parser turns SDL types into resources and Query/Mutation fields into endpoints. It also emits REST shims at `/rest/<plural>` so GraphQL and REST clients share the same state. Subscriptions are recognized but not yet streamed — that's on the roadmap.",
       },
       {
         q: 'What about WebSockets and SSE?',
-        a: 'The emulator exposes `/__carbon/state/stream` as a WebSocket for live mutation frames — the dashboard\'s State section renders this in real time, and the `carbon watch` CLI tails it. The control-plane audit feed also streams over SSE at `/v1/events/stream`.',
+        a: "The emulator exposes `/__carbon/state/stream` as a WebSocket for live mutation frames — the dashboard's State section renders this in real time, and the `carbon watch` CLI tails it. The control-plane audit feed also streams over SSE at `/v1/events/stream`.",
       },
       {
         q: 'Where is state stored?',

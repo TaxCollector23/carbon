@@ -41,10 +41,7 @@ export const zodResponse = zodToOpenApi;
  * runtime-validated against the schema — a bad example only mis-illustrates
  * the response.
  */
-export function zodResponseWithExample<T>(
-  schema: ZodTypeAny,
-  example: T,
-): Record<string, unknown> {
+export function zodResponseWithExample<T>(schema: ZodTypeAny, example: T): Record<string, unknown> {
   // `examples` (array, JSON Schema draft-06+) instead of OpenAPI's singular
   // `example` — Fastify's Ajv runs in strict mode and rejects unknown
   // keywords, so `example` at the schema level would blow up route
@@ -59,10 +56,7 @@ export function zodResponseWithExample<T>(
  * Schema. Scalar's "Try it" panel pre-fills the editor with this value so a
  * reader can hit the endpoint without hand-typing a payload.
  */
-export function zodBodyWithExample<T>(
-  schema: ZodTypeAny,
-  example: T,
-): Record<string, unknown> {
+export function zodBodyWithExample<T>(schema: ZodTypeAny, example: T): Record<string, unknown> {
   // `examples` (array, JSON Schema draft-06+) instead of OpenAPI's singular
   // `example` — Fastify's Ajv runs in strict mode and rejects unknown
   // keywords, so `example` at the schema level would blow up route

@@ -18,15 +18,27 @@ test.describe('Usage section', () => {
 
     await Promise.race([
       empty.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => null),
-      chart.first().waitFor({ state: 'visible', timeout: 15_000 }).catch(() => null),
-      errorBanner.first().waitFor({ state: 'visible', timeout: 15_000 }).catch(() => null),
+      chart
+        .first()
+        .waitFor({ state: 'visible', timeout: 15_000 })
+        .catch(() => null),
+      errorBanner
+        .first()
+        .waitFor({ state: 'visible', timeout: 15_000 })
+        .catch(() => null),
     ]);
 
     // Any of the three is a valid render — the panel handled its state.
     const ok =
       (await empty.isVisible().catch(() => false)) ||
-      (await chart.first().isVisible().catch(() => false)) ||
-      (await errorBanner.first().isVisible().catch(() => false));
+      (await chart
+        .first()
+        .isVisible()
+        .catch(() => false)) ||
+      (await errorBanner
+        .first()
+        .isVisible()
+        .catch(() => false));
     expect(ok).toBeTruthy();
 
     // Kind filter — switch to "ingest" and back to "All kinds"; the select

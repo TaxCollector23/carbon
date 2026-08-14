@@ -33,7 +33,9 @@ export async function deliverWebhook(
   };
   if (payload.secret) {
     const timestamp = Math.floor(Date.now() / 1000);
-    const signature = createHmac('sha256', payload.secret).update(`${timestamp}.${body}`).digest('hex');
+    const signature = createHmac('sha256', payload.secret)
+      .update(`${timestamp}.${body}`)
+      .digest('hex');
     headers['x-carbon-signature'] = `t=${timestamp},v1=${signature}`;
   }
 

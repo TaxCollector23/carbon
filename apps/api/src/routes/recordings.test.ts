@@ -113,10 +113,7 @@ describe('recording replay routes', () => {
         },
       ],
     };
-    await storage.put(
-      'projects/acme/recordings/rec_e2e.jsonl',
-      JSON.stringify(recording),
-    );
+    await storage.put('projects/acme/recordings/rec_e2e.jsonl', JSON.stringify(recording));
 
     const app = await build(storage);
     const res = await app.inject({
@@ -152,7 +149,13 @@ describe('recording replay routes', () => {
         exchanges: [
           {
             id: 'xch_1',
-            request: { method: 'GET', url: 'https://api.example.com/a', headers: {}, body: null, receivedAt: 10 },
+            request: {
+              method: 'GET',
+              url: 'https://api.example.com/a',
+              headers: {},
+              body: null,
+              receivedAt: 10,
+            },
             response: { status: 200, headers: {}, body: 'ok', sentAt: 12 },
             latencyMs: 2,
             redactions: [],

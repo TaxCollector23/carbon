@@ -6,7 +6,10 @@ export interface RateLimitOptions {
   /** Window length in ms. */
   readonly windowMs: number;
   /** How to identify a caller. Defaults to remote IP. */
-  readonly identify?: (headers: Record<string, string | string[] | undefined>, ip: string) => string;
+  readonly identify?: (
+    headers: Record<string, string | string[] | undefined>,
+    ip: string,
+  ) => string;
 }
 
 interface Bucket {

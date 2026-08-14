@@ -114,9 +114,7 @@ export async function registerControlPlaneRateLimit(
   // need to know about plan tiers — the plugin can find one via ctx.db.
   const resolver =
     opts.resolvePlan ??
-    (ctx.db
-      ? async (orgId: string) => (await resolvePlan(orgId, ctx.db)).plan
-      : undefined);
+    (ctx.db ? async (orgId: string) => (await resolvePlan(orgId, ctx.db)).plan : undefined);
 
   async function resolveMaxForRequest(req: FastifyRequest): Promise<number> {
     if (!resolver) return fallbackMax;

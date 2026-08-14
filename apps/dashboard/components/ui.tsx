@@ -14,13 +14,7 @@ export function Skeleton({ className }: { className?: string }) {
   return <div className={cn('bg-muted/40 animate-pulse rounded-md', className)} />;
 }
 
-export function ErrorBanner({
-  error,
-  onRetry,
-}: {
-  error: Error | string;
-  onRetry?: () => void;
-}) {
+export function ErrorBanner({ error, onRetry }: { error: Error | string; onRetry?: () => void }) {
   const message = typeof error === 'string' ? error : error.message;
   // ApiError carries an optional docs URL served by the API; if present we
   // show a "Learn more" link so operators can jump straight to the runbook
@@ -133,7 +127,9 @@ export function Modal({
           </button>
         </div>
         <div className="p-5">{children}</div>
-        {footer ? <div className="border-border flex justify-end gap-2 border-t px-5 py-3">{footer}</div> : null}
+        {footer ? (
+          <div className="border-border flex justify-end gap-2 border-t px-5 py-3">{footer}</div>
+        ) : null}
       </div>
     </div>
   );

@@ -3,10 +3,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { NoopLogger } from '@carbon/core';
 import { MemoryStorage } from '@carbon/storage';
 import type { AppContext } from '../context.js';
-import {
-  registerSessionAuth,
-  type SessionAuthenticatedRequest,
-} from './session-auth.js';
+import { registerSessionAuth, type SessionAuthenticatedRequest } from './session-auth.js';
 
 /**
  * Minimal in-memory Drizzle stand-in. The plugin issues two selects:

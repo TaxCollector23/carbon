@@ -15,15 +15,13 @@ spec, and drops you on the projects list.
 **From the CLI**:
 
 ```bash
-carbon samples list
-carbon samples instantiate stripe
+carbon emulate --catalog stripe
 ```
 
-Available sample ids: `petstore`, `stripe`, `github`, `shopify`, `openai`,
-`twilio`. Each is a 30–50 endpoint subset of the real API — small enough to
-ingest instantly, large enough to feel like the real thing.
+Available catalog entries include `stripe`, `github`, `openai`, `slack`,
+`twilio`, `notion`, `linear`, and `shopify`.
 
-**From the public gallery** — [carbon.dev/gallery](https://carbon.dev/gallery)
+**From the public gallery** — [Carbon gallery](https://carbon-web-psi.vercel.app/gallery)
 links each entry into the dashboard via `?sample=<id>`, which triggers the
 same one-click flow while signed in.
 
@@ -31,17 +29,17 @@ same one-click flow while signed in.
 
 ## 1. Install
 
-The CLI publishes to npm as **`carbon-dev`** and installs a `carbon`
-executable (with `carbon-dev` and `carbon-api` as aliases).
+The CLI publishes to npm as **`carbon-api`** and installs a `carbon`
+executable (with `carbon-api` and `carbon-dev` as aliases).
 
 ```bash
-npm install -g carbon-dev
+npm install -g carbon-api
 ```
 
 Or without a global install:
 
 ```bash
-npx carbon-dev <command>
+npx carbon-api <command>
 ```
 
 ## 2. Initialize a project

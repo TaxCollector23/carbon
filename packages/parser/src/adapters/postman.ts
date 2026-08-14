@@ -21,8 +21,7 @@ export class PostmanParser implements Parser {
     return {
       version: 1,
       api: {
-        name:
-          (input.content as { info?: { name?: string } })?.info?.name ?? 'Postman Collection',
+        name: (input.content as { info?: { name?: string } })?.info?.name ?? 'Postman Collection',
         version: '0.0.0',
         source: { kind: 'postman', origin: ctx.origin, ingestedAt: 0 },
       },

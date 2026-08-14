@@ -125,7 +125,12 @@ function ConfigCard({
   onSaved,
 }: {
   projectId: string;
-  state: { data: DriftConfig | null | undefined; error: Error | null; loading: boolean; refetch: () => Promise<void> };
+  state: {
+    data: DriftConfig | null | undefined;
+    error: Error | null;
+    loading: boolean;
+    refetch: () => Promise<void>;
+  };
   onSaved: () => Promise<void>;
 }) {
   const toast = useToast();
@@ -153,10 +158,12 @@ function ConfigCard({
     setSubmitting(true);
     try {
       const trimmed = upstreamUrl.trim();
-      const parsedInterval = intervalMinutes.trim() === '' ? null : Number.parseInt(intervalMinutes, 10);
+      const parsedInterval =
+        intervalMinutes.trim() === '' ? null : Number.parseInt(intervalMinutes, 10);
       await api.updateDriftConfig(projectId, {
         upstreamUrl: trimmed === '' ? null : trimmed,
-        intervalMinutes: parsedInterval == null || Number.isNaN(parsedInterval) ? null : parsedInterval,
+        intervalMinutes:
+          parsedInterval == null || Number.isNaN(parsedInterval) ? null : parsedInterval,
         enabled,
       });
       toast.push({ kind: 'success', message: 'Drift config saved' });
@@ -173,13 +180,16 @@ function ConfigCard({
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-base font-medium">Config</h3>
         <span className="text-muted-foreground text-xs">
-          {c?.configuredAt ? `Backed by recording ${new Date(c.configuredAt).toLocaleString()}` : 'No recording yet'}
+          {c?.configuredAt
+            ? `Backed by recording ${new Date(c.configuredAt).toLocaleString()}`
+            : 'No recording yet'}
         </span>
       </div>
       {noRecording ? (
         <p className="text-muted-foreground mt-3 text-sm">
-          Capture a recording (via <code className="font-mono text-xs">carbon record</code>) before configuring drift — the
-          worker reads the upstream URL and cadence from the latest recording&apos;s metadata.
+          Capture a recording (via <code className="font-mono text-xs">carbon record</code>) before
+          configuring drift — the worker reads the upstream URL and cadence from the latest
+          recording&apos;s metadata.
         </p>
       ) : (
         <form className="mt-4 space-y-3" onSubmit={onSubmit}>
@@ -215,7 +225,12 @@ function ConfigCard({
             />
             <span>Enabled</span>
           </label>
-          <Button type="submit" size="sm" disabled={submitting} data-testid="drift-save-config-button">
+          <Button
+            type="submit"
+            size="sm"
+            disabled={submitting}
+            data-testid="drift-save-config-button"
+          >
             {submitting ? 'Saving…' : 'Save config'}
           </Button>
         </form>
@@ -260,8 +275,7 @@ function HistoryTable({
         {rows.map((r) => {
           const sampled = readNumber(r.result, 'sampled');
           const mismatches = readNumber(r.result, 'mismatches');
-          const errorMessage =
-            typeof r.result?.error === 'string' ? r.result.error : null;
+          const errorMessage = typeof r.result?.error === 'string' ? r.result.error : null;
           return (
             <tr key={r.id} className="hover:bg-muted/30" data-testid="drift-history-row">
               <Td>{new Date(r.ranAt ?? r.createdAt).toLocaleString()}</Td>
@@ -291,15 +305,16 @@ function StatusPill({ status }: { status: DriftStatus }) {
           ? 'border-destructive/40 text-destructive'
           : 'border-border text-muted-foreground';
   return (
-    <span
-      className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${cls}`}
-    >
+    <span className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${cls}`}>
       {status}
     </span>
   );
 }
 
-function readNumber(result: Record<string, unknown> | null | undefined, key: string): number | null {
+function readNumber(
+  result: Record<string, unknown> | null | undefined,
+  key: string,
+): number | null {
   const v = result?.[key];
   return typeof v === 'number' && Number.isFinite(v) ? v : null;
 }

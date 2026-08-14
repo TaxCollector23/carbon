@@ -22,7 +22,11 @@ async function bootFromSdl(): Promise<Runtime> {
   return createRuntime({ ir, graph, state });
 }
 
-async function gql(rt: Runtime, query: string, variables: Record<string, unknown> = {}): Promise<{
+async function gql(
+  rt: Runtime,
+  query: string,
+  variables: Record<string, unknown> = {},
+): Promise<{
   data?: Record<string, unknown> | null;
   errors?: Array<{ message: string }>;
 }> {

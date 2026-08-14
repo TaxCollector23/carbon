@@ -64,7 +64,12 @@ export const whoamiCommand = defineCommand({
     printTable([
       ['API', apiUrl],
       ['Key', body.key ? `${body.key.prefix} (${body.key.scopes.join(', ')})` : '(none)'],
-      ['User', body.user ? `${body.user.email}${body.user.role ? ` — ${body.user.role}` : ''}` : '(machine)'],
+      [
+        'User',
+        body.user
+          ? `${body.user.email}${body.user.role ? ` — ${body.user.role}` : ''}`
+          : '(machine)',
+      ],
       ['Org', body.org ? `${body.org.name} (${body.org.slug})` : '(none)'],
       ['Plan', body.plan ?? '(unknown)'],
     ]);

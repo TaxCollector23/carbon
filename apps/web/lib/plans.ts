@@ -1,3 +1,5 @@
+import { dashboardSignUpUrl } from './urls';
+
 /**
  * Shared plan definitions consumed by the pricing page and the compare-features
  * table below it. The docs site's `plans.mdx` duplicates this content (mdx
@@ -36,17 +38,13 @@ export interface Tier {
 export function docsUrl(path: string): string {
   const base =
     (process.env.NEXT_PUBLIC_DOCS_URL && process.env.NEXT_PUBLIC_DOCS_URL.replace(/\/+$/, '')) ||
-    'https://docs.carbon.dev';
+    'https://github.com/TaxCollector23/carbon/tree/master/apps/docs';
   const p = path.startsWith('/') ? path : `/${path}`;
   return `${base}${p}`;
 }
 
 export function dashboardUrl(next = '/'): string {
-  const base =
-    (process.env.NEXT_PUBLIC_DASHBOARD_URL &&
-      process.env.NEXT_PUBLIC_DASHBOARD_URL.replace(/\/+$/, '')) ||
-    'http://localhost:3001';
-  return `${base}/sign-up?next=${encodeURIComponent(next)}`;
+  return dashboardSignUpUrl(next);
 }
 
 export const TIERS: readonly Tier[] = [
@@ -55,7 +53,7 @@ export const TIERS: readonly Tier[] = [
     name: 'Free / Developer',
     price: '$0',
     period: 'forever, for one developer',
-    tagline: 'The full CLI, every adapter, local snapshots, and chaos — free forever.',
+    tagline: 'The complete local runtime for individual development and CI smoke coverage.',
     cta: { label: 'Install the CLI', href: '/#cli' },
     features: [
       'CLI + local runtime — unlimited',
@@ -72,7 +70,7 @@ export const TIERS: readonly Tier[] = [
     price: '$29',
     period: 'per developer / month',
     tagline:
-      "Carbon periodically replays a slice of your captured traffic against the real API and tells you when behavior diverges — so your local emulator doesn't rot silently.",
+      'Scheduled drift detection, unlimited AI-assisted ingest, and a versioned snapshot library for one developer.',
     cta: { label: 'Start Pro trial', href: dashboardUrl('/onboarding') },
     highlighted: true,
     features: [
@@ -92,7 +90,7 @@ export const TIERS: readonly Tier[] = [
     price: '$79',
     period: 'per developer / month',
     tagline:
-      'For teams already living in Carbon — shared cloud state, org quota, SSO, and an audit log.',
+      'Shared projects, team permissions, SSO, audit history, and usage controls for engineering groups.',
     cta: { label: 'Start a team trial', href: dashboardUrl('/onboarding') },
     features: [
       'Everything in Pro',
@@ -109,7 +107,8 @@ export const TIERS: readonly Tier[] = [
     name: 'Enterprise',
     price: 'Contact us',
     period: 'annual, tailored to your footprint',
-    tagline: 'Self-host, SCIM, unlimited retention, SIEM export, and BYO LLM key for regulated teams.',
+    tagline:
+      'Self-hosting, SCIM, SIEM export, custom retention, and support for regulated environments.',
     cta: { label: 'Talk to us', href: '/contact' },
     features: [
       'Everything in Team',

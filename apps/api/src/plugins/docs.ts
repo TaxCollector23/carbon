@@ -139,6 +139,12 @@ export const TAG_GROUPS = [
 ] as const;
 
 export async function registerDocs(app: FastifyInstance, release: string): Promise<void> {
+  const publicApiUrl = process.env.CARBON_PUBLIC_API_URL?.trim();
+  const servers = [
+    { url: 'http://localhost:4000', description: 'local dev' },
+    ...(publicApiUrl ? [{ url: publicApiUrl, description: 'production' }] : []),
+  ];
+
   await app.register(swagger, {
     // Fastify Swagger's `openapi` config only forwards a fixed list of
     // top-level keys, so `x-tagGroups` gets injected here after the base
@@ -146,10 +152,11 @@ export async function registerDocs(app: FastifyInstance, release: string): Promi
     // 3.x shape — this deployment publishes 3.1 but the runtime is happy to
     // stamp the extension on either.
     transformObject: (documentObject) => {
-      const target =
-        ('openapiObject' in documentObject
+      const target = (
+        'openapiObject' in documentObject
           ? documentObject.openapiObject
-          : documentObject.swaggerObject) as Record<string, unknown>;
+          : documentObject.swaggerObject
+      ) as Record<string, unknown>;
       target['x-tagGroups'] = TAG_GROUPS;
       // The @fastify/swagger `SwaggerOptions` public type omits transformObject
       // even though `FastifyDynamicSwaggerOptions` declares it; cast the
@@ -170,18 +177,15 @@ export async function registerDocs(app: FastifyInstance, release: string): Promi
         version: release,
         contact: {
           name: 'Carbon',
-          url: 'https://carbon.dev',
-          email: 'support@carbon.dev',
+          url: 'https://github.com/TaxCollector23/carbon',
+          email: 'support@example.com',
         },
         license: {
           name: 'Apache-2.0',
           url: 'https://www.apache.org/licenses/LICENSE-2.0',
         },
       },
-      servers: [
-        { url: 'http://localhost:4000', description: 'local dev' },
-        { url: 'https://api.carbon.dev', description: 'production' },
-      ],
+      servers,
       components: {
         securitySchemes: {
           apiKey: {

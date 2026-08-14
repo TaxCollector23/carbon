@@ -1,9 +1,5 @@
 import { z } from 'zod';
-import type {
-  IntermediateRepresentation,
-  RelationshipDef,
-  ResourceDef,
-} from '@carbon/types';
+import type { IntermediateRepresentation, RelationshipDef, ResourceDef } from '@carbon/types';
 import type { AiCallContext, AiProvider } from './provider.js';
 
 /**

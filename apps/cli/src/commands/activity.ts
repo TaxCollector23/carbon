@@ -77,7 +77,11 @@ export const activityCommand = defineCommand({
 
     if (isJson()) {
       for (const evt of body.data) {
-        getPrinter().emit({ event: 'activity', level: 'info', data: evt as unknown as Record<string, unknown> });
+        getPrinter().emit({
+          event: 'activity',
+          level: 'info',
+          data: evt as unknown as Record<string, unknown>,
+        });
       }
       return;
     }
@@ -96,7 +100,9 @@ export const activityCommand = defineCommand({
       );
     }
     if (body.hasMore) {
-      process.stdout.write(`\n  ${pc.dim(`… more available (use --limit or a cursor from ${body.nextCursor}).`)}\n`);
+      process.stdout.write(
+        `\n  ${pc.dim(`… more available (use --limit or a cursor from ${body.nextCursor}).`)}\n`,
+      );
     }
     process.stdout.write('\n');
   },

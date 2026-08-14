@@ -10,11 +10,17 @@ test('activity page renders timeline or empty state', async ({ page }) => {
 
   await Promise.race([
     empty.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => null),
-    timeline.first().waitFor({ state: 'visible', timeout: 15_000 }).catch(() => null),
+    timeline
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 })
+      .catch(() => null),
   ]);
 
   const emptyVisible = await empty.isVisible().catch(() => false);
-  const timelineVisible = await timeline.first().isVisible().catch(() => false);
+  const timelineVisible = await timeline
+    .first()
+    .isVisible()
+    .catch(() => false);
   expect(emptyVisible || timelineVisible).toBeTruthy();
 });
 
@@ -35,11 +41,17 @@ test('creating a project produces an activity row', async ({ page }) => {
   const empty = page.getByText(/no activity yet/i);
   const timeline = page.locator('[data-testid="activity-timeline"], table, ul[role="list"]');
   await Promise.race([
-    timeline.first().waitFor({ state: 'visible', timeout: 20_000 }).catch(() => null),
+    timeline
+      .first()
+      .waitFor({ state: 'visible', timeout: 20_000 })
+      .catch(() => null),
     empty.waitFor({ state: 'visible', timeout: 20_000 }).catch(() => null),
   ]);
 
-  const timelineVisible = await timeline.first().isVisible().catch(() => false);
+  const timelineVisible = await timeline
+    .first()
+    .isVisible()
+    .catch(() => false);
   const emptyVisible = await empty.isVisible().catch(() => false);
   // We tolerate the empty state (activity may be project-scoped and gated on
   // picker selection), but at least one of the two must be present so we

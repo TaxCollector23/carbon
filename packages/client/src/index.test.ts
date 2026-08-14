@@ -52,7 +52,8 @@ describe('createCarbonClient', () => {
       fetch: fetchStub,
     });
     await client.GET('/v1/projects');
-    const req = (fetchStub as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]![0] as Request;
+    const req = (fetchStub as unknown as { mock: { calls: unknown[][] } }).mock
+      .calls[0]![0] as Request;
     expect(req.headers.get('authorization')).toBe('Bearer sk_test_123');
   });
 
@@ -63,7 +64,8 @@ describe('createCarbonClient', () => {
       fetch: fetchStub,
     });
     await client.GET('/v1/projects');
-    const req = (fetchStub as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]![0] as Request;
+    const req = (fetchStub as unknown as { mock: { calls: unknown[][] } }).mock
+      .calls[0]![0] as Request;
     expect(req.headers.get('authorization')).toBeNull();
   });
 });

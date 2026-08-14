@@ -7,13 +7,7 @@
  * any breaking rename touches all three surfaces.
  */
 export type CatalogCategory =
-  | 'payments'
-  | 'auth'
-  | 'communication'
-  | 'ai'
-  | 'dev-platform'
-  | 'storage'
-  | 'other';
+  'payments' | 'auth' | 'communication' | 'ai' | 'dev-platform' | 'storage' | 'other';
 
 export type CatalogSpecFormat = 'openapi' | 'graphql' | 'asyncapi';
 

@@ -45,7 +45,12 @@ const DriftListResponse = z.object({
 
 const DriftConfig = z.object({
   upstreamUrl: z.string().nullable(),
-  intervalMinutes: z.number().int().min(1).max(24 * 60).nullable(),
+  intervalMinutes: z
+    .number()
+    .int()
+    .min(1)
+    .max(24 * 60)
+    .nullable(),
   enabled: z.boolean(),
   /** ISO timestamp of the recording artifact the config is bolted onto (null when no recording exists yet). */
   configuredAt: z.string().nullable(),
@@ -53,7 +58,13 @@ const DriftConfig = z.object({
 
 const ConfigPatchBody = z.object({
   upstreamUrl: z.string().url().max(2048).nullable().optional(),
-  intervalMinutes: z.number().int().min(1).max(24 * 60).nullable().optional(),
+  intervalMinutes: z
+    .number()
+    .int()
+    .min(1)
+    .max(24 * 60)
+    .nullable()
+    .optional(),
   enabled: z.boolean().optional(),
 });
 
@@ -94,16 +105,26 @@ async function loadLatestRecording(
   };
 }
 
-function extractConfig(meta: Record<string, unknown> | null, createdAt: Date | string | null): z.infer<typeof DriftConfig> {
+function extractConfig(
+  meta: Record<string, unknown> | null,
+  createdAt: Date | string | null,
+): z.infer<typeof DriftConfig> {
   const src = meta ?? {};
-  const upstreamUrl = typeof src.upstreamUrl === 'string' && src.upstreamUrl.length > 0 ? src.upstreamUrl : null;
+  const upstreamUrl =
+    typeof src.upstreamUrl === 'string' && src.upstreamUrl.length > 0 ? src.upstreamUrl : null;
   const rawInterval = src.driftIntervalMinutes;
   const intervalMinutes =
-    typeof rawInterval === 'number' && Number.isFinite(rawInterval) ? Math.floor(rawInterval) : null;
+    typeof rawInterval === 'number' && Number.isFinite(rawInterval)
+      ? Math.floor(rawInterval)
+      : null;
   const rawEnabled = src.driftEnabled;
   const enabled = typeof rawEnabled === 'boolean' ? rawEnabled : upstreamUrl != null;
   const configuredAt =
-    createdAt == null ? null : createdAt instanceof Date ? createdAt.toISOString() : String(createdAt);
+    createdAt == null
+      ? null
+      : createdAt instanceof Date
+        ? createdAt.toISOString()
+        : String(createdAt);
   return { upstreamUrl, intervalMinutes, enabled, configuredAt };
 }
 
@@ -153,7 +174,7 @@ export async function registerDriftRoutes(app: FastifyInstance, ctx: AppContext)
       schema: {
         summary: 'Get drift-check config',
         description:
-          'Return the drift config (upstream URL, cadence, enabled flag) stored on the project\'s latest recording artifact. Returns an all-null config when no recording exists yet.',
+          "Return the drift config (upstream URL, cadence, enabled flag) stored on the project's latest recording artifact. Returns an all-null config when no recording exists yet.",
         response: { 200: zodResponse(DriftConfig) },
       },
     },
@@ -172,7 +193,7 @@ export async function registerDriftRoutes(app: FastifyInstance, ctx: AppContext)
       schema: {
         summary: 'Update drift-check config',
         description:
-          'Merge fields into the project\'s drift config. Persists onto the latest recording artifact\'s `meta`. Returns 404 when the project has no recording to attach config to.',
+          "Merge fields into the project's drift config. Persists onto the latest recording artifact's `meta`. Returns 404 when the project has no recording to attach config to.",
         body: zodBody(ConfigPatchBody),
         response: { 200: zodResponse(DriftConfig) },
       },

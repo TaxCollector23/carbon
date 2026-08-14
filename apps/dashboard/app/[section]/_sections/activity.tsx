@@ -24,11 +24,11 @@ export default function ActivitySection() {
     return () => window.clearInterval(t);
   }, [pollMs]);
 
-  // 501/404 = the events route is not deployed on this API yet (a parallel
-  // agent adds it in Phase 3). We show an honest "Not available yet" pill
-  // rather than manufacturing rows.
+  // 501/404 = this API does not expose the events route in the current
+  // environment. Show an empty state rather than manufacturing rows.
   const notDeployed =
-    events.error instanceof ApiError && (events.error.status === 404 || events.error.status === 501);
+    events.error instanceof ApiError &&
+    (events.error.status === 404 || events.error.status === 501);
 
   // Merge the live stream on top of the last polled snapshot. The stream
   // supplies the newest events; older ones stay in the polled list. Dedupe
@@ -56,7 +56,7 @@ export default function ActivitySection() {
   if (notDeployed) {
     return (
       <EmptyState
-        badge="Not available yet"
+        badge="Connect events"
         title={getSectionCopy('activity')!.emptyTitle}
         description={getSectionCopy('activity')!.description}
       />
@@ -106,7 +106,9 @@ export default function ActivitySection() {
                 <div className="text-sm">
                   <span className="font-mono text-xs">{e.action}</span>
                   {e.projectId ? (
-                    <span className="text-muted-foreground ml-2 text-xs">· project {e.projectId}</span>
+                    <span className="text-muted-foreground ml-2 text-xs">
+                      · project {e.projectId}
+                    </span>
                   ) : null}
                 </div>
                 <div className="text-muted-foreground text-xs">

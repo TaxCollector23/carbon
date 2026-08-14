@@ -17,7 +17,7 @@ export const emulateCommand = defineCommand({
     catalog: {
       type: 'string',
       description:
-        'Named entry from the built-in emulator catalog (e.g. stripe, github). See `carbon emulate --catalog list` or carbon.dev/emulators.',
+        'Named entry from the built-in emulator catalog (e.g. stripe, github). See `carbon emulate --catalog list`.',
     },
     port: { type: 'string', description: 'Port to bind', default: '8787' },
     host: { type: 'string', description: 'Host to bind', default: '127.0.0.1' },
@@ -34,13 +34,11 @@ export const emulateCommand = defineCommand({
       if (slug === 'list' || slug === 'help') {
         ui.header('Built-in emulator catalog');
         for (const entry of CATALOG) {
-          process.stdout.write(
-            `  ${entry.slug.padEnd(12)} ${entry.name} — ${entry.tagline}\n`,
-          );
+          process.stdout.write(`  ${entry.slug.padEnd(12)} ${entry.name} — ${entry.tagline}\n`);
         }
         process.stdout.write(
           '\n  Run: carbon emulate --catalog <slug>\n' +
-            '  Docs: https://carbon.dev/emulators\n\n',
+            '  Docs: https://carbon-web-psi.vercel.app/emulators\n\n',
         );
         return;
       }

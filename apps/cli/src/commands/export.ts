@@ -40,7 +40,10 @@ export const exportCommand = defineCommand({
     since: { type: 'string', description: 'ISO-8601 start of the window (default: 90 days ago).' },
     until: { type: 'string', description: 'ISO-8601 end of the window (default: now).' },
     format: { type: 'string', description: 'json (default) or zip.' },
-    out: { type: 'string', description: 'Output file path. Default: carbon-export-<orgId>-<epoch>.<ext>.' },
+    out: {
+      type: 'string',
+      description: 'Output file path. Default: carbon-export-<orgId>-<epoch>.<ext>.',
+    },
     'api-url': { type: 'string', description: 'Override the API base URL.' },
     'api-key': { type: 'string', description: 'API key (defaults to ~/.carbon/credentials).' },
   },
@@ -106,8 +109,7 @@ export const exportCommand = defineCommand({
     const ext = format === 'zip' ? 'zip' : 'json';
     const orgHint = pickOrgHintFromDisposition(res.headers.get('content-disposition')) ?? 'org';
     const outPath =
-      (args.out as string | undefined) ??
-      `carbon-export-${orgHint}-${Date.now()}.${ext}`;
+      (args.out as string | undefined) ?? `carbon-export-${orgHint}-${Date.now()}.${ext}`;
 
     // Stream the body to disk so large exports never balloon into a single
     // string in memory. `res.body` is a WHATWG ReadableStream; Node accepts
@@ -117,7 +119,9 @@ export const exportCommand = defineCommand({
       process.exitCode = EXIT_GENERIC;
       return;
     }
-    const nodeStream = Readable.fromWeb(res.body as unknown as import('node:stream/web').ReadableStream);
+    const nodeStream = Readable.fromWeb(
+      res.body as unknown as import('node:stream/web').ReadableStream,
+    );
     const fileStream = createWriteStream(outPath);
     try {
       await pipeline(nodeStream, fileStream);

@@ -24,7 +24,9 @@ export const CarbonConfigSchema = z.object({
   }),
   ai: z
     .object({
-      provider: z.enum(['openrouter', 'openai', 'anthropic', 'gemini', 'local']).default('openrouter'),
+      provider: z
+        .enum(['openrouter', 'openai', 'anthropic', 'gemini', 'local'])
+        .default('openrouter'),
       model: z.string().default('anthropic/claude-opus-5'),
       /** Env var name to read the API key from. Never inline a key here. */
       apiKeyEnv: z.string().default('CARBON_AI_API_KEY'),

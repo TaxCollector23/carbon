@@ -9,7 +9,10 @@ export interface RedisRateLimitOptions {
   readonly windowMs: number;
   /** Namespace prefix for keys — defaults to `carbon:rl`. */
   readonly keyPrefix?: string;
-  readonly identify?: (headers: Record<string, string | string[] | undefined>, ip: string) => string;
+  readonly identify?: (
+    headers: Record<string, string | string[] | undefined>,
+    ip: string,
+  ) => string;
 }
 
 /**

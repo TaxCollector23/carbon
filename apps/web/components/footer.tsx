@@ -6,18 +6,18 @@ const columns = [
     heading: 'Product',
     links: [
       ['Dashboard', '/dashboard'],
-      ['Benchmarks', '/#benchmarks'],
+      ['Benchmarks', '/benchmarks'],
       ['Workflow', '/#workflow'],
       ['CLI', '/#cli'],
-      ['SDK', '/#sdk'],
+      ['Emulators', '/emulators'],
       ['Pricing', '/#pricing'],
+      ['Enterprise', '/enterprise'],
       ['Talk to us', '/contact'],
-      ['Inputs', '/#integrations'],
     ],
   },
   {
     heading: 'Community',
-    links: [['GitHub', 'https://github.com/carbon-dev/carbon']],
+    links: [['GitHub', 'https://github.com/TaxCollector23/carbon']],
   },
 ] satisfies Array<{ heading: string; links: [string, string][] }>;
 

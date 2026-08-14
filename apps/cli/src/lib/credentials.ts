@@ -99,8 +99,7 @@ export async function resolveApiKey(
 ): Promise<ResolvedApiKey | null> {
   const config = await loadConfig();
   const creds = await loadCredentials();
-  const apiUrl =
-    apiUrlFlag ?? creds?.apiUrl ?? config?.apiUrl ?? DEFAULT_API_URL;
+  const apiUrl = apiUrlFlag ?? creds?.apiUrl ?? config?.apiUrl ?? DEFAULT_API_URL;
 
   if (opts.flag) {
     return { key: opts.flag, apiUrl, source: 'flag' };

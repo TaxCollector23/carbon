@@ -8,7 +8,7 @@ The problem: the factory is slow, sometimes closed, and sometimes gives you a bl
 
 ## What Carbon does
 
-Carbon builds you a **pretend toy factory** that sits right next to you. You show it a picture of what the real factory does (that's a "spec"), and Carbon builds a fake factory that acts *almost exactly like the real one*.
+Carbon builds you a **pretend toy factory** that sits right next to you. You show it a picture of what the real factory does (that's a "spec"), and Carbon builds a fake factory that acts _almost exactly like the real one_.
 
 The pretend factory has a big brain:
 
@@ -38,12 +38,15 @@ Developers (people who build the toy car) pay Carbon because:
 ## How you actually use it (3 steps)
 
 ### 1. Install
+
 ```bash
-npm install -g carbon-dev
+npm install -g carbon-api
 ```
+
 That gives you a program called `carbon` on your computer.
 
 ### 2. Show it a picture of a factory
+
 Grab any OpenAPI spec (a JSON file that describes an API — like the toy factory's blueprint). Let's use a pet store one that ships with Carbon:
 
 ```bash
@@ -55,14 +58,17 @@ Now there's a **pretend pet store** running at `http://localhost:5555`.
 ### 3. Play with it
 
 Make a pet:
+
 ```bash
 curl -X POST http://localhost:5555/pets \
   -H 'content-type: application/json' \
   -d '{"name":"Fido","tag":"dog"}'
 ```
+
 → `{"name":"Fido","tag":"dog","id":"pet_ywt7pt27ahlpamduegbq"}`
 
 Make another pet:
+
 ```bash
 curl -X POST http://localhost:5555/pets \
   -H 'content-type: application/json' \
@@ -70,9 +76,11 @@ curl -X POST http://localhost:5555/pets \
 ```
 
 Ask for the list:
+
 ```bash
 curl http://localhost:5555/pets
 ```
+
 → `{"data":[{"id":"...","name":"Fido","tag":"dog"},{"id":"...","name":"Whiskers","tag":"cat"}]}`
 
 **It remembered both pets.** That's the magic. It didn't return an empty list or a canned "example" pet — it returned the real pets you just made. Without a real pet store existing anywhere.
@@ -80,12 +88,15 @@ curl http://localhost:5555/pets
 ### Bonus — the time machine
 
 Ask Carbon what mutations happened:
+
 ```bash
 curl http://localhost:5555/__carbon/state/history
 ```
+
 → `{"entries":[{seq:1,op:"create",resource:"pet",...},{seq:2,op:"create",resource:"pet",...}]}`
 
 Rewind to before Whiskers existed:
+
 ```bash
 curl -X POST http://localhost:5555/__carbon/state/rewind \
   -H 'content-type: application/json' \
@@ -93,9 +104,11 @@ curl -X POST http://localhost:5555/__carbon/state/rewind \
 ```
 
 Now:
+
 ```bash
 curl http://localhost:5555/pets
 ```
+
 → Only Fido. Whiskers is gone. You just undid the past.
 
 ## The whole product in one sentence

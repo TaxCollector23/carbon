@@ -14,7 +14,7 @@
   "favicon": "/favicon.svg",
   "topbarLinks": [
     { "name": "Dashboard", "url": "https://carbon-web-psi.vercel.app/dashboard" },
-    { "name": "GitHub", "url": "https://github.com/carbon-dev/carbon" }
+    { "name": "GitHub", "url": "https://github.com/TaxCollector23/carbon" }
   ],
   "topbarCtaButton": { "name": "Get started", "url": "https://carbon-web-psi.vercel.app/#cli" },
   "navigation": [
@@ -47,11 +47,7 @@
     },
     {
       "group": "Deployment",
-      "pages": [
-        "deployment/fly-io",
-        "deployment/self-hosted",
-        "deployment/prometheus"
-      ]
+      "pages": ["deployment/fly-io", "deployment/self-hosted", "deployment/prometheus"]
     },
     {
       "group": "Enterprise",
@@ -86,6 +82,6 @@
     }
   ],
   "footerSocials": {
-    "github": "https://github.com/carbon-dev/carbon"
+    "github": "https://github.com/TaxCollector23/carbon"
   }
 }

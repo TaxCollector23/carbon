@@ -58,7 +58,10 @@ export class MockAiProvider implements AiProvider {
   }
 
   async complete(req: CompletionRequest): Promise<CompletionResponse> {
-    const flat = req.messages.map((m) => m.content).join(' ').slice(0, 200);
+    const flat = req.messages
+      .map((m) => m.content)
+      .join(' ')
+      .slice(0, 200);
     return {
       text: `mock completion: ${flat}`,
       model: req.model ?? this.defaultModel,

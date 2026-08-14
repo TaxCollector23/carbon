@@ -6,7 +6,7 @@
  * as a fresh child process, poll GET /__carbon/health until we get 2xx, and
  * report the elapsed time from spawn to first success.
  *
- * This is the real user path: `pnpm dlx carbon-dev emulate --from spec.json`.
+ * This is the real user path: `pnpm dlx carbon-api emulate --from spec.json`.
  * No in-process shortcuts.
  */
 import { spawn } from 'node:child_process';
@@ -28,7 +28,7 @@ async function main() {
 
   if (!existsSync(cliDist)) {
     throw new Error(
-      `CLI dist not found at ${cliDist}. Build it first: pnpm --filter carbon-dev build`,
+      `CLI dist not found at ${cliDist}. Build it first: pnpm --filter carbon-api build`,
     );
   }
   if (!existsSync(fixture)) {
@@ -67,10 +67,7 @@ async function main() {
     } finally {
       if (child.exitCode === null) {
         child.kill('SIGTERM');
-        await Promise.race([
-          new Promise((resolve) => child.once('exit', resolve)),
-          sleep(2000),
-        ]);
+        await Promise.race([new Promise((resolve) => child.once('exit', resolve)), sleep(2000)]);
         if (child.exitCode === null) child.kill('SIGKILL');
       }
     }
@@ -96,7 +93,11 @@ async function main() {
   console.log(JSON.stringify(output, null, 2));
 }
 
-async function waitForOk(url: string, timeoutMs: number, child: import('node:child_process').ChildProcess): Promise<void> {
+async function waitForOk(
+  url: string,
+  timeoutMs: number,
+  child: import('node:child_process').ChildProcess,
+): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (child.exitCode !== null) {
@@ -138,6 +139,6 @@ async function pickFreePort(): Promise<number> {
 }
 
 void main().catch((err) => {
-  console.error(err instanceof Error ? err.stack ?? err.message : err);
+  console.error(err instanceof Error ? (err.stack ?? err.message) : err);
   process.exit(1);
 });

@@ -18,7 +18,7 @@ if ! command -v npm >/dev/null 2>&1; then
 fi
 
 echo "Installing Carbon CLI..."
-npm install -g carbon-dev
+npm install -g carbon-api
 
 if ! command -v carbon >/dev/null 2>&1; then
   NPM_BIN="$(npm bin -g 2>/dev/null || echo "$HOME/.npm-global/bin")"
@@ -31,6 +31,4 @@ if ! command -v carbon >/dev/null 2>&1; then
 fi
 
 echo
-carbon --version
-echo
-echo "Next: run 'carbon init' to scaffold your first project."
+carbon

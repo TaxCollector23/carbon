@@ -19,8 +19,20 @@ describe('diffSnapshots', () => {
     ]);
     const b = snap(
       [
-        { resource: CUSTOMER, id: 'c1', data: { id: 'c1', name: 'Ada L.' }, createdAt: 1, updatedAt: 2 },
-        { resource: CUSTOMER, id: 'c3', data: { id: 'c3', name: 'Cid' }, createdAt: 2, updatedAt: 2 },
+        {
+          resource: CUSTOMER,
+          id: 'c1',
+          data: { id: 'c1', name: 'Ada L.' },
+          createdAt: 1,
+          updatedAt: 2,
+        },
+        {
+          resource: CUSTOMER,
+          id: 'c3',
+          data: { id: 'c3', name: 'Cid' },
+          createdAt: 2,
+          updatedAt: 2,
+        },
         { resource: ORDER, id: 'o1', data: { id: 'o1', total: 10 }, createdAt: 1, updatedAt: 1 },
       ],
       2,
@@ -41,9 +53,7 @@ describe('diffSnapshots', () => {
     const a = snap([
       { resource: CUSTOMER, id: 'c1', data: { id: 'c1' }, createdAt: 1, updatedAt: 1 },
     ]);
-    const b = snap([
-      { resource: ORDER, id: 'o1', data: { id: 'o1' }, createdAt: 1, updatedAt: 1 },
-    ]);
+    const b = snap([{ resource: ORDER, id: 'o1', data: { id: 'o1' }, createdAt: 1, updatedAt: 1 }]);
     const d = diffSnapshots(a, b);
     expect(d.resources.customer!.removed).toHaveLength(1);
     expect(d.resources.order!.added).toHaveLength(1);
@@ -51,10 +61,22 @@ describe('diffSnapshots', () => {
 
   it('deep-compares nested data', () => {
     const a = snap([
-      { resource: CUSTOMER, id: 'c1', data: { id: 'c1', addr: { city: 'NYC' } }, createdAt: 1, updatedAt: 1 },
+      {
+        resource: CUSTOMER,
+        id: 'c1',
+        data: { id: 'c1', addr: { city: 'NYC' } },
+        createdAt: 1,
+        updatedAt: 1,
+      },
     ]);
     const b = snap([
-      { resource: CUSTOMER, id: 'c1', data: { id: 'c1', addr: { city: 'NYC' } }, createdAt: 1, updatedAt: 2 },
+      {
+        resource: CUSTOMER,
+        id: 'c1',
+        data: { id: 'c1', addr: { city: 'NYC' } },
+        createdAt: 1,
+        updatedAt: 2,
+      },
     ]);
     const d = diffSnapshots(a, b);
     expect(d.resources.customer!.changed).toEqual([]);

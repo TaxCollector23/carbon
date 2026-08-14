@@ -95,7 +95,7 @@ export async function registerHealthRoutes(
     checks: Checks;
     status: 'ok' | 'degraded' | 'down';
   };
-  let cached: { at: number } & EvalOutcome | null = null;
+  let cached: ({ at: number } & EvalOutcome) | null = null;
   // Concurrent probes share one evaluation instead of stampeding the database
   // the instant the cache expires.
   let inFlight: Promise<EvalOutcome> | null = null;
@@ -105,63 +105,77 @@ export async function registerHealthRoutes(
   // `/health` is the historical liveness path; `/v1/health/live` is the
   // versioned alias for symmetry with `/v1/health/deep`. Both are the same
   // handler — dependency checks live on `/ready` (and `/v1/health/deep`).
-  app.get('/health', {
-    schema: {
-      summary: 'Liveness probe',
-      description: 'Cheap liveness check — returns 200 as long as the process is up. Use as a Kubernetes liveness probe.',
-      response: { 200: zodResponse(LivenessResponse) },
-    },
-  }, async () => livenessBody());
-  app.get('/v1/health/live', {
-    schema: {
-      summary: 'Liveness probe (versioned)',
-      description: 'Versioned alias for `/health`. Identical response shape and cost.',
-      response: { 200: zodResponse(LivenessResponse) },
-    },
-  }, async () => livenessBody());
-
-  app.get('/v1/version', {
-    schema: {
-      summary: 'Server version and feature flags',
-      description: 'Return the running server version, git SHA (if stamped by CI), uptime, and per-deployment feature toggles.',
-      response: {
-        200: zodResponseWithExample(VersionResponse, {
-          version: '0.1.0',
-          release: '2026.01.14-abcdef1',
-          node: 'v22.5.1',
-          startedAt: '2026-01-14T18:22:41.000Z',
-          uptimeSec: 3600,
-          gitSha: 'abcdef1234567890abcdef1234567890abcdef12',
-          buildTime: '2026-01-14T18:00:00.000Z',
-          plans: ['developer', 'team', 'enterprise'],
-          features: { billing: true, sso: true, scim: true },
-        }),
+  app.get(
+    '/health',
+    {
+      schema: {
+        summary: 'Liveness probe',
+        description:
+          'Cheap liveness check — returns 200 as long as the process is up. Use as a Kubernetes liveness probe.',
+        response: { 200: zodResponse(LivenessResponse) },
       },
     },
-  }, async () => ({
-    version: '0.1.0',
-    release,
-    node: process.version,
-    startedAt: new Date(Date.now() - Math.floor(process.uptime() * 1000)).toISOString(),
-    uptimeSec: Math.floor(process.uptime()),
-    // Build metadata is populated by CI when it stamps the container image;
-    // absent in local dev, which is why both keys default to null instead of
-    // omitted — a stable shape is easier to consume than a shifting one.
-    gitSha: process.env.CARBON_GIT_SHA ?? null,
-    buildTime: process.env.CARBON_BUILD_TIME ?? null,
-    // Plan tiers the control plane currently understands. Kept literal here
-    // (not env-driven) because plan gating is code, not config — new tiers
-    // arrive as a code change and this list should follow it.
-    plans: ['developer', 'team', 'enterprise'] as const,
-    // Feature toggles reflect whether the *deployment* has the moving parts
-    // wired up. SSO/SCIM are always-on in code but only useful once the
-    // respective env is configured; billing is dark until Stripe is set.
-    features: {
-      billing: Boolean(process.env.STRIPE_SECRET_KEY),
-      sso: Boolean(process.env.BETTER_AUTH_SSO),
-      scim: true,
+    async () => livenessBody(),
+  );
+  app.get(
+    '/v1/health/live',
+    {
+      schema: {
+        summary: 'Liveness probe (versioned)',
+        description: 'Versioned alias for `/health`. Identical response shape and cost.',
+        response: { 200: zodResponse(LivenessResponse) },
+      },
     },
-  }));
+    async () => livenessBody(),
+  );
+
+  app.get(
+    '/v1/version',
+    {
+      schema: {
+        summary: 'Server version and feature flags',
+        description:
+          'Return the running server version, git SHA (if stamped by CI), uptime, and per-deployment feature toggles.',
+        response: {
+          200: zodResponseWithExample(VersionResponse, {
+            version: '0.1.0',
+            release: '2026.01.14-abcdef1',
+            node: 'v22.5.1',
+            startedAt: '2026-01-14T18:22:41.000Z',
+            uptimeSec: 3600,
+            gitSha: 'abcdef1234567890abcdef1234567890abcdef12',
+            buildTime: '2026-01-14T18:00:00.000Z',
+            plans: ['developer', 'team', 'enterprise'],
+            features: { billing: true, sso: true, scim: true },
+          }),
+        },
+      },
+    },
+    async () => ({
+      version: '0.1.0',
+      release,
+      node: process.version,
+      startedAt: new Date(Date.now() - Math.floor(process.uptime() * 1000)).toISOString(),
+      uptimeSec: Math.floor(process.uptime()),
+      // Build metadata is populated by CI when it stamps the container image;
+      // absent in local dev, which is why both keys default to null instead of
+      // omitted — a stable shape is easier to consume than a shifting one.
+      gitSha: process.env.CARBON_GIT_SHA ?? null,
+      buildTime: process.env.CARBON_BUILD_TIME ?? null,
+      // Plan tiers the control plane currently understands. Kept literal here
+      // (not env-driven) because plan gating is code, not config — new tiers
+      // arrive as a code change and this list should follow it.
+      plans: ['developer', 'team', 'enterprise'] as const,
+      // Feature toggles reflect whether the *deployment* has the moving parts
+      // wired up. SSO/SCIM are always-on in code but only useful once the
+      // respective env is configured; billing is dark until Stripe is set.
+      features: {
+        billing: Boolean(process.env.STRIPE_SECRET_KEY),
+        sso: Boolean(process.env.BETTER_AUTH_SSO),
+        scim: true,
+      },
+    }),
+  );
 
   app.get('/ready', async (_req, reply) => {
     // Draining short-circuits everything below. During a rolling deploy the
@@ -236,56 +250,60 @@ export async function registerHealthRoutes(
       }),
     ),
   });
-  app.get('/v1/health/deep', {
-    schema: {
-      summary: 'Deep dependency health probe',
-      description:
-        'Admin-only. Runs a live probe against every backing dependency (Postgres, Redis, object storage) and reports per-dep status, latency, and error message. Returns 503 if any dependency is `down`.',
-      response: {
-        200: zodResponseWithExample(DeepResponse, {
-          ok: true,
-          dependencies: {
-            db: { status: 'ok', latencyMs: 3.24 },
-            redis: { status: 'ok', latencyMs: 1.08 },
-            storage: { status: 'slow', latencyMs: 312.4 },
-          },
-        }),
-        503: zodResponse(DeepResponse),
+  app.get(
+    '/v1/health/deep',
+    {
+      schema: {
+        summary: 'Deep dependency health probe',
+        description:
+          'Admin-only. Runs a live probe against every backing dependency (Postgres, Redis, object storage) and reports per-dep status, latency, and error message. Returns 503 if any dependency is `down`.',
+        response: {
+          200: zodResponseWithExample(DeepResponse, {
+            ok: true,
+            dependencies: {
+              db: { status: 'ok', latencyMs: 3.24 },
+              redis: { status: 'ok', latencyMs: 1.08 },
+              storage: { status: 'slow', latencyMs: 312.4 },
+            },
+          }),
+          503: zodResponse(DeepResponse),
+        },
       },
     },
-  }, async (req, reply) => {
-    const apiKey = (req as AuthenticatedRequest).apiKey;
-    if (apiKey && !apiKey.scopes.includes('admin')) {
-      throw new CarbonError({
-        code: 'CARBON_FORBIDDEN',
-        message: 'admin scope required for /v1/health/deep',
-        expose: true,
-      });
-    }
-    const dependencies: Record<
-      string,
-      { status: 'ok' | 'slow' | 'down'; latencyMs: number; message?: string }
-    > = {};
-    await Promise.all([
-      probeDeep(dependencies, 'db', 500, () => ctx.db.execute(sql`select 1`)),
-      ctx.redis
-        ? probeDeep(dependencies, 'redis', 500, () => ctx.redis?.ping() ?? Promise.resolve())
-        : Promise.resolve(),
-      probeDeep(dependencies, 'storage', 500, async () => {
-        // A tiny list() exercises credentials, networking, and the backend's
-        // existence — the same guarantees head() gives us plus the enumerate
-        // path callers rely on when browsing artifacts.
-        const iter = ctx.storage.list('__health__/');
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        for await (const _ of iter) break;
-      }),
-    ]);
+    async (req, reply) => {
+      const apiKey = (req as AuthenticatedRequest).apiKey;
+      if (apiKey && !apiKey.scopes.includes('admin')) {
+        throw new CarbonError({
+          code: 'CARBON_FORBIDDEN',
+          message: 'admin scope required for /v1/health/deep',
+          expose: true,
+        });
+      }
+      const dependencies: Record<
+        string,
+        { status: 'ok' | 'slow' | 'down'; latencyMs: number; message?: string }
+      > = {};
+      await Promise.all([
+        probeDeep(dependencies, 'db', 500, () => ctx.db.execute(sql`select 1`)),
+        ctx.redis
+          ? probeDeep(dependencies, 'redis', 500, () => ctx.redis?.ping() ?? Promise.resolve())
+          : Promise.resolve(),
+        probeDeep(dependencies, 'storage', 500, async () => {
+          // A tiny list() exercises credentials, networking, and the backend's
+          // existence — the same guarantees head() gives us plus the enumerate
+          // path callers rely on when browsing artifacts.
+          const iter = ctx.storage.list('__health__/');
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          for await (const _ of iter) break;
+        }),
+      ]);
 
-    reply.header('cache-control', 'no-store');
-    const anyDown = Object.values(dependencies).some((d) => d.status === 'down');
-    reply.status(anyDown ? 503 : 200);
-    return { ok: !anyDown, dependencies };
-  });
+      reply.header('cache-control', 'no-store');
+      const anyDown = Object.values(dependencies).some((d) => d.status === 'down');
+      reply.status(anyDown ? 503 : 200);
+      return { ok: !anyDown, dependencies };
+    },
+  );
 
   async function evaluate(): Promise<EvalOutcome> {
     const checks: Checks = {};

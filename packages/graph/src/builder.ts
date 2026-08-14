@@ -100,7 +100,9 @@ export class BehaviorGraphBuilder {
   }
 }
 
-function groupEndpointsByResource(endpoints: readonly EndpointDef[]): Map<ResourceId, EndpointDef[]> {
+function groupEndpointsByResource(
+  endpoints: readonly EndpointDef[],
+): Map<ResourceId, EndpointDef[]> {
   const out = new Map<ResourceId, EndpointDef[]>();
   for (const e of endpoints) {
     if (!e.resource) continue;

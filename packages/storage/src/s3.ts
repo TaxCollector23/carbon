@@ -88,7 +88,11 @@ export class S3Storage implements Storage {
       // server omits it. Marked weak because JSON representations can vary
       // byte-for-byte without changing the logical artifact.
       const rawEtag = (res.ETag ?? '').replace(/^"|"$/g, '');
-      const id = key.split('/').pop()?.replace(/\.[^.]+$/, '') ?? key;
+      const id =
+        key
+          .split('/')
+          .pop()
+          ?.replace(/\.[^.]+$/, '') ?? key;
       const etag = rawEtag ? `W/"${rawEtag}"` : `W/"${id}"`;
       return {
         stream,

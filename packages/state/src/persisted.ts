@@ -1,10 +1,4 @@
-import type {
-  ListQuery,
-  ListResult,
-  StateEngine,
-  StateRecord,
-  StateSnapshot,
-} from './engine.js';
+import type { ListQuery, ListResult, StateEngine, StateRecord, StateSnapshot } from './engine.js';
 import type { ResourceId } from '@carbon/types';
 
 export interface PersistedStateOptions {

@@ -14,7 +14,7 @@ const highlights = [
   },
   {
     title: 'Infers the real resource model',
-    body: 'Carbon derives resources, relationships, and pagination shape from observed traffic — not from the spec that lies about them.',
+    body: 'Carbon derives resources, relationships, and pagination shape from observed traffic, including cases the written spec does not cover.',
   },
   {
     title: 'Boots deterministically from the capture',
@@ -29,7 +29,7 @@ export function Record() {
         <div>
           <SectionHeading
             title="Or point Carbon at your prod API for an afternoon."
-            description="It records real requests + responses, infers the resource model from what actually happened (not what the spec claims), and produces an emulator that behaves like your real integration — including the edge cases the spec forgets."
+            description="It records real requests + responses, infers the resource model from observed behavior, and produces an emulator that covers the edge cases your team already hits."
           />
           <div className="border-border mt-10 border-y">
             {highlights.map((h) => (
@@ -45,7 +45,7 @@ export function Record() {
             record → emulate
           </div>
           <pre className="text-foreground overflow-x-auto p-6 font-mono text-sm leading-6">
-{`# 1. Point Carbon at your upstream. Traffic flows through
+            {`# 1. Point Carbon at your upstream. Traffic flows through
 #    a local proxy; requests + responses are captured.
 carbon record --target https://api.stripe.com \\
               --out ./stripe-capture

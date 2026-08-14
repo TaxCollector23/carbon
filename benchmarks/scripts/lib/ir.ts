@@ -13,9 +13,7 @@ export function petsIr(): IntermediateRepresentation {
     api: { name: 'petstore-bench', version: '0', source: { kind: 'openapi', ingestedAt: 0 } },
     servers: [],
     auth: [],
-    resources: [
-      { id: PETS_RESOURCE, name: 'Pet', primaryKey: 'id', schema: { kind: 'unknown' } },
-    ],
+    resources: [{ id: PETS_RESOURCE, name: 'Pet', primaryKey: 'id', schema: { kind: 'unknown' } }],
     endpoints: [
       {
         id: 'GET:/pets' as EndpointId,

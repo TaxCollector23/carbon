@@ -45,59 +45,71 @@ export async function registerAssertionRoutes(
   app: FastifyInstance,
   ctx: AppContext,
 ): Promise<void> {
-  app.get('/v1/assertions', {
-    preHandler: requireScope('read'),
-    schema: {
-      summary: 'List assertion rules',
-      description: 'Return every assertion rule, optionally scoped by `projectId`.',
-      querystring: zodQuery(ListQuery),
-      response: { 200: zodResponse(AssertionListResponse) },
+  app.get(
+    '/v1/assertions',
+    {
+      preHandler: requireScope('read'),
+      schema: {
+        summary: 'List assertion rules',
+        description: 'Return every assertion rule, optionally scoped by `projectId`.',
+        querystring: zodQuery(ListQuery),
+        response: { 200: zodResponse(AssertionListResponse) },
+      },
     },
-  }, async (req) => {
-    const { projectId } = ListQuery.parse(req.query);
-    const where = projectId ? eq(schema.assertionRules.projectId, projectId) : undefined;
-    const q = ctx.db.select().from(schema.assertionRules).orderBy(asc(schema.assertionRules.name)).$dynamic();
-    const rows = where ? await q.where(where) : await q;
-    return { data: rows };
-  });
+    async (req) => {
+      const { projectId } = ListQuery.parse(req.query);
+      const where = projectId ? eq(schema.assertionRules.projectId, projectId) : undefined;
+      const q = ctx.db
+        .select()
+        .from(schema.assertionRules)
+        .orderBy(asc(schema.assertionRules.name))
+        .$dynamic();
+      const rows = where ? await q.where(where) : await q;
+      return { data: rows };
+    },
+  );
 
-  app.post('/v1/assertions', {
-    preHandler: requireScope('write'),
-    schema: {
-      summary: 'Create an assertion rule',
-      description:
-        'Create a declarative response assertion targeting `projectId`. Caller must have write access to the project.',
+  app.post(
+    '/v1/assertions',
+    {
+      preHandler: requireScope('write'),
+      schema: {
+        summary: 'Create an assertion rule',
+        description:
+          'Create a declarative response assertion targeting `projectId`. Caller must have write access to the project.',
+      },
     },
-  }, async (req, reply) => {
-    const body = CreateBody.parse(req.body);
-    // Assertions target a specific project — confirm the caller can act on
-    // it before we spend a write on their behalf.
-    await requireProjectAccessById(ctx, req, body.projectId);
-    const id = makeId('asrt');
-    await ctx.db.insert(schema.assertionRules).values({
-      id,
-      projectId: body.projectId,
-      name: body.name,
-      endpoint: body.endpoint ?? null,
-      kind: body.kind,
-      config: body.config,
-      enabled: body.enabled,
-    });
-    const orgId = (req as AuthenticatedRequest).apiKey?.orgId;
-    if (orgId) {
-      const actor = getActor(req);
-      await recordEvent(ctx, {
-        orgId,
+    async (req, reply) => {
+      const body = CreateBody.parse(req.body);
+      // Assertions target a specific project — confirm the caller can act on
+      // it before we spend a write on their behalf.
+      await requireProjectAccessById(ctx, req, body.projectId);
+      const id = makeId('asrt');
+      await ctx.db.insert(schema.assertionRules).values({
+        id,
         projectId: body.projectId,
-        actorType: actor.actorType,
-        actorId: actor.actorId,
-        action: 'assertion.created',
-        metadata: { assertionId: id, kind: body.kind, name: body.name },
+        name: body.name,
+        endpoint: body.endpoint ?? null,
+        kind: body.kind,
+        config: body.config,
+        enabled: body.enabled,
       });
-    }
-    reply.status(201);
-    return { id, ...body };
-  });
+      const orgId = (req as AuthenticatedRequest).apiKey?.orgId;
+      if (orgId) {
+        const actor = getActor(req);
+        await recordEvent(ctx, {
+          orgId,
+          projectId: body.projectId,
+          actorType: actor.actorType,
+          actorId: actor.actorId,
+          action: 'assertion.created',
+          metadata: { assertionId: id, kind: body.kind, name: body.name },
+        });
+      }
+      reply.status(201);
+      return { id, ...body };
+    },
+  );
 
   app.patch<{ Params: { id: string } }>(
     '/v1/assertions/:id',
@@ -105,7 +117,8 @@ export async function registerAssertionRoutes(
       preHandler: requireScope('write'),
       schema: {
         summary: 'Update an assertion rule',
-        description: 'Partially update an assertion. Omitted fields are left untouched. Returns the current row when the body is empty.',
+        description:
+          'Partially update an assertion. Omitted fields are left untouched. Returns the current row when the body is empty.',
         body: zodBody(UpdateBody),
       },
     },
@@ -188,4 +201,3 @@ export function buildViolationSink(
     });
   };
 }
-

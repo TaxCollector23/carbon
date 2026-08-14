@@ -143,7 +143,8 @@ function CreatePresetModal({
   const parseResult = useMemo(() => {
     try {
       const parsed = JSON.parse(rulesText);
-      if (!Array.isArray(parsed)) return { ok: false as const, message: 'rules must be a JSON array' };
+      if (!Array.isArray(parsed))
+        return { ok: false as const, message: 'rules must be a JSON array' };
       return { ok: true as const, value: parsed as ChaosRule[] };
     } catch (e) {
       return { ok: false as const, message: e instanceof Error ? e.message : 'invalid JSON' };
@@ -208,7 +209,11 @@ function CreatePresetModal({
         </label>
         <label className="block text-sm">
           <span className="text-muted-foreground text-xs">Description (optional)</span>
-          <Input value={description} onChange={(e) => setDescription(e.target.value)} maxLength={240} />
+          <Input
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            maxLength={240}
+          />
         </label>
         <label className="block text-sm">
           <span className="text-muted-foreground text-xs">Rules (JSON array)</span>
@@ -217,7 +222,7 @@ function CreatePresetModal({
             onChange={(e) => setRulesText(e.target.value)}
             spellCheck={false}
             rows={10}
-            className="border-input bg-background mt-1 block w-full rounded-md border px-3 py-2 font-mono text-xs shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="border-input bg-background focus-visible:ring-ring mt-1 block w-full rounded-md border px-3 py-2 font-mono text-xs shadow-sm focus-visible:outline-none focus-visible:ring-2"
             data-testid="chaos-preset-rules-input"
           />
           {parseResult.ok ? (

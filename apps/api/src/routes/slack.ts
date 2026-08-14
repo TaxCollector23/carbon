@@ -95,7 +95,11 @@ function loadConfig(opts: SlackRoutesOptions): Config {
     opts.redirectUri ??
     process.env.SLACK_REDIRECT_URI ??
     `${(process.env.API_PUBLIC_URL ?? 'http://localhost:4000').replace(/\/$/, '')}/v1/slack/oauth-callback`;
-  const dashboardUrl = (opts.dashboardUrl ?? process.env.DASHBOARD_URL ?? 'http://localhost:3001').replace(/\/$/, '');
+  const dashboardUrl = (
+    opts.dashboardUrl ??
+    process.env.DASHBOARD_URL ??
+    'http://localhost:3001'
+  ).replace(/\/$/, '');
   return { clientId, clientSecret, redirectUri, dashboardUrl };
 }
 
@@ -151,36 +155,40 @@ export async function registerSlackRoutes(
   // --------------------------------------------------------------------------
   // OAuth entry: bounce the browser to Slack.
   // --------------------------------------------------------------------------
-  app.get<{ Querystring: { orgId?: string; state?: string } }>('/v1/slack/install', {
-    schema: {
-      summary: 'Begin Slack app installation',
-      description:
-        'Redirects the caller to Slack\'s OAuth authorize page with the ' +
-        '`channels:read chat:write incoming-webhook` scopes. The `state` ' +
-        'parameter carries the org id back to the callback so the installation ' +
-        'is attributed correctly.',
+  app.get<{ Querystring: { orgId?: string; state?: string } }>(
+    '/v1/slack/install',
+    {
+      schema: {
+        summary: 'Begin Slack app installation',
+        description:
+          "Redirects the caller to Slack's OAuth authorize page with the " +
+          '`channels:read chat:write incoming-webhook` scopes. The `state` ' +
+          'parameter carries the org id back to the callback so the installation ' +
+          'is attributed correctly.',
+      },
     },
-  }, async (req, reply) => {
-    const cfg = loadConfig(opts);
-    if (!cfg.clientId) {
-      throw new CarbonError({
-        code: 'CARBON_INVALID_INPUT',
-        message: 'Slack integration is not configured on this server (SLACK_CLIENT_ID unset)',
-        expose: true,
+    async (req, reply) => {
+      const cfg = loadConfig(opts);
+      if (!cfg.clientId) {
+        throw new CarbonError({
+          code: 'CARBON_INVALID_INPUT',
+          message: 'Slack integration is not configured on this server (SLACK_CLIENT_ID unset)',
+          expose: true,
+        });
+      }
+      // Prefer session/api-key-derived org so a signed-in admin doesn't need to
+      // spoon-feed the query. Falls back to explicit ?orgId= for the dev flow.
+      const callerOrg = resolveCallerOrg(req, { mode: 'optional', queryOrg: req.query.orgId });
+      const state = req.query.state ?? `${callerOrg ?? 'unknown'}:${makeId('slk_state', 12)}`;
+      const url = slackInstallUrl({
+        clientId: cfg.clientId,
+        redirectUri: cfg.redirectUri,
+        state,
+        scopes: SLACK_OAUTH_SCOPES,
       });
-    }
-    // Prefer session/api-key-derived org so a signed-in admin doesn't need to
-    // spoon-feed the query. Falls back to explicit ?orgId= for the dev flow.
-    const callerOrg = resolveCallerOrg(req, { mode: 'optional', queryOrg: req.query.orgId });
-    const state = req.query.state ?? `${callerOrg ?? 'unknown'}:${makeId('slk_state', 12)}`;
-    const url = slackInstallUrl({
-      clientId: cfg.clientId,
-      redirectUri: cfg.redirectUri,
-      state,
-      scopes: SLACK_OAUTH_SCOPES,
-    });
-    reply.redirect(url, 302);
-  });
+      reply.redirect(url, 302);
+    },
+  );
 
   // --------------------------------------------------------------------------
   // OAuth callback: swap code → token, persist an installation row.
@@ -190,7 +198,8 @@ export async function registerSlackRoutes(
     {
       schema: {
         summary: 'Slack OAuth callback',
-        description: 'Exchanges the auth code for a bot token and stores an encrypted installation row.',
+        description:
+          'Exchanges the auth code for a bot token and stores an encrypted installation row.',
       },
     },
     async (req, reply) => {
@@ -213,7 +222,8 @@ export async function registerSlackRoutes(
       if (!cfg.clientId || !cfg.clientSecret) {
         throw new CarbonError({
           code: 'CARBON_INVALID_INPUT',
-          message: 'Slack integration is not configured (SLACK_CLIENT_ID / SLACK_CLIENT_SECRET unset)',
+          message:
+            'Slack integration is not configured (SLACK_CLIENT_ID / SLACK_CLIENT_SECRET unset)',
           expose: true,
         });
       }
@@ -306,225 +316,244 @@ export async function registerSlackRoutes(
   // --------------------------------------------------------------------------
   // List installations for the caller's org.
   // --------------------------------------------------------------------------
-  app.get('/v1/slack/installations', {
-    preHandler: requireScope('admin'),
-    schema: {
-      summary: 'List Slack installations for the caller\'s org',
-      response: { 200: zodResponse(InstallationListResponse) },
+  app.get(
+    '/v1/slack/installations',
+    {
+      preHandler: requireScope('admin'),
+      schema: {
+        summary: "List Slack installations for the caller's org",
+        response: { 200: zodResponse(InstallationListResponse) },
+      },
     },
-  }, async (req) => {
-    const orgId = resolveCallerOrg(req);
-    await requireAdminForOrg(ctx, req, orgId);
-    const rows = await ctx.db
-      .select({
-        id: schema.slackInstallations.id,
-        orgId: schema.slackInstallations.orgId,
-        teamId: schema.slackInstallations.teamId,
-        teamName: schema.slackInstallations.teamName,
-        botUserId: schema.slackInstallations.botUserId,
-        appId: schema.slackInstallations.appId,
-        installedBy: schema.slackInstallations.installedBy,
-        installedAt: schema.slackInstallations.installedAt,
-      })
-      .from(schema.slackInstallations)
-      .where(eq(schema.slackInstallations.orgId, orgId));
-    return {
-      data: rows.map((r) => ({
-        ...r,
-        installedAt:
-          r.installedAt instanceof Date ? r.installedAt.toISOString() : String(r.installedAt),
-      })),
-    };
-  });
+    async (req) => {
+      const orgId = resolveCallerOrg(req);
+      await requireAdminForOrg(ctx, req, orgId);
+      const rows = await ctx.db
+        .select({
+          id: schema.slackInstallations.id,
+          orgId: schema.slackInstallations.orgId,
+          teamId: schema.slackInstallations.teamId,
+          teamName: schema.slackInstallations.teamName,
+          botUserId: schema.slackInstallations.botUserId,
+          appId: schema.slackInstallations.appId,
+          installedBy: schema.slackInstallations.installedBy,
+          installedAt: schema.slackInstallations.installedAt,
+        })
+        .from(schema.slackInstallations)
+        .where(eq(schema.slackInstallations.orgId, orgId));
+      return {
+        data: rows.map((r) => ({
+          ...r,
+          installedAt:
+            r.installedAt instanceof Date ? r.installedAt.toISOString() : String(r.installedAt),
+        })),
+      };
+    },
+  );
 
   // --------------------------------------------------------------------------
   // List subscriptions for the caller's org (across all installations).
   // --------------------------------------------------------------------------
-  app.get('/v1/slack/subscriptions', {
-    preHandler: requireScope('admin'),
-    schema: {
-      summary: 'List Slack channel subscriptions for the caller\'s org',
-      response: { 200: zodResponse(SubscriptionListResponse) },
+  app.get(
+    '/v1/slack/subscriptions',
+    {
+      preHandler: requireScope('admin'),
+      schema: {
+        summary: "List Slack channel subscriptions for the caller's org",
+        response: { 200: zodResponse(SubscriptionListResponse) },
+      },
     },
-  }, async (req) => {
-    const orgId = resolveCallerOrg(req);
-    await requireAdminForOrg(ctx, req, orgId);
-    const installs = await ctx.db
-      .select({ id: schema.slackInstallations.id })
-      .from(schema.slackInstallations)
-      .where(eq(schema.slackInstallations.orgId, orgId));
-    const installIds = installs.map((i) => i.id);
-    if (installIds.length === 0) return { data: [] };
-    const rows = await ctx.db
-      .select()
-      .from(schema.slackChannelSubscriptions)
-      .where(inArray(schema.slackChannelSubscriptions.installationId, installIds));
-    return {
-      data: rows.map((r) => ({
-        id: r.id,
-        installationId: r.installationId,
-        channelId: r.channelId,
-        channelName: r.channelName,
-        events: r.events,
-        createdAt:
-          r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
-      })),
-    };
-  });
+    async (req) => {
+      const orgId = resolveCallerOrg(req);
+      await requireAdminForOrg(ctx, req, orgId);
+      const installs = await ctx.db
+        .select({ id: schema.slackInstallations.id })
+        .from(schema.slackInstallations)
+        .where(eq(schema.slackInstallations.orgId, orgId));
+      const installIds = installs.map((i) => i.id);
+      if (installIds.length === 0) return { data: [] };
+      const rows = await ctx.db
+        .select()
+        .from(schema.slackChannelSubscriptions)
+        .where(inArray(schema.slackChannelSubscriptions.installationId, installIds));
+      return {
+        data: rows.map((r) => ({
+          id: r.id,
+          installationId: r.installationId,
+          channelId: r.channelId,
+          channelName: r.channelName,
+          events: r.events,
+          createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
+        })),
+      };
+    },
+  );
 
   // --------------------------------------------------------------------------
   // Create a subscription.
   // --------------------------------------------------------------------------
-  app.post('/v1/slack/subscriptions', {
-    preHandler: requireScope('admin'),
-    schema: {
-      summary: 'Subscribe a Slack channel to org events',
-      body: zodBody(SubscriptionBody),
-      response: { 201: zodResponse(SubscriptionView) },
+  app.post(
+    '/v1/slack/subscriptions',
+    {
+      preHandler: requireScope('admin'),
+      schema: {
+        summary: 'Subscribe a Slack channel to org events',
+        body: zodBody(SubscriptionBody),
+        response: { 201: zodResponse(SubscriptionView) },
+      },
     },
-  }, async (req, reply) => {
-    const body = SubscriptionBody.parse(req.body ?? {});
-    const orgId = resolveCallerOrg(req);
-    await requireAdminForOrg(ctx, req, orgId);
+    async (req, reply) => {
+      const body = SubscriptionBody.parse(req.body ?? {});
+      const orgId = resolveCallerOrg(req);
+      await requireAdminForOrg(ctx, req, orgId);
 
-    const [install] = await ctx.db
-      .select({ id: schema.slackInstallations.id, orgId: schema.slackInstallations.orgId })
-      .from(schema.slackInstallations)
-      .where(eq(schema.slackInstallations.id, body.installationId))
-      .limit(1);
-    if (!install) throw new NotFoundError('slack_installation', body.installationId);
-    if (install.orgId !== orgId) {
-      throw new CarbonError({
-        code: 'CARBON_FORBIDDEN',
-        message: 'Installation belongs to a different organization',
-        expose: true,
+      const [install] = await ctx.db
+        .select({ id: schema.slackInstallations.id, orgId: schema.slackInstallations.orgId })
+        .from(schema.slackInstallations)
+        .where(eq(schema.slackInstallations.id, body.installationId))
+        .limit(1);
+      if (!install) throw new NotFoundError('slack_installation', body.installationId);
+      if (install.orgId !== orgId) {
+        throw new CarbonError({
+          code: 'CARBON_FORBIDDEN',
+          message: 'Installation belongs to a different organization',
+          expose: true,
+        });
+      }
+
+      const id = makeId('slksub');
+      const createdAt = new Date();
+      await ctx.db.insert(schema.slackChannelSubscriptions).values({
+        id,
+        installationId: body.installationId,
+        channelId: body.channelId,
+        channelName: body.channelName,
+        events: body.events,
+        createdAt,
       });
-    }
 
-    const id = makeId('slksub');
-    const createdAt = new Date();
-    await ctx.db.insert(schema.slackChannelSubscriptions).values({
-      id,
-      installationId: body.installationId,
-      channelId: body.channelId,
-      channelName: body.channelName,
-      events: body.events,
-      createdAt,
-    });
+      const actor = getActor(req);
+      await recordEvent(ctx, {
+        orgId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        action: 'slack_subscription.created',
+        metadata: { channelId: body.channelId, events: body.events },
+      });
 
-    const actor = getActor(req);
-    await recordEvent(ctx, {
-      orgId,
-      actorType: actor.actorType,
-      actorId: actor.actorId,
-      action: 'slack_subscription.created',
-      metadata: { channelId: body.channelId, events: body.events },
-    });
-
-    reply.status(201);
-    return {
-      id,
-      installationId: body.installationId,
-      channelId: body.channelId,
-      channelName: body.channelName,
-      events: body.events,
-      createdAt: createdAt.toISOString(),
-    };
-  });
+      reply.status(201);
+      return {
+        id,
+        installationId: body.installationId,
+        channelId: body.channelId,
+        channelName: body.channelName,
+        events: body.events,
+        createdAt: createdAt.toISOString(),
+      };
+    },
+  );
 
   // --------------------------------------------------------------------------
   // Delete a subscription.
   // --------------------------------------------------------------------------
-  app.delete<{ Params: { id: string } }>('/v1/slack/subscriptions/:id', {
-    preHandler: requireScope('admin'),
-    schema: { summary: 'Remove a Slack channel subscription' },
-  }, async (req, reply) => {
-    const orgId = resolveCallerOrg(req);
-    await requireAdminForOrg(ctx, req, orgId);
+  app.delete<{ Params: { id: string } }>(
+    '/v1/slack/subscriptions/:id',
+    {
+      preHandler: requireScope('admin'),
+      schema: { summary: 'Remove a Slack channel subscription' },
+    },
+    async (req, reply) => {
+      const orgId = resolveCallerOrg(req);
+      await requireAdminForOrg(ctx, req, orgId);
 
-    // Join through installation to enforce that the sub belongs to the caller's org.
-    const [row] = await ctx.db
-      .select({
-        id: schema.slackChannelSubscriptions.id,
-        orgId: schema.slackInstallations.orgId,
-      })
-      .from(schema.slackChannelSubscriptions)
-      .innerJoin(
-        schema.slackInstallations,
-        eq(schema.slackInstallations.id, schema.slackChannelSubscriptions.installationId),
-      )
-      .where(eq(schema.slackChannelSubscriptions.id, req.params.id))
-      .limit(1);
-    if (!row) throw new NotFoundError('slack_subscription', req.params.id);
-    if (row.orgId !== orgId) {
-      throw new CarbonError({
-        code: 'CARBON_FORBIDDEN',
-        message: 'Subscription belongs to a different organization',
-        expose: true,
+      // Join through installation to enforce that the sub belongs to the caller's org.
+      const [row] = await ctx.db
+        .select({
+          id: schema.slackChannelSubscriptions.id,
+          orgId: schema.slackInstallations.orgId,
+        })
+        .from(schema.slackChannelSubscriptions)
+        .innerJoin(
+          schema.slackInstallations,
+          eq(schema.slackInstallations.id, schema.slackChannelSubscriptions.installationId),
+        )
+        .where(eq(schema.slackChannelSubscriptions.id, req.params.id))
+        .limit(1);
+      if (!row) throw new NotFoundError('slack_subscription', req.params.id);
+      if (row.orgId !== orgId) {
+        throw new CarbonError({
+          code: 'CARBON_FORBIDDEN',
+          message: 'Subscription belongs to a different organization',
+          expose: true,
+        });
+      }
+      await ctx.db
+        .delete(schema.slackChannelSubscriptions)
+        .where(eq(schema.slackChannelSubscriptions.id, req.params.id));
+      const actor = getActor(req);
+      await recordEvent(ctx, {
+        orgId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        action: 'slack_subscription.deleted',
+        metadata: { id: req.params.id },
       });
-    }
-    await ctx.db
-      .delete(schema.slackChannelSubscriptions)
-      .where(eq(schema.slackChannelSubscriptions.id, req.params.id));
-    const actor = getActor(req);
-    await recordEvent(ctx, {
-      orgId,
-      actorType: actor.actorType,
-      actorId: actor.actorId,
-      action: 'slack_subscription.deleted',
-      metadata: { id: req.params.id },
-    });
-    reply.status(204).send();
-  });
+      reply.status(204).send();
+    },
+  );
 
   // --------------------------------------------------------------------------
   // Delete an installation — best-effort revoke on Slack, then hard-delete.
   // --------------------------------------------------------------------------
-  app.delete<{ Params: { id: string } }>('/v1/slack/installations/:id', {
-    preHandler: requireScope('admin'),
-    schema: { summary: 'Uninstall a Slack workspace integration' },
-  }, async (req, reply) => {
-    const orgId = resolveCallerOrg(req);
-    await requireAdminForOrg(ctx, req, orgId);
+  app.delete<{ Params: { id: string } }>(
+    '/v1/slack/installations/:id',
+    {
+      preHandler: requireScope('admin'),
+      schema: { summary: 'Uninstall a Slack workspace integration' },
+    },
+    async (req, reply) => {
+      const orgId = resolveCallerOrg(req);
+      await requireAdminForOrg(ctx, req, orgId);
 
-    const [row] = await ctx.db
-      .select()
-      .from(schema.slackInstallations)
-      .where(eq(schema.slackInstallations.id, req.params.id))
-      .limit(1);
-    if (!row) throw new NotFoundError('slack_installation', req.params.id);
-    if (row.orgId !== orgId) {
-      throw new CarbonError({
-        code: 'CARBON_FORBIDDEN',
-        message: 'Installation belongs to a different organization',
-        expose: true,
+      const [row] = await ctx.db
+        .select()
+        .from(schema.slackInstallations)
+        .where(eq(schema.slackInstallations.id, req.params.id))
+        .limit(1);
+      if (!row) throw new NotFoundError('slack_installation', req.params.id);
+      if (row.orgId !== orgId) {
+        throw new CarbonError({
+          code: 'CARBON_FORBIDDEN',
+          message: 'Installation belongs to a different organization',
+          expose: true,
+        });
+      }
+
+      try {
+        const token = decryptSlackToken(row.accessToken);
+        await slackApi.revoke({ token });
+      } catch (err) {
+        // Slack revoke is best-effort — if it fails we still want to delete the
+        // local row so a broken install can be cleaned up.
+        ctx.logger.warn('slack.revoke_failed', {
+          id: req.params.id,
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+
+      await ctx.db
+        .delete(schema.slackInstallations)
+        .where(eq(schema.slackInstallations.id, req.params.id));
+
+      const actor = getActor(req);
+      await recordEvent(ctx, {
+        orgId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        action: 'slack_installation.deleted',
+        metadata: { id: req.params.id, teamId: row.teamId },
       });
-    }
-
-    try {
-      const token = decryptSlackToken(row.accessToken);
-      await slackApi.revoke({ token });
-    } catch (err) {
-      // Slack revoke is best-effort — if it fails we still want to delete the
-      // local row so a broken install can be cleaned up.
-      ctx.logger.warn('slack.revoke_failed', {
-        id: req.params.id,
-        message: err instanceof Error ? err.message : String(err),
-      });
-    }
-
-    await ctx.db
-      .delete(schema.slackInstallations)
-      .where(eq(schema.slackInstallations.id, req.params.id));
-
-    const actor = getActor(req);
-    await recordEvent(ctx, {
-      orgId,
-      actorType: actor.actorType,
-      actorId: actor.actorId,
-      action: 'slack_installation.deleted',
-      metadata: { id: req.params.id, teamId: row.teamId },
-    });
-    reply.status(204).send();
-  });
+      reply.status(204).send();
+    },
+  );
 }

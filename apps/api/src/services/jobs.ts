@@ -18,6 +18,8 @@ export interface JobRecord {
   /** Epoch-ms of the next retry attempt, or null if not currently retryable. */
   readonly nextAttemptAt: number | null;
   readonly deadLetter: boolean;
+  /** Internal retry metadata. Route handlers must strip this from public responses. */
+  readonly meta?: Record<string, unknown>;
 }
 
 /**
@@ -40,6 +42,7 @@ export interface JobRecord {
 export interface JobService {
   create(kind: string, meta?: Record<string, unknown>): Promise<JobRecord>;
   get(id: string): Promise<JobRecord>;
+  setMeta(id: string, meta: Record<string, unknown>): Promise<JobRecord>;
   update(
     id: string,
     patch: { status: JobStatus; result?: unknown; error?: string },
@@ -91,6 +94,17 @@ export function backoffMs(attempts: number): number {
 }
 
 function hydrate(row: Record<string, string>): JobRecord {
+  let meta: Record<string, unknown> | undefined;
+  if (row.meta) {
+    try {
+      const parsed = JSON.parse(row.meta) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        meta = parsed as Record<string, unknown>;
+      }
+    } catch {
+      meta = undefined;
+    }
+  }
   return {
     id: row.id ?? '',
     kind: row.kind ?? '',
@@ -104,6 +118,7 @@ function hydrate(row: Record<string, string>): JobRecord {
     maxAttempts: Number(row.maxAttempts ?? DEFAULT_MAX_ATTEMPTS),
     nextAttemptAt: row.nextAttemptAt ? Number(row.nextAttemptAt) : null,
     deadLetter: row.deadLetter === '1',
+    meta,
   };
 }
 
@@ -153,10 +168,24 @@ export function createJobService(deps: {
         maxAttempts,
         nextAttemptAt: null,
         deadLetter: false,
+        meta,
       };
     },
 
     async get(id) {
+      return hydrate(await fetchRow(id));
+    },
+
+    async setMeta(id, meta) {
+      const now = Date.now();
+      await deps.redis
+        .multi()
+        .hset(`${PREFIX}:${id}`, {
+          meta: JSON.stringify(meta),
+          updatedAt: String(now),
+        })
+        .expire(`${PREFIX}:${id}`, TTL_SEC)
+        .exec();
       return hydrate(await fetchRow(id));
     },
 
@@ -256,13 +285,7 @@ export function createJobService(deps: {
       // bounded; if this ever hurts we'll add a `carbon:job:index:by-org`
       // sorted set.
       do {
-        const [next, keys] = await deps.redis.scan(
-          cursor,
-          'MATCH',
-          `${PREFIX}:*`,
-          'COUNT',
-          200,
-        );
+        const [next, keys] = await deps.redis.scan(cursor, 'MATCH', `${PREFIX}:*`, 'COUNT', 200);
         cursor = next;
         for (const key of keys) {
           const row = await deps.redis.hgetall(key);
@@ -294,13 +317,7 @@ export function createJobService(deps: {
       // not need a secondary sorted-set index for the volumes we ship with.
       let cursor = '0';
       do {
-        const [next, keys] = await deps.redis.scan(
-          cursor,
-          'MATCH',
-          `${PREFIX}:*`,
-          'COUNT',
-          200,
-        );
+        const [next, keys] = await deps.redis.scan(cursor, 'MATCH', `${PREFIX}:*`, 'COUNT', 200);
         cursor = next;
         for (const key of keys) {
           const row = await deps.redis.hgetall(key);

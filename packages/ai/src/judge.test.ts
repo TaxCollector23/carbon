@@ -8,7 +8,12 @@ import type {
 } from '@carbon/types';
 import type { z } from 'zod';
 import { AiJudge, type JudgeVerdict } from './judge.js';
-import type { AiProvider, CompletionRequest, CompletionResponse, StructuredRequest } from './provider.js';
+import type {
+  AiProvider,
+  CompletionRequest,
+  CompletionResponse,
+  StructuredRequest,
+} from './provider.js';
 
 const customerId = 'customer' as ResourceId;
 const orderId = 'order' as ResourceId;

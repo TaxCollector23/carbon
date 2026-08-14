@@ -8,11 +8,7 @@ interface SectionProps extends React.HTMLAttributes<HTMLElement> {
 export function Section({ className, bordered = true, children, ...props }: SectionProps) {
   return (
     <section
-      className={cn(
-        'border-border relative scroll-mt-20 border-x',
-        bordered && 'border-t',
-        className,
-      )}
+      className={cn('relative scroll-mt-20', bordered && 'border-border border-t', className)}
       {...props}
     >
       {/*

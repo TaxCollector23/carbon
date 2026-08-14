@@ -8,118 +8,334 @@
   "servers": [{ "url": "https://api.stripe.com" }],
   "paths": {
     "/v1/customers": {
-      "get": { "tags": ["customers"], "summary": "List customers", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["customers"], "summary": "Create customer", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["customers"],
+        "summary": "List customers",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["customers"],
+        "summary": "Create customer",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/v1/customers/{id}": {
-      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "get": { "tags": ["customers"], "summary": "Retrieve customer", "responses": { "200": { "description": "ok" }, "404": { "description": "not found" } } },
-      "post": { "tags": ["customers"], "summary": "Update customer", "responses": { "200": { "description": "ok" } } },
-      "delete": { "tags": ["customers"], "summary": "Delete customer", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "tags": ["customers"],
+        "summary": "Retrieve customer",
+        "responses": { "200": { "description": "ok" }, "404": { "description": "not found" } }
+      },
+      "post": {
+        "tags": ["customers"],
+        "summary": "Update customer",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "delete": {
+        "tags": ["customers"],
+        "summary": "Delete customer",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/v1/payment_methods": {
-      "get": { "tags": ["payment_methods"], "summary": "List payment methods", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["payment_methods"], "summary": "Create payment method", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["payment_methods"],
+        "summary": "List payment methods",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["payment_methods"],
+        "summary": "Create payment method",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/v1/payment_methods/{id}": {
-      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "get": { "tags": ["payment_methods"], "summary": "Retrieve payment method", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["payment_methods"], "summary": "Update payment method", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "tags": ["payment_methods"],
+        "summary": "Retrieve payment method",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["payment_methods"],
+        "summary": "Update payment method",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/v1/payment_methods/{id}/attach": {
-      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "post": { "tags": ["payment_methods"], "summary": "Attach payment method", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "post": {
+        "tags": ["payment_methods"],
+        "summary": "Attach payment method",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/v1/payment_methods/{id}/detach": {
-      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "post": { "tags": ["payment_methods"], "summary": "Detach payment method", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "post": {
+        "tags": ["payment_methods"],
+        "summary": "Detach payment method",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/v1/payment_intents": {
-      "get": { "tags": ["payment_intents"], "summary": "List payment intents", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["payment_intents"], "summary": "Create payment intent", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["payment_intents"],
+        "summary": "List payment intents",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["payment_intents"],
+        "summary": "Create payment intent",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/v1/payment_intents/{id}": {
-      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "get": { "tags": ["payment_intents"], "summary": "Retrieve payment intent", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["payment_intents"], "summary": "Update payment intent", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "tags": ["payment_intents"],
+        "summary": "Retrieve payment intent",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["payment_intents"],
+        "summary": "Update payment intent",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/v1/payment_intents/{id}/confirm": {
-      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "post": { "tags": ["payment_intents"], "summary": "Confirm payment intent", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "post": {
+        "tags": ["payment_intents"],
+        "summary": "Confirm payment intent",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/v1/payment_intents/{id}/cancel": {
-      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "post": { "tags": ["payment_intents"], "summary": "Cancel payment intent", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "post": {
+        "tags": ["payment_intents"],
+        "summary": "Cancel payment intent",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/v1/payment_intents/{id}/capture": {
-      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "post": { "tags": ["payment_intents"], "summary": "Capture payment intent", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "post": {
+        "tags": ["payment_intents"],
+        "summary": "Capture payment intent",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/v1/charges": {
-      "get": { "tags": ["charges"], "summary": "List charges", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["charges"], "summary": "Create charge", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["charges"],
+        "summary": "List charges",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["charges"],
+        "summary": "Create charge",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/v1/charges/{id}": {
-      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "get": { "tags": ["charges"], "summary": "Retrieve charge", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "tags": ["charges"],
+        "summary": "Retrieve charge",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/v1/refunds": {
-      "get": { "tags": ["refunds"], "summary": "List refunds", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["refunds"], "summary": "Create refund", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["refunds"],
+        "summary": "List refunds",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["refunds"],
+        "summary": "Create refund",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/v1/refunds/{id}": {
-      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "get": { "tags": ["refunds"], "summary": "Retrieve refund", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "tags": ["refunds"],
+        "summary": "Retrieve refund",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/v1/products": {
-      "get": { "tags": ["products"], "summary": "List products", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["products"], "summary": "Create product", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["products"],
+        "summary": "List products",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["products"],
+        "summary": "Create product",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/v1/products/{id}": {
-      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "get": { "tags": ["products"], "summary": "Retrieve product", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["products"], "summary": "Update product", "responses": { "200": { "description": "ok" } } },
-      "delete": { "tags": ["products"], "summary": "Delete product", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "tags": ["products"],
+        "summary": "Retrieve product",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["products"],
+        "summary": "Update product",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "delete": {
+        "tags": ["products"],
+        "summary": "Delete product",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/v1/prices": {
-      "get": { "tags": ["prices"], "summary": "List prices", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["prices"], "summary": "Create price", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["prices"],
+        "summary": "List prices",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["prices"],
+        "summary": "Create price",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/v1/prices/{id}": {
-      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "get": { "tags": ["prices"], "summary": "Retrieve price", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "tags": ["prices"],
+        "summary": "Retrieve price",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/v1/subscriptions": {
-      "get": { "tags": ["subscriptions"], "summary": "List subscriptions", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["subscriptions"], "summary": "Create subscription", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["subscriptions"],
+        "summary": "List subscriptions",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["subscriptions"],
+        "summary": "Create subscription",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/v1/subscriptions/{id}": {
-      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "get": { "tags": ["subscriptions"], "summary": "Retrieve subscription", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["subscriptions"], "summary": "Update subscription", "responses": { "200": { "description": "ok" } } },
-      "delete": { "tags": ["subscriptions"], "summary": "Cancel subscription", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "tags": ["subscriptions"],
+        "summary": "Retrieve subscription",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["subscriptions"],
+        "summary": "Update subscription",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "delete": {
+        "tags": ["subscriptions"],
+        "summary": "Cancel subscription",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/v1/invoices": {
-      "get": { "tags": ["invoices"], "summary": "List invoices", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["invoices"], "summary": "Create invoice", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["invoices"],
+        "summary": "List invoices",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["invoices"],
+        "summary": "Create invoice",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/v1/invoices/{id}": {
-      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "get": { "tags": ["invoices"], "summary": "Retrieve invoice", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["invoices"], "summary": "Update invoice", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "tags": ["invoices"],
+        "summary": "Retrieve invoice",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["invoices"],
+        "summary": "Update invoice",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/v1/invoices/{id}/pay": {
-      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "post": { "tags": ["invoices"], "summary": "Pay invoice", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "post": {
+        "tags": ["invoices"],
+        "summary": "Pay invoice",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/v1/webhook_endpoints": {
-      "get": { "tags": ["webhook_endpoints"], "summary": "List webhook endpoints", "responses": { "200": { "description": "ok" } } },
-      "post": { "tags": ["webhook_endpoints"], "summary": "Create webhook endpoint", "responses": { "200": { "description": "ok" } } }
+      "get": {
+        "tags": ["webhook_endpoints"],
+        "summary": "List webhook endpoints",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "post": {
+        "tags": ["webhook_endpoints"],
+        "summary": "Create webhook endpoint",
+        "responses": { "200": { "description": "ok" } }
+      }
     },
     "/v1/webhook_endpoints/{id}": {
-      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
-      "get": { "tags": ["webhook_endpoints"], "summary": "Retrieve webhook endpoint", "responses": { "200": { "description": "ok" } } },
-      "delete": { "tags": ["webhook_endpoints"], "summary": "Delete webhook endpoint", "responses": { "200": { "description": "ok" } } }
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "tags": ["webhook_endpoints"],
+        "summary": "Retrieve webhook endpoint",
+        "responses": { "200": { "description": "ok" } }
+      },
+      "delete": {
+        "tags": ["webhook_endpoints"],
+        "summary": "Delete webhook endpoint",
+        "responses": { "200": { "description": "ok" } }
+      }
     }
   }
 }

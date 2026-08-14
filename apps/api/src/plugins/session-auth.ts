@@ -81,9 +81,7 @@ export async function registerSessionAuth(app: FastifyInstance, ctx: AppContext)
     let chosen: { orgId: string; role: 'owner' | 'admin' | 'member' } | undefined;
     if (memberships.length > 0) {
       const requested = requestedOrgId(req);
-      const requestedMatch = requested
-        ? memberships.find((m) => m.orgId === requested)
-        : undefined;
+      const requestedMatch = requested ? memberships.find((m) => m.orgId === requested) : undefined;
       chosen = requestedMatch ?? memberships[0];
     }
 

@@ -181,10 +181,9 @@ export function redactRedisUrl(raw: string | undefined): string | undefined {
  * own retry/backoff policy kicks in; the final failure is what the client
  * sees on the status hash.
  */
-export function registerIngestWorker(opts: RegisterIngestWorkerOptions): Worker<
-  IngestJobPayload,
-  IngestJobResult
-> {
+export function registerIngestWorker(
+  opts: RegisterIngestWorkerOptions,
+): Worker<IngestJobPayload, IngestJobResult> {
   const concurrency = opts.concurrency ?? 4;
   const logger = opts.logger.child({ component: 'ingest-worker' });
   const metrics = opts.metrics;
@@ -308,20 +307,47 @@ export function registerIngestWorker(opts: RegisterIngestWorkerOptions): Worker<
 export function createRedisIngestJobStatusWriter(deps: { redis: Redis }): IngestJobStatusWriter {
   const PREFIX = 'carbon:job';
   const TTL_SEC = 60 * 60 * 24;
+  const DEFAULT_MAX_ATTEMPTS = 5;
+  const MAX_BACKOFF_MS = 5 * 60 * 1000;
   return {
     async update(id, patch) {
       const now = Date.now();
+      const existing = await deps.redis.hgetall(`${PREFIX}:${id}`);
+      const previousStatus = existing.status ?? 'queued';
+      let attempts = Number(existing.attempts ?? 0);
+      const maxAttempts = Number(existing.maxAttempts ?? DEFAULT_MAX_ATTEMPTS);
+      let clearNextAttempt = false;
       const fields: Record<string, string> = {
         status: patch.status,
         updatedAt: String(now),
       };
       if (patch.result !== undefined) fields.result = JSON.stringify(patch.result);
       if (patch.error !== undefined) fields.error = patch.error;
-      await deps.redis
-        .multi()
-        .hset(`${PREFIX}:${id}`, fields)
-        .expire(`${PREFIX}:${id}`, TTL_SEC)
-        .exec();
+
+      if (patch.status === 'running' && previousStatus !== 'running') {
+        attempts += 1;
+        fields.attempts = String(attempts);
+        clearNextAttempt = true;
+      } else if (patch.status === 'failed') {
+        if (attempts >= maxAttempts) {
+          fields.deadLetter = '1';
+          clearNextAttempt = true;
+        } else {
+          fields.nextAttemptAt = String(now + retryBackoffMs(attempts, MAX_BACKOFF_MS));
+        }
+      } else if (patch.status === 'succeeded' || patch.status === 'needs_review') {
+        clearNextAttempt = true;
+      }
+
+      const multi = deps.redis.multi().hset(`${PREFIX}:${id}`, fields);
+      if (clearNextAttempt) multi.hdel(`${PREFIX}:${id}`, 'nextAttemptAt');
+      await multi.expire(`${PREFIX}:${id}`, TTL_SEC).exec();
     },
   };
+}
+
+function retryBackoffMs(attempts: number, capMs: number): number {
+  const base = Math.min(2 ** Math.max(0, attempts) * 1000, capMs);
+  const jitter = base * (0.5 + Math.random());
+  return Math.min(Math.floor(jitter), capMs);
 }

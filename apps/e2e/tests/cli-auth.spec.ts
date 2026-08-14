@@ -24,14 +24,15 @@ test('cli-auth session page renders the approval UI or redirects to /sign-in', a
 
   await Promise.race([
     approval.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => null),
-    page
-      .waitForURL(/\/sign-in(\?|$)/, { timeout: 15_000 })
-      .catch(() => null),
+    page.waitForURL(/\/sign-in(\?|$)/, { timeout: 15_000 }).catch(() => null),
   ]);
 
   const approved = await approval.isVisible().catch(() => false);
   const onSignIn = /\/sign-in/.test(page.url());
   // If neither, at least the page shell rendered without a 500.
-  const alive = await signInMarker.first().isVisible().catch(() => false);
+  const alive = await signInMarker
+    .first()
+    .isVisible()
+    .catch(() => false);
   expect(approved || onSignIn || alive).toBeTruthy();
 });

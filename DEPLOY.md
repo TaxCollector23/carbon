@@ -286,14 +286,14 @@ GRAFANA_TOKEN=<api-key> scripts/observability/import-grafana.sh https://grafana.
 
 ### Health endpoints
 
-| Endpoint             | Purpose                                                          | Auth              |
-| -------------------- | ---------------------------------------------------------------- | ----------------- |
-| `/health`            | Liveness probe (process is up, no dependency checks)             | none              |
-| `/v1/health/live`    | Alias of `/health` for callers that prefer the versioned path    | none              |
-| `/ready`             | Readiness probe (DB + Redis + storage, cached 2s)                | none              |
-| `/v1/health/deep`    | Per-dependency latency + status for on-call triage               | admin-scoped key  |
-| `/v1/version`        | Build metadata (gitSha, buildTime, plans, feature toggles)       | none              |
-| `/metrics`           | Prometheus text format                                           | optional bearer   |
+| Endpoint          | Purpose                                                       | Auth             |
+| ----------------- | ------------------------------------------------------------- | ---------------- |
+| `/health`         | Liveness probe (process is up, no dependency checks)          | none             |
+| `/v1/health/live` | Alias of `/health` for callers that prefer the versioned path | none             |
+| `/ready`          | Readiness probe (DB + Redis + storage, cached 2s)             | none             |
+| `/v1/health/deep` | Per-dependency latency + status for on-call triage            | admin-scoped key |
+| `/v1/version`     | Build metadata (gitSha, buildTime, plans, feature toggles)    | none             |
+| `/metrics`        | Prometheus text format                                        | optional bearer  |
 
 ## Compliance exports
 
@@ -334,7 +334,7 @@ review window rather than reusing a standing admin credential.
 The public install command is:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/carbon-dev/carbon/master/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/TaxCollector23/carbon/master/install.sh | sh
 ```
 
-The npm package name is `carbon-dev`, and the installed command is `carbon` (`carbon-dev` and `carbon-api` are also linked as aliases).
+The npm package name is `carbon-api`, and the installed command is `carbon` (`carbon-api` and `carbon-dev` are also linked as aliases).

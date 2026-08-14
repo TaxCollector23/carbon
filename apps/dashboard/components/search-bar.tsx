@@ -69,12 +69,12 @@ function groupResults(results: SearchResult[]): Group[] {
 function hrefFor(r: SearchResult): string {
   switch (r.kind) {
     case 'project':
-      return `/projects/${encodeURIComponent(r.id)}`;
+      return `/projects?highlight=${encodeURIComponent(r.id)}`;
     case 'artifact':
-      return `/artifacts/${encodeURIComponent(r.id)}`;
+      return `/snapshots?highlight=${encodeURIComponent(r.id)}`;
     case 'event':
     default:
-      return `/events?highlight=${encodeURIComponent(r.id)}`;
+      return `/activity?highlight=${encodeURIComponent(r.id)}`;
   }
 }
 
@@ -260,7 +260,7 @@ export function SearchBar() {
                 placeholder="Search projects, events, snapshots…"
                 aria-label="Search projects, events, and snapshots"
                 data-testid="search-input"
-                className="h-14 w-full bg-transparent text-base outline-none placeholder:text-muted-foreground"
+                className="placeholder:text-muted-foreground h-14 w-full bg-transparent text-base outline-none"
               />
             </div>
             <div className="max-h-[60vh] overflow-y-auto" data-testid="search-results">

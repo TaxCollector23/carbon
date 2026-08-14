@@ -65,113 +65,121 @@ const ListQuery = z.object({
 });
 
 export async function registerProjectRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
-  app.get('/v1/projects', {
-    preHandler: requireScope('read'),
-    schema: {
-      summary: 'List projects',
-      description:
-        'Return projects visible to the caller, ordered by id. Uses a limit+1 ' +
-        'cursor pagination scheme; a stable `nextCursor` continues the scan on the next call. ' +
-        '`total` is only computed when `includeTotal=true` and only on the first page.',
-      querystring: zodQuery(ListQuery),
-      response: {
-        200: zodResponseWithExample(ProjectListResponse, {
-          data: [
-            {
-              id: 'prj_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
-              orgId: 'org_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
-              slug: 'checkout-api',
-              name: 'Checkout API',
-              createdAt: '2025-11-14T18:22:41.000Z',
-              updatedAt: '2025-11-14T18:22:41.000Z',
-            },
-          ],
-          nextCursor: null,
-          hasMore: false,
-          total: 1,
-        }),
+  app.get(
+    '/v1/projects',
+    {
+      preHandler: requireScope('read'),
+      schema: {
+        summary: 'List projects',
+        description:
+          'Return projects visible to the caller, ordered by id. Uses a limit+1 ' +
+          'cursor pagination scheme; a stable `nextCursor` continues the scan on the next call. ' +
+          '`total` is only computed when `includeTotal=true` and only on the first page.',
+        querystring: zodQuery(ListQuery),
+        response: {
+          200: zodResponseWithExample(ProjectListResponse, {
+            data: [
+              {
+                id: 'prj_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+                orgId: 'org_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+                slug: 'checkout-api',
+                name: 'Checkout API',
+                createdAt: '2025-11-14T18:22:41.000Z',
+                updatedAt: '2025-11-14T18:22:41.000Z',
+              },
+            ],
+            nextCursor: null,
+            hasMore: false,
+            total: 1,
+          }),
+        },
       },
     },
-  }, async (req) => {
-    const { limit, cursor, orgId: queryOrgId, includeTotal } = ListQuery.parse(req.query);
-    const orgId = requestOrgId(req, queryOrgId);
-    const conditions = [];
-    if (cursor) conditions.push(gt(schema.projects.id, cursor));
-    if (orgId) conditions.push(eq(schema.projects.orgId, orgId));
+    async (req) => {
+      const { limit, cursor, orgId: queryOrgId, includeTotal } = ListQuery.parse(req.query);
+      const orgId = requestOrgId(req, queryOrgId);
+      const conditions = [];
+      if (cursor) conditions.push(gt(schema.projects.id, cursor));
+      if (orgId) conditions.push(eq(schema.projects.orgId, orgId));
 
-    // Fetch limit+1 to determine if there's a next page — a common idiom that
-    // avoids the extra COUNT round-trip for hot list endpoints.
-    let query = ctx.db
-      .select()
-      .from(schema.projects)
-      .orderBy(asc(schema.projects.id))
-      .limit(limit + 1)
-      .$dynamic();
-    if (conditions.length > 0) query = query.where(and(...conditions));
-    const rows = await query;
+      // Fetch limit+1 to determine if there's a next page — a common idiom that
+      // avoids the extra COUNT round-trip for hot list endpoints.
+      let query = ctx.db
+        .select()
+        .from(schema.projects)
+        .orderBy(asc(schema.projects.id))
+        .limit(limit + 1)
+        .$dynamic();
+      if (conditions.length > 0) query = query.where(and(...conditions));
+      const rows = await query;
 
-    const hasMore = rows.length > limit;
-    const items = hasMore ? rows.slice(0, limit) : rows;
-    const nextCursor = hasMore ? (items[items.length - 1]?.id ?? null) : null;
+      const hasMore = rows.length > limit;
+      const items = hasMore ? rows.slice(0, limit) : rows;
+      const nextCursor = hasMore ? (items[items.length - 1]?.id ?? null) : null;
 
-    // COUNT(*) scans the whole table and cannot use the cursor, so it costs
-    // the same on page 50 as on page 1 while the caller almost never reads it
-    // twice. Compute it only when asked for, and only on the first page.
-    const total = includeTotal && !cursor ? await countProjects(ctx, orgId) : null;
+      // COUNT(*) scans the whole table and cannot use the cursor, so it costs
+      // the same on page 50 as on page 1 while the caller almost never reads it
+      // twice. Compute it only when asked for, and only on the first page.
+      const total = includeTotal && !cursor ? await countProjects(ctx, orgId) : null;
 
-    return { data: items, nextCursor, hasMore, total };
-  });
+      return { data: items, nextCursor, hasMore, total };
+    },
+  );
 
-  app.post('/v1/projects', {
-    preHandler: requireScope('write'),
-    schema: {
-      summary: 'Create a project',
-      description:
-        'Create a new project under the caller\'s organization. The slug must be unique per org and ' +
-        'follow the same restricted grammar the path-param routes accept.',
-      body: zodBodyWithExample(CreateProjectBody, {
-        slug: 'checkout-api',
-        name: 'Checkout API',
-      }),
-      response: {
-        201: zodResponseWithExample(ProjectSchema, {
-          id: 'prj_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
-          orgId: 'org_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+  app.post(
+    '/v1/projects',
+    {
+      preHandler: requireScope('write'),
+      schema: {
+        summary: 'Create a project',
+        description:
+          "Create a new project under the caller's organization. The slug must be unique per org and " +
+          'follow the same restricted grammar the path-param routes accept.',
+        body: zodBodyWithExample(CreateProjectBody, {
           slug: 'checkout-api',
           name: 'Checkout API',
-          createdAt: '2025-11-14T18:22:41.000Z',
         }),
+        response: {
+          201: zodResponseWithExample(ProjectSchema, {
+            id: 'prj_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+            orgId: 'org_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+            slug: 'checkout-api',
+            name: 'Checkout API',
+            createdAt: '2025-11-14T18:22:41.000Z',
+          }),
+        },
       },
     },
-  }, async (req, reply) => {
-    const body = CreateProjectBody.parse(req.body);
-    const orgId = requestOrgId(req, body.orgId);
-    if (!orgId) {
-      throw new CarbonError({
-        code: 'CARBON_INVALID_INPUT',
-        message: 'orgId is required when API auth is disabled',
-        expose: true,
+    async (req, reply) => {
+      const body = CreateProjectBody.parse(req.body);
+      const orgId = requestOrgId(req, body.orgId);
+      if (!orgId) {
+        throw new CarbonError({
+          code: 'CARBON_INVALID_INPUT',
+          message: 'orgId is required when API auth is disabled',
+          expose: true,
+        });
+      }
+      const id = makeId('prj');
+      await ctx.db.insert(schema.projects).values({
+        id,
+        orgId,
+        slug: body.slug,
+        name: body.name,
       });
-    }
-    const id = makeId('prj');
-    await ctx.db.insert(schema.projects).values({
-      id,
-      orgId,
-      slug: body.slug,
-      name: body.name,
-    });
-    const actor = getActor(req);
-    await recordEvent(ctx, {
-      orgId,
-      projectId: id,
-      actorType: actor.actorType,
-      actorId: actor.actorId,
-      action: 'project.created',
-      metadata: { slug: body.slug, name: body.name },
-    });
-    reply.status(201);
-    return { id, ...body, orgId };
-  });
+      const actor = getActor(req);
+      await recordEvent(ctx, {
+        orgId,
+        projectId: id,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        action: 'project.created',
+        metadata: { slug: body.slug, name: body.name },
+      });
+      reply.status(201);
+      return { id, ...body, orgId };
+    },
+  );
 
   app.get<{ Params: { id: string } }>(
     '/v1/projects/:id',
@@ -179,19 +187,20 @@ export async function registerProjectRoutes(app: FastifyInstance, ctx: AppContex
       preHandler: requireScope('read'),
       schema: {
         summary: 'Get a project',
-        description: 'Look up a single project by id. Returns 404 if the project is not visible to the caller\'s org.',
+        description:
+          "Look up a single project by id. Returns 404 if the project is not visible to the caller's org.",
         params: zodQuery(z.object({ id: z.string() })),
         response: { 200: zodResponse(ProjectSchema) },
       },
     },
     async (req) => {
-    const orgId = requestOrgId(req);
-    const where = orgId
-      ? and(eq(schema.projects.id, req.params.id), eq(schema.projects.orgId, orgId))
-      : eq(schema.projects.id, req.params.id);
-    const [row] = await ctx.db.select().from(schema.projects).where(where).limit(1);
-    if (!row) throw new NotFoundError('project', req.params.id);
-    return row;
+      const orgId = requestOrgId(req);
+      const where = orgId
+        ? and(eq(schema.projects.id, req.params.id), eq(schema.projects.orgId, orgId))
+        : eq(schema.projects.id, req.params.id);
+      const [row] = await ctx.db.select().from(schema.projects).where(where).limit(1);
+      if (!row) throw new NotFoundError('project', req.params.id);
+      return row;
     },
   );
 
@@ -205,7 +214,8 @@ export async function registerProjectRoutes(app: FastifyInstance, ctx: AppContex
       preHandler: requireScope('read'),
       schema: {
         summary: 'List project members',
-        description: 'Return every explicit ACL row for the project. Absent rows mean the org-wide default access applies.',
+        description:
+          'Return every explicit ACL row for the project. Absent rows mean the org-wide default access applies.',
         response: { 200: zodResponse(z.object({ data: z.array(ProjectMemberSchema) })) },
       },
     },
@@ -225,7 +235,8 @@ export async function registerProjectRoutes(app: FastifyInstance, ctx: AppContex
       preHandler: requireScope('write'),
       schema: {
         summary: 'Add a project member',
-        description: 'Grant a specific user access to the project at the requested role. Duplicate calls are idempotent.',
+        description:
+          'Grant a specific user access to the project at the requested role. Duplicate calls are idempotent.',
         body: zodBody(MemberBody),
         response: { 201: zodResponse(ProjectMemberSchema) },
       },

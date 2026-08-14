@@ -30,12 +30,12 @@ custom presets:
 ```bash
 # List available presets for the current org
 curl -H "x-carbon-key: $CARBON_API_KEY" \
-  https://api.carbon.dev/v1/chaos-presets
+  <api-origin>/v1/chaos-presets
 
 # Create a custom preset
 curl -X POST -H "x-carbon-key: $CARBON_API_KEY" \
   -H "content-type: application/json" \
-  https://api.carbon.dev/v1/chaos-presets \
+  <api-origin>/v1/chaos-presets \
   -d '{"name":"flaky-writes","kind":"error","config":{"routes":["POST /*"],"rate":0.1,"status":503}}'
 ```
 

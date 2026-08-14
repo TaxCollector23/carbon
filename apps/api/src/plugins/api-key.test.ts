@@ -51,7 +51,7 @@ function makeCtx(rows: KeyRow[] | null, onTouch?: () => void): AppContext {
 
 async function buildApp(
   rows: KeyRow[] | null,
-  opts: { onTouch?: () => void; publicPaths?: string[] } = {},
+  opts: { onTouch?: () => void; publicPaths?: string[]; sessionUser?: unknown } = {},
 ): Promise<FastifyInstance> {
   const app = Fastify();
   // Mirror the real error handler so 401s surface as 401 instead of 500.
@@ -65,6 +65,11 @@ async function buildApp(
     });
   });
   const ctx = makeCtx(rows, opts.onTouch);
+  if (opts.sessionUser) {
+    app.addHook('onRequest', async (req) => {
+      (req as { sessionUser?: unknown }).sessionUser = opts.sessionUser;
+    });
+  }
   await registerApiKeyAuth(app, ctx, { mode: 'enforced', publicPaths: opts.publicPaths });
   app.get('/v1/protected', async () => ({ ok: true }));
   app.get('/health', async () => ({ ok: true }));
@@ -99,6 +104,37 @@ describe('api key auth', () => {
       headers: { 'x-carbon-key': `ck_live_${validPrefix}.${validSecret}` },
     });
     expect(res.statusCode).toBe(200);
+  });
+
+  it('accepts an API key sent as Authorization: Bearer for generated clients', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/v1/protected',
+      headers: { authorization: `Bearer ck_live_${validPrefix}.${validSecret}` },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['x-carbon-key-prefix']).toBe(validPrefix);
+  });
+
+  it('lets a verified Better Auth session continue without an API key', async () => {
+    const sessionApp = await buildApp(
+      [{ id: 'key_1', hash: validHash, prefix: validPrefix, orgId: 'org_1' }],
+      { sessionUser: { id: 'user_1', email: 'user@example.com', orgId: 'org_1', role: 'admin' } },
+    );
+    const res = await sessionApp.inject({
+      method: 'GET',
+      url: '/v1/protected',
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('rejects a non-Carbon bearer token when no session hook verified it', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/v1/protected',
+      headers: { authorization: 'Bearer better-auth-session-token' },
+    });
+    expect(res.statusCode).toBe(401);
   });
 
   it('rejects a wrong secret with the correct prefix — 401', async () => {

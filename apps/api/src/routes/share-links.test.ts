@@ -20,7 +20,13 @@ interface Link {
 
 interface Store {
   links: Link[];
-  artifacts: Array<{ id: string; projectId: string; kind: string; storageKey: string; createdAt: Date }>;
+  artifacts: Array<{
+    id: string;
+    projectId: string;
+    kind: string;
+    storageKey: string;
+    createdAt: Date;
+  }>;
 }
 
 function makeDb(store: Store): AppContext['db'] {
@@ -62,7 +68,9 @@ function makeDb(store: Store): AppContext['db'] {
       values: (v: any) => {
         if (table === schema.shareLinks) {
           const row: Link = {
-            id: v.id, projectId: v.projectId, token: v.token,
+            id: v.id,
+            projectId: v.projectId,
+            token: v.token,
             createdBy: v.createdBy ?? null,
             createdAt: new Date(),
             expiresAt: v.expiresAt,
@@ -106,9 +114,7 @@ async function build(store: Store): Promise<FastifyInstance> {
     }
     if (isCarbonError(err)) {
       const status =
-        err.code === 'CARBON_NOT_FOUND' ? 410
-          : err.code === 'CARBON_FORBIDDEN' ? 403
-          : 500;
+        err.code === 'CARBON_NOT_FOUND' ? 410 : err.code === 'CARBON_FORBIDDEN' ? 403 : 500;
       reply.status(status).send({ error: { code: err.code, message: err.message } });
       return;
     }
@@ -116,12 +122,19 @@ async function build(store: Store): Promise<FastifyInstance> {
   });
   app.addHook('onRequest', async (req) => {
     (req as AuthenticatedRequest).apiKey = {
-      id: 'k', orgId: 'org_1', prefix: 'aa', scopes: ['write'], projectIds: null, expiresAt: null,
+      id: 'k',
+      orgId: 'org_1',
+      prefix: 'aa',
+      scopes: ['write'],
+      projectIds: null,
+      expiresAt: null,
     };
   });
   await registerShareLinkRoutes(app, makeCtx(store), {
     requireProjectInOrg: async (_ctx, _req, projectId) => ({
-      id: projectId, orgId: 'org_1', slug: projectId,
+      id: projectId,
+      orgId: 'org_1',
+      slug: projectId,
     }),
   });
   await app.ready();
@@ -132,10 +145,15 @@ describe('share-links routes', () => {
   it('create → GET state returns the snapshot → DELETE revokes → subsequent GET is 410', async () => {
     const store: Store = {
       links: [],
-      artifacts: [{
-        id: 'art_1', projectId: 'proj_1', kind: 'snapshot',
-        storageKey: 'projects/demo/snapshot/x.json', createdAt: new Date(),
-      }],
+      artifacts: [
+        {
+          id: 'art_1',
+          projectId: 'proj_1',
+          kind: 'snapshot',
+          storageKey: 'projects/demo/snapshot/x.json',
+          createdAt: new Date(),
+        },
+      ],
     };
     const app = await build(store);
 
@@ -168,11 +186,17 @@ describe('share-links routes', () => {
 
   it('expired token → 410 on GET state', async () => {
     const store: Store = {
-      links: [{
-        id: 'shl_expired', projectId: 'proj_1', token: 'x'.repeat(32),
-        createdBy: null, createdAt: new Date(),
-        expiresAt: new Date(Date.now() - 1000), revokedAt: null,
-      }],
+      links: [
+        {
+          id: 'shl_expired',
+          projectId: 'proj_1',
+          token: 'x'.repeat(32),
+          createdBy: null,
+          createdAt: new Date(),
+          expiresAt: new Date(Date.now() - 1000),
+          revokedAt: null,
+        },
+      ],
       artifacts: [],
     };
     const app = await build(store);

@@ -5,12 +5,7 @@ import { ui } from './ui.js';
 import { setPrinterMode, isJson } from './lib/printer.js';
 import { maybeShowNotice, track } from './lib/telemetry.js';
 import { scheduleUpdateCheck } from './lib/update-check.js';
-import {
-  EXIT_ASSERTION_FAILED,
-  EXIT_CONNECTIVITY,
-  EXIT_INTERNAL,
-} from './lib/exit-codes.js';
-import { loadCredentials } from './lib/credentials.js';
+import { EXIT_ASSERTION_FAILED, EXIT_CONNECTIVITY, EXIT_INTERNAL } from './lib/exit-codes.js';
 
 export const CARBON_VERSION = '0.2.1';
 // Expose to telemetry without a circular import.
@@ -30,22 +25,13 @@ export const main = defineCommand({
 
 async function printWelcome(): Promise<void> {
   ui.welcome(CARBON_VERSION);
-  // Sign-in is the first thing a new user should do. When the credentials
-  // file is missing, tell them plainly instead of dumping the full command
-  // catalog they can't actually use yet.
-  const signedIn = (await loadCredentials()) !== null;
-  if (!signedIn) {
-    ui.header('Get started');
-    process.stdout.write(
-      '\n  Run `carbon login` to open the Carbon dashboard, create an account,\n' +
-        '  and link this CLI. It takes about 30 seconds.\n\n' +
-        '  Local-only? Try `carbon emulate --from <spec.json>` — no account needed.\n\n',
-    );
-    return;
-  }
   ui.header('Commands');
   ui.commandList(cliCommandCatalog);
-  ui.footer('Docs', 'https://github.com/carbon-dev/carbon#readme');
+  process.stdout.write(
+    '\n  Run `carbon login` for account-backed dashboard workflows.\n' +
+      '  Run `carbon emulate --from <spec.json>` to start a local replica.\n',
+  );
+  ui.footer('Docs', 'https://github.com/TaxCollector23/carbon#readme');
 }
 
 /**
@@ -78,9 +64,6 @@ export async function runCli(rawArgs = process.argv.slice(2)): Promise<void> {
   if (!isJson()) {
     void maybeShowNotice((line) => process.stdout.write(line));
   }
-
-  // (Banner removed intentionally — every command should print signal, not
-  // ASCII art. The welcome screen still greets an empty invocation.)
 
   if (argv.length === 0) {
     await printWelcome();

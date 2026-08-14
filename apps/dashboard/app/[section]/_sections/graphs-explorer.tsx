@@ -92,8 +92,8 @@ export function GraphsExplorer({
         ))}
       </svg>
       <div className="text-muted-foreground border-border border-t px-3 py-1.5 text-xs">
-        {data.nodes.length} resources · {data.edges.length} relationships ·{' '}
-        {data.transitions} transitions · {data.constraints} constraints
+        {data.nodes.length} resources · {data.edges.length} relationships · {data.transitions}{' '}
+        transitions · {data.constraints} constraints
       </div>
     </div>
   );
@@ -105,13 +105,7 @@ function NodeDot({ node }: { node: LaidOutNode }) {
   return (
     <g ref={ref} transform={`translate(${node.x}, ${node.y})`}>
       <circle r={r} fill="currentColor" fillOpacity={0.15} stroke="currentColor" />
-      <text
-        y={r + 12}
-        textAnchor="middle"
-        fontSize={11}
-        fill="currentColor"
-        fillOpacity={0.85}
-      >
+      <text y={r + 12} textAnchor="middle" fontSize={11} fill="currentColor" fillOpacity={0.85}>
         {node.name}
       </text>
     </g>

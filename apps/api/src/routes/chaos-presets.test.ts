@@ -32,8 +32,7 @@ function makeDb(store: Store): AppContext['db'] {
         return chain;
       },
       where: () => chain,
-      orderBy: async () =>
-        lastTable === schema.chaosPresets ? [...store.rows] : [],
+      orderBy: async () => (lastTable === schema.chaosPresets ? [...store.rows] : []),
       then: (onFulfilled: any, onRejected: any) =>
         Promise.resolve([] as unknown[]).then(onFulfilled, onRejected),
     };
@@ -110,11 +109,15 @@ async function build(
     }
     if (isCarbonError(err)) {
       const status =
-        err.code === 'CARBON_FORBIDDEN' ? 403
-          : err.code === 'CARBON_NOT_FOUND' ? 404
-          : err.code === 'CARBON_CONFLICT' ? 409
-          : err.code === 'CARBON_INVALID_INPUT' ? 400
-          : 500;
+        err.code === 'CARBON_FORBIDDEN'
+          ? 403
+          : err.code === 'CARBON_NOT_FOUND'
+            ? 404
+            : err.code === 'CARBON_CONFLICT'
+              ? 409
+              : err.code === 'CARBON_INVALID_INPUT'
+                ? 400
+                : 500;
       reply.status(status).send({ error: { code: err.code, message: err.message } });
       return;
     }
@@ -142,7 +145,10 @@ describe('chaos-preset routes', () => {
     const create = await app.inject({
       method: 'POST',
       url: '/v1/chaos-presets',
-      payload: { name: 'flaky-payments', rules: [{ kind: 'error', probability: 0.1, status: 503 }] },
+      payload: {
+        name: 'flaky-payments',
+        rules: [{ kind: 'error', probability: 0.1, status: 503 }],
+      },
     });
     expect(create.statusCode).toBe(201);
     expect(store.rows).toHaveLength(1);
@@ -162,10 +168,17 @@ describe('chaos-preset routes', () => {
 
   it('DELETE requires admin scope', async () => {
     const store: Store = {
-      rows: [{
-        id: 'chaos_1', orgId: 'org_1', name: 'p', description: null,
-        rules: [], builtIn: false, createdAt: new Date(),
-      }],
+      rows: [
+        {
+          id: 'chaos_1',
+          orgId: 'org_1',
+          name: 'p',
+          description: null,
+          rules: [],
+          builtIn: false,
+          createdAt: new Date(),
+        },
+      ],
       events: [],
     };
     const app = await build(store, ['write']);
@@ -176,10 +189,17 @@ describe('chaos-preset routes', () => {
 
   it('DELETE of a built_in preset returns 404 (never let the caller remove seeded presets)', async () => {
     const store: Store = {
-      rows: [{
-        id: 'chaos_builtin', orgId: 'org_1', name: 'errors-only', description: null,
-        rules: [], builtIn: true, createdAt: new Date(),
-      }],
+      rows: [
+        {
+          id: 'chaos_builtin',
+          orgId: 'org_1',
+          name: 'errors-only',
+          description: null,
+          rules: [],
+          builtIn: true,
+          createdAt: new Date(),
+        },
+      ],
       events: [],
     };
     const app = await build(store);
@@ -190,10 +210,17 @@ describe('chaos-preset routes', () => {
 
   it('POST duplicate name → 409 CARBON_CONFLICT', async () => {
     const store: Store = {
-      rows: [{
-        id: 'chaos_1', orgId: 'org_1', name: 'dup', description: null,
-        rules: [], builtIn: false, createdAt: new Date(),
-      }],
+      rows: [
+        {
+          id: 'chaos_1',
+          orgId: 'org_1',
+          name: 'dup',
+          description: null,
+          rules: [],
+          builtIn: false,
+          createdAt: new Date(),
+        },
+      ],
       events: [],
     };
     const app = await build(store);

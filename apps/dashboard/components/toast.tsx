@@ -1,6 +1,15 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { cn } from '@carbon/ui';
 
@@ -48,7 +57,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const push = useCallback(
-    ({ kind, message, durationMs = 4000 }: { kind: ToastKind; message: string; durationMs?: number }) => {
+    ({
+      kind,
+      message,
+      durationMs = 4000,
+    }: {
+      kind: ToastKind;
+      message: string;
+      durationMs?: number;
+    }) => {
       const id = ++idRef.current;
       setItems((cur) => [...cur, { id, kind, message, durationMs }]);
       if (durationMs > 0 && typeof window !== 'undefined') {
@@ -89,7 +106,8 @@ function ToastRow({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number) 
   useEffect(() => {
     setMounted(true);
   }, []);
-  const Icon = toast.kind === 'success' ? CheckCircle2 : toast.kind === 'error' ? XCircle : CheckCircle2;
+  const Icon =
+    toast.kind === 'success' ? CheckCircle2 : toast.kind === 'error' ? XCircle : CheckCircle2;
   return (
     <div
       data-testid={`toast-${toast.kind}`}

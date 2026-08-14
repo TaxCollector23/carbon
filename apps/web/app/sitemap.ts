@@ -1,11 +1,10 @@
 import type { MetadataRoute } from 'next';
 import { CATALOG } from '@carbon/catalog';
 import { allCompetitorSlugs } from '@/lib/competitors';
-
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:1223';
+import { siteUrl } from '@/lib/urls';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const base = siteUrl.replace(/\/$/, '');
+  const base = siteUrl();
   const now = new Date();
   const vsEntries: MetadataRoute.Sitemap = allCompetitorSlugs().map((slug) => ({
     url: `${base}/vs/${slug}`,
@@ -18,6 +17,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/dashboard`, lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
     { url: `${base}/benchmarks`, lastModified: now, changeFrequency: 'monthly', priority: 0.6 },
     { url: `${base}/contact`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${base}/enterprise`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
     ...vsEntries,
     { url: `${base}/emulators`, lastModified: now, changeFrequency: 'weekly', priority: 0.9 },
     ...CATALOG.map((entry) => ({

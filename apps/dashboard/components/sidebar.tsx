@@ -10,6 +10,7 @@ import {
   FlaskConical,
   Flag,
   GaugeCircle,
+  GitCompareArrows,
   History,
   KeyRound,
   Layers,
@@ -25,6 +26,7 @@ const items = [
   { href: '/graphs', label: 'Graphs', icon: Waypoints },
   { href: '/snapshots', label: 'Snapshots', icon: Layers },
   { href: '/recordings', label: 'Recordings', icon: History },
+  { href: '/drift', label: 'Drift', icon: GitCompareArrows },
   { href: '/state', label: 'State', icon: Database },
   { href: '/chaos-presets', label: 'Chaos presets', icon: FlaskConical },
   { href: '/ai-quality', label: 'AI quality', icon: ShieldCheck },
@@ -65,7 +67,7 @@ export function Sidebar() {
           );
         })}
       </nav>
-      <div className="text-muted-foreground px-3 pt-4 text-xs">v0.1 · local</div>
+      <div className="text-muted-foreground px-3 pt-4 text-xs">v0.1</div>
     </aside>
   );
 }

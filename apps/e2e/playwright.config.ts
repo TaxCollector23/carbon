@@ -33,8 +33,7 @@ const userInfo = pgPassword
 // a Postgres service container). Fall back to a per-run random name locally.
 const dbName = process.env.CARBON_E2E_DB || `carbon_e2e_${Date.now()}`;
 const databaseUrl =
-  process.env.CARBON_E2E_DATABASE_URL ||
-  `postgresql://${userInfo}@${pgHost}:${pgPort}/${dbName}`;
+  process.env.CARBON_E2E_DATABASE_URL || `postgresql://${userInfo}@${pgHost}:${pgPort}/${dbName}`;
 
 // Propagate so globalSetup, seed.ts and any child process pick them up.
 process.env.CARBON_E2E_DB = dbName;

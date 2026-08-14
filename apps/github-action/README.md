@@ -15,7 +15,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
-      - uses: carbon-dev/github-action@v0
+      - uses: TaxCollector23/carbon/apps/github-action@v0
         with:
           spec-path: ./openapi.yaml
           upstream-url: https://api.example.com
@@ -23,14 +23,14 @@ jobs:
 
 ## Inputs
 
-| Name          | Required | Description                                             |
-|---------------|----------|---------------------------------------------------------|
-| `spec-path`   | yes      | Path to the OpenAPI, Postman, or HAR spec.              |
-| `upstream-url`| no       | Optional upstream to proxy on cache miss.               |
-| `api-key`     | no       | Carbon Cloud API key (only for hosted control plane).   |
+| Name           | Required | Description                                           |
+| -------------- | -------- | ----------------------------------------------------- |
+| `spec-path`    | yes      | Path to the OpenAPI, Postman, or HAR spec.            |
+| `upstream-url` | no       | Optional upstream to proxy on cache miss.             |
+| `api-key`      | no       | Carbon Cloud API key (only for hosted control plane). |
 
 ## Outputs
 
-| Name          | Description                                             |
-|---------------|---------------------------------------------------------|
-| `replica-url` | Ephemeral URL of the running Carbon replica.            |
+| Name          | Description                                  |
+| ------------- | -------------------------------------------- |
+| `replica-url` | Ephemeral URL of the running Carbon replica. |

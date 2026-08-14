@@ -61,9 +61,7 @@ export async function findProviderById(id: string): Promise<StoredSsoProvider | 
   return all.find((p) => p.id === id) ?? null;
 }
 
-export async function findProviderByEmail(
-  email: string,
-): Promise<StoredSsoProvider | null> {
+export async function findProviderByEmail(email: string): Promise<StoredSsoProvider | null> {
   const at = email.indexOf('@');
   if (at < 0) return null;
   const domain = email.slice(at + 1).toLowerCase();

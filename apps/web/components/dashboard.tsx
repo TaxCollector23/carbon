@@ -6,6 +6,7 @@ import { LockKeyhole } from 'lucide-react';
 import { buttonVariants, cn } from '@carbon/ui';
 import { Wordmark } from './logo';
 import { ThemeToggle } from './theme-toggle';
+import { dashboardSignInUrl } from '@/lib/urls';
 
 /**
  * Marketing-site "Dashboard" route.
@@ -17,8 +18,7 @@ import { ThemeToggle } from './theme-toggle';
  * no longer holds any workspace state. All this component does now is
  * hand visitors off to the dashboard's sign-in page.
  *
- * Env: `NEXT_PUBLIC_DASHBOARD_URL` — defaults to `http://localhost:3001`
- * for local dev. In production this points at the deployed dashboard.
+ * Env: `NEXT_PUBLIC_DASHBOARD_URL` points at the deployed dashboard.
  */
 export function DashboardRoute() {
   const [signInUrl, setSignInUrl] = useState<string>(defaultSignInUrl());
@@ -43,12 +43,10 @@ export function DashboardRoute() {
             <div className="bg-muted grid h-11 w-11 place-items-center rounded-md">
               <LockKeyhole className="h-5 w-5" />
             </div>
-            <h2 className="mt-6 text-2xl font-medium tracking-tight">
-              The dashboard has moved
-            </h2>
+            <h2 className="mt-6 text-2xl font-medium tracking-tight">The dashboard has moved</h2>
             <p className="text-muted-foreground mt-3 text-sm leading-6">
-              Carbon&apos;s workspace lives in a dedicated dashboard app. Sign in there to see
-              your projects, snapshots, emulators, and API keys.
+              Carbon&apos;s workspace lives in a dedicated dashboard app. Sign in there to see your
+              projects, snapshots, emulators, and API keys.
             </p>
             <div className="mt-7">
               <a
@@ -75,11 +73,9 @@ export function DashboardRoute() {
 }
 
 function defaultSignInUrl(): string {
-  return 'http://localhost:3001/sign-in?next=/';
+  return dashboardSignInUrl('/');
 }
 
 function resolveSignInUrl(): string {
-  const base = process.env.NEXT_PUBLIC_DASHBOARD_URL;
-  if (!base || base.trim() === '') return defaultSignInUrl();
-  return `${base.replace(/\/+$/, '')}/sign-in?next=/`;
+  return dashboardSignInUrl('/');
 }

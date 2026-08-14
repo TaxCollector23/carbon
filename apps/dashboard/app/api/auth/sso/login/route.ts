@@ -24,7 +24,10 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   if (provider.type !== 'oidc') {
     return NextResponse.json(
-      { error: 'SAML providers not yet supported by this shim — install @better-auth/plugin-sso when available' },
+      {
+        error:
+          'SAML providers not yet supported by this shim — install @better-auth/plugin-sso when available',
+      },
       { status: 501 },
     );
   }
@@ -36,7 +39,10 @@ export async function GET(req: NextRequest): Promise<Response> {
     scope?: string;
   };
   if (!cfg.clientId || !(cfg.authorizeUrl || cfg.issuer)) {
-    return NextResponse.json({ error: 'provider missing clientId or authorize/issuer URL' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'provider missing clientId or authorize/issuer URL' },
+      { status: 500 },
+    );
   }
 
   // Some IdPs publish authorizeUrl directly, others expect /.well-known/openid-configuration

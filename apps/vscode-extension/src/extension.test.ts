@@ -9,9 +9,7 @@ import { join } from 'node:path';
  * full VS Code download into CI for a check this size.
  */
 describe('vscode-extension package.json', () => {
-  const pkg = JSON.parse(
-    readFileSync(join(__dirname, '..', 'package.json'), 'utf8'),
-  ) as {
+  const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8')) as {
     activationEvents: string[];
     main: string;
     engines: { vscode: string };
@@ -21,7 +19,12 @@ describe('vscode-extension package.json', () => {
     };
   };
 
-  const expected = ['carbon.emulate', 'carbon.inspectGraph', 'carbon.newProject', 'carbon.viewLogs'];
+  const expected = [
+    'carbon.emulate',
+    'carbon.inspectGraph',
+    'carbon.newProject',
+    'carbon.viewLogs',
+  ];
 
   it('declares each command', () => {
     const ids = new Set(pkg.contributes.commands.map((c) => c.command));

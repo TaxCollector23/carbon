@@ -18,7 +18,12 @@ import { registerOrganizationRoutes } from './organizations.js';
 
 interface FakeDb {
   results: unknown[];
-  ops: Array<{ kind: 'insert' | 'update' | 'delete'; table: unknown; value?: unknown; patch?: unknown }>;
+  ops: Array<{
+    kind: 'insert' | 'update' | 'delete';
+    table: unknown;
+    value?: unknown;
+    patch?: unknown;
+  }>;
   db: AppContext['db'];
 }
 
@@ -27,7 +32,7 @@ function makeFake(): FakeDb {
   const ops: FakeDb['ops'] = [];
   // Peel one result off the queue. Missing results mean the test seed is
   // wrong — throw loudly rather than silently returning undefined.
-  const take = <T,>(): T => {
+  const take = <T>(): T => {
     if (results.length === 0) throw new Error('fake db: no queued result for this call');
     return results.shift() as T;
   };
@@ -113,7 +118,9 @@ async function buildApp(fake: FakeDb): Promise<FastifyInstance> {
                 : err.code === 'CARBON_INVALID_INPUT'
                   ? 400
                   : 500;
-      reply.status(status).send({ error: { code: err.code, message: err.message, details: err.details } });
+      reply
+        .status(status)
+        .send({ error: { code: err.code, message: err.message, details: err.details } });
       return;
     }
     reply.status(500).send({ error: { code: 'CARBON_INTERNAL', message: String(err) } });
@@ -212,7 +219,7 @@ describe('organization routes', () => {
     // loadOrgOr404 → org exists.
     fake.results.push([org]);
 
-    process.env.DASHBOARD_URL = 'https://dash.carbon.dev';
+    process.env.DASHBOARD_URL = 'https://dashboard.example.com';
     const app = await buildApp(fake);
     const res = await app.inject({
       method: 'POST',
@@ -223,7 +230,9 @@ describe('organization routes', () => {
     expect(res.statusCode).toBe(201);
     const body = res.json() as { inviteUrl: string; email: string };
     expect(body.email).toBe('bob@acme.io');
-    expect(body.inviteUrl).toMatch(/^https:\/\/dash\.carbon\.dev\/invitations\/accept\?token=[0-9a-f]{32}$/);
+    expect(body.inviteUrl).toMatch(
+      /^https:\/\/dashboard\.example\.com\/invitations\/accept\?token=[0-9a-f]{32}$/,
+    );
     const insertOp = fake.ops.find((o) => o.kind === 'insert');
     expect(insertOp).toBeDefined();
     delete process.env.DASHBOARD_URL;

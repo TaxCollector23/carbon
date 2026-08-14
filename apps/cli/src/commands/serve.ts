@@ -30,12 +30,14 @@ const SERVICES: readonly ServiceSpec[] = [
 export const serveCommand = defineCommand({
   meta: {
     name: 'serve',
-    description: 'Boot the local Carbon dev stack (api + dashboard + web + workers) in one terminal.',
+    description:
+      'Boot the local Carbon dev stack (api + dashboard + web + workers) in one terminal.',
   },
   args: {
     only: {
       type: 'string',
-      description: 'Comma-separated subset (api,dashboard,web,docs,workers). Default: all except docs.',
+      description:
+        'Comma-separated subset (api,dashboard,web,docs,workers). Default: all except docs.',
     },
     'skip-preflight': {
       type: 'boolean',
@@ -60,7 +62,9 @@ export const serveCommand = defineCommand({
       if (conflicts.length > 0) {
         ui.error('Ports already in use:');
         for (const { svc, port } of conflicts) {
-          process.stdout.write(`  ${svc.name}: :${port} — kill the holder or pass --skip-preflight\n`);
+          process.stdout.write(
+            `  ${svc.name}: :${port} — kill the holder or pass --skip-preflight\n`,
+          );
         }
         process.exit(3);
       }
@@ -82,7 +86,9 @@ export const serveCommand = defineCommand({
     }
     process.stdout.write('\n');
     process.stdout.write(
-      pc.dim('Ctrl+C shuts every child down. Non-zero exits from any child stop the whole stack.\n\n'),
+      pc.dim(
+        'Ctrl+C shuts every child down. Non-zero exits from any child stop the whole stack.\n\n',
+      ),
     );
 
     const children: Array<{ svc: ServiceSpec; proc: ChildProcess }> = [];
@@ -136,7 +142,9 @@ export const serveCommand = defineCommand({
       proc.on('exit', (code, signal) => {
         if (shuttingDown) return;
         const tail = signal ? `signal ${signal}` : `exit ${code}`;
-        process.stdout.write(`${tag} ${pc.red('service stopped')} (${tail}) — tearing the stack down.\n`);
+        process.stdout.write(
+          `${tag} ${pc.red('service stopped')} (${tail}) — tearing the stack down.\n`,
+        );
         shutdown('SIGTERM', code ?? 1);
       });
     }

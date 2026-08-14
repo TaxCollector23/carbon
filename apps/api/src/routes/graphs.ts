@@ -46,9 +46,9 @@ export async function registerGraphRoutes(app: FastifyInstance, ctx: AppContext)
     {
       preHandler: requireScope('read'),
       schema: {
-        summary: 'Get a project\'s current behavior graph',
+        summary: "Get a project's current behavior graph",
         description:
-          'Rebuild and return the behavior graph derived from the project\'s most recent IR blob. Shape is stable enough for the dashboard\'s graph explorer to render directly.',
+          "Rebuild and return the behavior graph derived from the project's most recent IR blob. Shape is stable enough for the dashboard's graph explorer to render directly.",
         response: { 200: zodResponse(GraphResponse) },
       },
     },

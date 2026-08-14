@@ -28,14 +28,11 @@ export function SnapshotDiffView({
   const [selected, setSelected] = useState<string | null>(null);
   const [showUnchanged, setShowUnchanged] = useState(false);
 
-  const resources = useMemo(
-    () => (diff ? Object.keys(diff.resources).sort() : []),
-    [diff],
-  );
+  const resources = useMemo(() => (diff ? Object.keys(diff.resources).sort() : []), [diff]);
 
   const activeResource = selected ?? resources[0] ?? null;
   const entry: SnapshotDiffResourceEntry | null =
-    diff && activeResource ? diff.resources[activeResource] ?? null : null;
+    diff && activeResource ? (diff.resources[activeResource] ?? null) : null;
 
   const hasAnyChange =
     !!diff &&
@@ -51,12 +48,12 @@ export function SnapshotDiffView({
     return (
       <div
         data-testid="snapshot-diff-view"
-        className="border-emerald-500/40 bg-emerald-500/5 rounded-md border px-4 py-8 text-center"
+        className="rounded-md border border-emerald-500/40 bg-emerald-500/5 px-4 py-8 text-center"
       >
-        <h3 className="text-emerald-500 text-base font-medium">Snapshots match</h3>
+        <h3 className="text-base font-medium text-emerald-500">Snapshots match</h3>
         <p className="text-muted-foreground mt-2 text-sm">
-          Every row in <code className="font-mono text-xs">{diff.a.name}</code> is identical
-          to <code className="font-mono text-xs">{diff.b.name}</code>.
+          Every row in <code className="font-mono text-xs">{diff.a.name}</code> is identical to{' '}
+          <code className="font-mono text-xs">{diff.b.name}</code>.
         </p>
       </div>
     );
@@ -142,9 +139,7 @@ function CountBadge({ n, tone }: { n: number; tone: 'added' | 'removed' | 'chang
     removed: 'bg-red-500/15 text-red-500',
     changed: 'bg-amber-500/15 text-amber-500',
   }[tone];
-  return (
-    <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-medium', classes)}>{n}</span>
-  );
+  return <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-medium', classes)}>{n}</span>;
 }
 
 function ChangeTable({
@@ -159,8 +154,7 @@ function ChangeTable({
   emptyHidden: boolean;
 }) {
   if (rows.length === 0 && emptyHidden) return null;
-  const toneClass =
-    tone === 'added' ? 'text-emerald-500' : 'text-red-500';
+  const toneClass = tone === 'added' ? 'text-emerald-500' : 'text-red-500';
   return (
     <div>
       <h5 className={cn('mb-2 text-xs font-medium uppercase tracking-wide', toneClass)}>
@@ -245,12 +239,7 @@ function ValueCell({ value, tone }: { value: unknown; tone: 'added' | 'removed' 
   const toneClass =
     tone === 'added' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500';
   return (
-    <pre
-      className={cn(
-        'max-h-32 overflow-auto rounded px-2 py-1 text-xs',
-        toneClass,
-      )}
-    >
+    <pre className={cn('max-h-32 overflow-auto rounded px-2 py-1 text-xs', toneClass)}>
       {value === undefined ? '—' : JSON.stringify(value, null, 2)}
     </pre>
   );

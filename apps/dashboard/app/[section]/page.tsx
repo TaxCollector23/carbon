@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 import { Topbar } from '@/components/topbar';
 import { isSectionSlug, sections } from '@/lib/empty-data';
 import ProjectsSection from './_sections/projects';
@@ -15,6 +16,7 @@ import UsageSection from './_sections/usage';
 import ChaosPresetsSection from './_sections/chaos-presets';
 import FeatureFlagsSection from './_sections/feature-flags';
 import JobsSection from './_sections/jobs';
+import DriftSection from './_sections/drift';
 
 export function generateStaticParams() {
   return Object.keys(sections).map((section) => ({ section }));
@@ -38,8 +40,19 @@ export default async function DashboardSectionPage({
   return (
     <>
       <Topbar title={copy?.title ?? section} />
-      <main className="space-y-6 p-8">{renderSection(section)}</main>
+      <main className="space-y-6 p-8">
+        <Suspense fallback={<SectionFallback />}>{renderSection(section)}</Suspense>
+      </main>
     </>
+  );
+}
+
+function SectionFallback() {
+  return (
+    <div className="border-border rounded-md border p-6">
+      <div className="bg-muted h-4 w-40 animate-pulse" />
+      <div className="bg-muted mt-4 h-20 w-full animate-pulse" />
+    </div>
   );
 }
 
@@ -73,6 +86,8 @@ function renderSection(slug: string) {
       return <FeatureFlagsSection />;
     case 'jobs':
       return <JobsSection />;
+    case 'drift':
+      return <DriftSection />;
     default:
       return null;
   }

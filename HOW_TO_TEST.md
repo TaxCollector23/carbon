@@ -22,7 +22,7 @@ psql -U $USER -d carbon -c "INSERT INTO organizations (id, slug, name) VALUES ('
 ## Boot everything in one terminal
 
 ```bash
-pnpm --filter carbon-dev build          # build the CLI once
+pnpm --filter carbon-api build          # build the CLI once
 export DATABASE_URL="postgresql://$USER@localhost:5432/carbon"
 export CARBON_AUTH_MODE=disabled        # disables the API-key plugin so requests without
                                         # `x-carbon-key` aren't rejected. Better Auth session
@@ -108,13 +108,13 @@ DATABASE_URL="postgresql://$USER@localhost:5432/carbon" \
 
 ## Common issues
 
-| symptom | fix |
-|---|---|
-| `carbon emulate` hangs on boot | The pre-round-18 build had this — pull master, `pnpm --filter carbon-dev build`. The command now preflights the port and boots with a 20s timeout that surfaces a friendly error. |
-| Dashboard says "Failed to fetch" for every section | You booted the API without `ALLOWED_ORIGINS` including `http://localhost:3001`. Restart the API with the env default (env.ts already defaults this in dev). |
-| `/v1/events` (or usage/chaos) returns empty | Set `localStorage['carbon.orgId'] = 'org_test'` in the browser and reload. |
-| `pnpm install` fails with "ignored builds" | Run `pnpm approve-builds` once. |
-| `carbon` reports "no scripts approved" | Same. |
+| symptom                                            | fix                                                                                                                                                                               |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `carbon emulate` hangs on boot                     | The pre-round-18 build had this — pull master, `pnpm --filter carbon-api build`. The command now preflights the port and boots with a 20s timeout that surfaces a friendly error. |
+| Dashboard says "Failed to fetch" for every section | You booted the API without `ALLOWED_ORIGINS` including `http://localhost:3001`. Restart the API with the env default (env.ts already defaults this in dev).                       |
+| `/v1/events` (or usage/chaos) returns empty        | Set `localStorage['carbon.orgId'] = 'org_test'` in the browser and reload.                                                                                                        |
+| `pnpm install` fails with "ignored builds"         | Run `pnpm approve-builds` once.                                                                                                                                                   |
+| `carbon` reports "no scripts approved"             | Same.                                                                                                                                                                             |
 
 ## The whole stack in one diagram
 

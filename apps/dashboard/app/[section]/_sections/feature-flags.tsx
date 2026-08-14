@@ -2,14 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { Button } from '@carbon/ui';
-import {
-  EmptyState,
-  ErrorBanner,
-  Skeleton,
-  Table,
-  Td,
-  Th,
-} from '@/components/ui';
+import { EmptyState, ErrorBanner, Skeleton, Table, Td, Th } from '@/components/ui';
 import { useToast } from '@/components/toast';
 import { useAsync } from '@/lib/hooks/use-async';
 import { api } from '@/lib/hooks/api';
@@ -87,16 +80,21 @@ export default function FeatureFlagsSection() {
         <p className="text-muted-foreground text-sm">
           {flags.loading ? 'Loading…' : `${rows.length} flag${rows.length === 1 ? '' : 's'}`}
         </p>
-        <Button size="sm" variant="ghost" onClick={() => void flags.refetch()} disabled={flags.loading}>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => void flags.refetch()}
+          disabled={flags.loading}
+        >
           Refresh
         </Button>
       </header>
 
       {notDeployed ? (
         <EmptyState
-          badge="Not available yet"
-          title="Feature flags are not deployed"
-          description="Once /v1/feature-flags ships on this API the toggles will show up here."
+          badge="Optional"
+          title="No feature flag service configured"
+          description="When this API exposes feature flag definitions, org-level toggles will appear here."
         />
       ) : flags.loading ? (
         <Skeleton className="h-24" />

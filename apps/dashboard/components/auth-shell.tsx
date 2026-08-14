@@ -45,8 +45,8 @@ export function AuthShell({
           <div className="border-primary/30 bg-primary/5 mt-6 rounded-md border px-4 py-3 text-sm">
             <p className="text-foreground font-medium">Signing in from the CLI</p>
             <p className="text-muted-foreground mt-1 leading-6">
-              Once you sign in here, the browser tab will ask you to approve the CLI.
-              You can close the tab after that — the terminal picks up automatically.
+              Once you sign in here, the browser tab will ask you to approve the CLI. You can close
+              the tab after that — the terminal picks up automatically.
             </p>
           </div>
         ) : null}

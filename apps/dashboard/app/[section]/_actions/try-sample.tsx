@@ -90,7 +90,12 @@ export function TrySampleButton({
 
   return (
     <>
-      <Button size={size} variant="ghost" onClick={() => setOpen(true)} data-testid="try-sample-button">
+      <Button
+        size={size}
+        variant="ghost"
+        onClick={() => setOpen(true)}
+        data-testid="try-sample-button"
+      >
         Try a sample
       </Button>
       <Modal
@@ -100,14 +105,18 @@ export function TrySampleButton({
         }}
         title="Try a sample API"
         footer={
-          <Button variant="ghost" onClick={() => setOpen(false)} disabled={status.kind === 'instantiating'}>
+          <Button
+            variant="ghost"
+            onClick={() => setOpen(false)}
+            disabled={status.kind === 'instantiating'}
+          >
             Close
           </Button>
         }
       >
         <p className="text-muted-foreground mb-4 text-sm">
-          One click creates a new project, ingests the curated OpenAPI spec, and lands you
-          on the projects list. Nothing leaves your workspace.
+          One click creates a new project, ingests the curated OpenAPI spec, and lands you on the
+          projects list. Nothing leaves your workspace.
         </p>
         {status.kind === 'loading' || !samples ? (
           <p className="text-muted-foreground text-sm">Loading samples…</p>

@@ -51,7 +51,12 @@ export default function AiQualitySection() {
 function LatestCard({
   state,
 }: {
-  state: { data: AiQualityReport | null | undefined; error: Error | null; loading: boolean; refetch: () => Promise<void> };
+  state: {
+    data: AiQualityReport | null | undefined;
+    error: Error | null;
+    loading: boolean;
+    refetch: () => Promise<void>;
+  };
 }) {
   if (state.loading) return <Skeleton className="h-40" />;
   if (state.error) return <ErrorBanner error={state.error} onRetry={state.refetch} />;

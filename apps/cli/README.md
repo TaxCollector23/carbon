@@ -1,17 +1,17 @@
-# carbon-dev
+# carbon-api
 
 Stateful API replicas for development, tests, and CI.
 
 ## Install
 
 ```sh
-npm install -g carbon-dev
+npm install -g carbon-api
 ```
 
 Zero-install:
 
 ```sh
-npx carbon-dev init
+npx carbon-api init
 ```
 
 ## Quick start
@@ -23,17 +23,17 @@ npx carbon-dev init
 
 ## Commands
 
-| Command | Description |
-| --- | --- |
-| `carbon init` | Scaffold a new Carbon project in the current directory. |
-| `carbon record <target>` | Observe live traffic against an upstream API. |
-| `carbon ingest <source>` | Parse OpenAPI, AsyncAPI, GraphQL, protobuf/gRPC, HAR, or Postman into IR. |
-| `carbon emulate --from <spec>` | Boot the local deterministic API runtime. |
-| `carbon inspect` | Explore the running runtime's graph and stats. |
-| `carbon snapshot save <name>` | Save the current runtime state to a named snapshot. |
-| `carbon snapshot load <name>` | Restore a previously saved snapshot. |
-| `carbon snapshot list` | List saved snapshots. |
-| `carbon snapshot delete <name>` | Delete a saved snapshot. |
+| Command                         | Description                                                               |
+| ------------------------------- | ------------------------------------------------------------------------- |
+| `carbon init`                   | Scaffold a new Carbon project in the current directory.                   |
+| `carbon record <target>`        | Observe live traffic against an upstream API.                             |
+| `carbon ingest <source>`        | Parse OpenAPI, AsyncAPI, GraphQL, protobuf/gRPC, HAR, or Postman into IR. |
+| `carbon emulate --from <spec>`  | Boot the local deterministic API runtime.                                 |
+| `carbon inspect`                | Explore the running runtime's graph and stats.                            |
+| `carbon snapshot save <name>`   | Save the current runtime state to a named snapshot.                       |
+| `carbon snapshot load <name>`   | Restore a previously saved snapshot.                                      |
+| `carbon snapshot list`          | List saved snapshots.                                                     |
+| `carbon snapshot delete <name>` | Delete a saved snapshot.                                                  |
 
 Run `carbon --help` or `carbon <command> --help` for full options.
 
@@ -52,8 +52,8 @@ Project settings live in `carbon.config.ts` at the repo root.
 
 ## Links
 
-- GitHub: https://github.com/carbon-dev/carbon
-- Issues: https://github.com/carbon-dev/carbon/issues
+- GitHub: https://github.com/TaxCollector23/carbon
+- Issues: https://github.com/TaxCollector23/carbon/issues
 
 ## License
 

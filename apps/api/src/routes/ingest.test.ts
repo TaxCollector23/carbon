@@ -111,6 +111,17 @@ describe('POST /v1/ingest — async', () => {
         createdAt: 0,
         updatedAt: 0,
       })),
+      setMeta: vi.fn(async () => ({
+        id: 'job_abc',
+        kind: 'ingest',
+        status: 'queued' as const,
+        createdAt: 0,
+        updatedAt: 0,
+        attempts: 0,
+        maxAttempts: 5,
+        nextAttemptAt: null,
+        deadLetter: false,
+      })),
       get: vi.fn(),
       update: vi.fn(),
     } as unknown as JobService;
@@ -147,8 +158,14 @@ describe('POST /v1/ingest — async', () => {
       origin: 'unit-test',
       enrich: false,
     });
+    expect(jobs.setMeta).toHaveBeenCalledWith('job_abc', {
+      orgId: 'org_1',
+      projectSlug: 'acme',
+      origin: 'unit-test',
+      payload,
+    });
     // Sync ingest must NOT be invoked on the async path.
-    expect((ingestion.ingest as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
+    expect(ingestion.ingest as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
   });
 });
 

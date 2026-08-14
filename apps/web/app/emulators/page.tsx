@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 export default function EmulatorsIndexPage() {
   const grouped = catalogByCategory();
   return (
-    <div className="bg-background text-foreground dark min-h-dvh">
+    <div className="bg-background text-foreground min-h-dvh">
       <Nav />
       <main id="main" className="pt-16">
         <Section bordered={false}>
@@ -31,7 +31,7 @@ export default function EmulatorsIndexPage() {
           />
           <div className="mt-8">
             <pre className="border-border bg-muted/40 text-foreground w-full max-w-xl overflow-x-auto rounded-md border px-4 py-3 font-mono text-sm">
-              <code>npx carbon-dev emulate --catalog stripe</code>
+              <code>npx carbon-api emulate --catalog stripe</code>
             </pre>
           </div>
         </Section>

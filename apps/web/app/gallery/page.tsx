@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Nav } from '@/components/nav';
 import { Footer } from '@/components/footer';
 import { Section, SectionHeading } from '@/components/section';
+import { dashboardUrl } from '@/lib/urls';
 
 export const metadata: Metadata = {
   title: 'Public Gallery — curated APIs ready to emulate',
@@ -18,8 +19,6 @@ interface GalleryEntry {
   readonly tag: string;
 }
 
-const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL ?? 'https://app.carbon.dev';
-
 // Curated static list — swap for a CMS or DB-backed feed once we have >20
 // entries. Each spec is a public OpenAPI / GraphQL / gRPC document.
 const ENTRIES: readonly GalleryEntry[] = [
@@ -34,7 +33,8 @@ const ENTRIES: readonly GalleryEntry[] = [
     slug: 'github',
     name: 'GitHub',
     description: 'REST v3 — repos, issues, pulls, actions, users.',
-    specUrl: 'https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json',
+    specUrl:
+      'https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json',
     tag: 'DevTools',
   },
   {
@@ -55,14 +55,16 @@ const ENTRIES: readonly GalleryEntry[] = [
     slug: 'twilio',
     name: 'Twilio Messaging',
     description: 'SMS, MMS, WhatsApp — messages, media, opt-outs.',
-    specUrl: 'https://raw.githubusercontent.com/twilio/twilio-oai/main/spec/json/twilio_api_v2010.json',
+    specUrl:
+      'https://raw.githubusercontent.com/twilio/twilio-oai/main/spec/json/twilio_api_v2010.json',
     tag: 'Communications',
   },
   {
     slug: 'slack',
     name: 'Slack Web API',
     description: 'Conversations, users, files, reactions — full Web API surface.',
-    specUrl: 'https://raw.githubusercontent.com/slackapi/slack-api-specs/master/web-api/slack_web_openapi_v2.json',
+    specUrl:
+      'https://raw.githubusercontent.com/slackapi/slack-api-specs/master/web-api/slack_web_openapi_v2.json',
     tag: 'Collaboration',
   },
 ];
@@ -82,7 +84,7 @@ const BUNDLED_SAMPLE_IDS: ReadonlySet<string> = new Set([
 ]);
 
 function openInCarbon(entry: GalleryEntry): string {
-  const base = dashboardUrl.replace(/\/$/, '');
+  const base = dashboardUrl();
   if (BUNDLED_SAMPLE_IDS.has(entry.slug)) {
     return `${base}/?sample=${encodeURIComponent(entry.slug)}`;
   }
@@ -92,7 +94,7 @@ function openInCarbon(entry: GalleryEntry): string {
 
 export default function GalleryPage() {
   return (
-    <div className="bg-background text-foreground dark min-h-dvh">
+    <div className="bg-background text-foreground min-h-dvh">
       <Nav />
       <main id="main" className="pt-16">
         <Section id="gallery" className="py-24">
@@ -122,12 +124,6 @@ export default function GalleryPage() {
                     className="bg-foreground text-background rounded-md px-3 py-2 text-sm font-medium hover:opacity-90"
                   >
                     Open in Carbon
-                  </Link>
-                  <Link
-                    href={`/embed/${entry.slug}`}
-                    className="border-border text-foreground/80 hover:text-foreground rounded-md border px-3 py-2 text-sm"
-                  >
-                    Live embed
                   </Link>
                 </div>
               </li>

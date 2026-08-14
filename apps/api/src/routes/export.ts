@@ -51,68 +51,75 @@ const ALL_INCLUDES: readonly Include[] = [
 ];
 
 export async function registerExportRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
-  app.post('/v1/export', {
-    preHandler: requireScope('admin'),
-    schema: {
-      summary: 'Export org data',
-      description:
-        'Admin-only compliance export. Emits a bundle across the requested include categories (`events`, `projects`, `snapshots`, `api_keys`, `members`, `ai_quality`, `usage`, `audit`). Returns JSON by default; pass `format: "zip"` for a downloadable archive (binary content-type `application/zip`; not covered by the response schema).',
-      body: zodBodyWithExample(ExportBody, {
-        include: ['projects', 'events', 'members', 'usage'],
-        since: '2025-10-01T00:00:00.000Z',
-        until: '2025-11-01T00:00:00.000Z',
-        format: 'zip',
-      }),
+  app.post(
+    '/v1/export',
+    {
+      preHandler: requireScope('admin'),
+      schema: {
+        summary: 'Export org data',
+        description:
+          'Admin-only compliance export. Emits a bundle across the requested include categories (`events`, `projects`, `snapshots`, `api_keys`, `members`, `ai_quality`, `usage`, `audit`). Returns JSON by default; pass `format: "zip"` for a downloadable archive (binary content-type `application/zip`; not covered by the response schema).',
+        body: zodBodyWithExample(ExportBody, {
+          include: ['projects', 'events', 'members', 'usage'],
+          since: '2025-10-01T00:00:00.000Z',
+          until: '2025-11-01T00:00:00.000Z',
+          format: 'zip',
+        }),
+      },
     },
-  }, async (req, reply) => {
-    const body = ExportBody.parse(req.body ?? {});
-    const orgId = resolveCallerOrg(req, { message: 'export is org-scoped — attach an API key or authenticated session' });
-    const until = body.until ? new Date(body.until) : new Date();
-    const since = body.since ? new Date(body.since) : new Date(until.getTime() - DEFAULT_WINDOW_MS);
-    const include: readonly Include[] = body.include && body.include.length > 0
-      ? body.include
-      : ALL_INCLUDES;
+    async (req, reply) => {
+      const body = ExportBody.parse(req.body ?? {});
+      const orgId = resolveCallerOrg(req, {
+        message: 'export is org-scoped — attach an API key or authenticated session',
+      });
+      const until = body.until ? new Date(body.until) : new Date();
+      const since = body.since
+        ? new Date(body.since)
+        : new Date(until.getTime() - DEFAULT_WINDOW_MS);
+      const include: readonly Include[] =
+        body.include && body.include.length > 0 ? body.include : ALL_INCLUDES;
 
-    const bundle: Record<string, unknown[]> = {};
-    for (const key of include) {
-      bundle[key] = await collect(ctx, key, orgId, since, until);
-    }
-
-    const generatedAt = new Date().toISOString();
-    const ranges = { since: since.toISOString(), until: until.toISOString() };
-
-    if (body.format === 'zip') {
-      const files: ZipEntry[] = [
-        {
-          name: 'manifest.json',
-          data: Buffer.from(
-            JSON.stringify(
-              { orgId, generatedAt, ranges, include, counts: countAll(bundle) },
-              null,
-              2,
-            ),
-          ),
-        },
-      ];
+      const bundle: Record<string, unknown[]> = {};
       for (const key of include) {
-        files.push({
-          name: `${key}.json`,
-          data: Buffer.from(JSON.stringify(bundle[key] ?? [], null, 2)),
-        });
+        bundle[key] = await collect(ctx, key, orgId, since, until);
       }
-      const zip = buildStoredZip(files);
-      const filename = `carbon-export-${orgId}-${Date.now()}.zip`;
-      reply.header('content-type', 'application/zip');
-      reply.header('content-disposition', `attachment; filename="${filename}"`);
-      reply.header('content-length', String(zip.length));
-      return reply.send(zip);
-    }
 
-    const filename = `carbon-export-${orgId}-${Date.now()}.json`;
-    reply.header('content-type', 'application/json; charset=utf-8');
-    reply.header('content-disposition', `attachment; filename="${filename}"`);
-    return { orgId, generatedAt, ranges, bundle };
-  });
+      const generatedAt = new Date().toISOString();
+      const ranges = { since: since.toISOString(), until: until.toISOString() };
+
+      if (body.format === 'zip') {
+        const files: ZipEntry[] = [
+          {
+            name: 'manifest.json',
+            data: Buffer.from(
+              JSON.stringify(
+                { orgId, generatedAt, ranges, include, counts: countAll(bundle) },
+                null,
+                2,
+              ),
+            ),
+          },
+        ];
+        for (const key of include) {
+          files.push({
+            name: `${key}.json`,
+            data: Buffer.from(JSON.stringify(bundle[key] ?? [], null, 2)),
+          });
+        }
+        const zip = buildStoredZip(files);
+        const filename = `carbon-export-${orgId}-${Date.now()}.zip`;
+        reply.header('content-type', 'application/zip');
+        reply.header('content-disposition', `attachment; filename="${filename}"`);
+        reply.header('content-length', String(zip.length));
+        return reply.send(zip);
+      }
+
+      const filename = `carbon-export-${orgId}-${Date.now()}.json`;
+      reply.header('content-type', 'application/json; charset=utf-8');
+      reply.header('content-disposition', `attachment; filename="${filename}"`);
+      return { orgId, generatedAt, ranges, bundle };
+    },
+  );
 }
 
 function countAll(bundle: Record<string, unknown[]>): Record<string, number> {
@@ -156,10 +163,7 @@ async function collect(
           ),
         );
     case 'projects':
-      return ctx.db
-        .select()
-        .from(schema.projects)
-        .where(eq(schema.projects.orgId, orgId));
+      return ctx.db.select().from(schema.projects).where(eq(schema.projects.orgId, orgId));
     case 'api_keys': {
       // Never emit the `hash` column — that's the offline-attack material.
       // Explicitly whitelist columns rather than deleting after the fact so
@@ -183,10 +187,7 @@ async function collect(
       return rows;
     }
     case 'members':
-      return ctx.db
-        .select()
-        .from(schema.memberships)
-        .where(eq(schema.memberships.orgId, orgId));
+      return ctx.db.select().from(schema.memberships).where(eq(schema.memberships.orgId, orgId));
     case 'usage': {
       const conds: SQL[] = [
         eq(schema.usageEvents.orgId, orgId),

@@ -41,7 +41,7 @@ export default function GraphsSection() {
         </div>
       ) : notDeployed ? (
         <EmptyState
-          badge="Not available yet"
+          badge="Connect storage"
           title={getSectionCopy('graphs')!.emptyTitle}
           description={getSectionCopy('graphs')!.description}
         />

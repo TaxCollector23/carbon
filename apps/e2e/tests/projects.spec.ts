@@ -3,7 +3,10 @@ import { test, expect } from '@playwright/test';
 test('create a project and see it in the list', async ({ page }) => {
   await page.goto('/projects');
 
-  await page.getByRole('button', { name: /new project/i }).first().click();
+  await page
+    .getByRole('button', { name: /new project/i })
+    .first()
+    .click();
 
   const suffix = Date.now().toString(36);
   const name = `e2e project ${suffix}`;
@@ -11,11 +14,7 @@ test('create a project and see it in the list', async ({ page }) => {
 
   // The form doesn't attach ids to inputs; select by label text.
   await page.getByText('Name', { exact: true }).locator('..').locator('input').fill(name);
-  await page
-    .getByText(/^Slug/i)
-    .locator('..')
-    .locator('input')
-    .fill(slug);
+  await page.getByText(/^Slug/i).locator('..').locator('input').fill(slug);
   await page
     .getByText(/^Org ID/i)
     .locator('..')

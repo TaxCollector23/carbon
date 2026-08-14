@@ -113,12 +113,7 @@ export const watchCommand = defineCommand({
 });
 
 function printMutation(entry: JournalEntry): void {
-  const color =
-    entry.op === 'create'
-      ? pc.green
-      : entry.op === 'delete'
-        ? pc.red
-        : pc.yellow;
+  const color = entry.op === 'create' ? pc.green : entry.op === 'delete' ? pc.red : pc.yellow;
   const stamp = new Date(entry.at).toISOString().slice(11, 23);
   process.stdout.write(
     `${pc.dim(stamp)} ${pc.dim('#' + entry.seq)} ${color(entry.op.padEnd(7))} ${entry.resource} ${pc.dim(entry.id)}\n`,

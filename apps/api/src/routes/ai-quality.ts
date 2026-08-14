@@ -81,7 +81,8 @@ export async function registerAiQualityRoutes(
       preHandler: requireScope('read'),
       schema: {
         summary: 'Get the latest AI-quality report for a project',
-        description: 'Return the most recent AI-quality report row for the given project. 404 if no reports exist yet.',
+        description:
+          'Return the most recent AI-quality report row for the given project. 404 if no reports exist yet.',
         response: {
           200: zodResponseWithExample(AiQualityReport, {
             id: 'aiq_01HXK5N9Q1B7C4D3E2F1G0H9J8',

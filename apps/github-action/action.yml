@@ -1,6 +1,6 @@
 name: 'Carbon Replica'
 description: 'Spin up a Carbon API replica from a spec and comment the URL on the PR.'
-author: 'carbon-dev'
+author: 'Carbon'
 inputs:
   spec-path:
     description: 'Path to the OpenAPI / Postman / HAR spec file to emulate.'

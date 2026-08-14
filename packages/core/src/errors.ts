@@ -35,7 +35,7 @@ export interface CarbonErrorOptions {
   readonly expose?: boolean;
   /**
    * A documentation URL explaining the error and how to fix it. When omitted
-   * for a known `code`, defaults to `https://carbon.dev/errors/<slug>` where
+   * for a known `code`, defaults to a GitHub issue search for the slug where
    * the slug is the code lowercased with underscores turned into hyphens
    * (e.g. `CARBON_RATE_LIMITED` → `carbon-rate-limited`). Pass an empty
    * string to opt out of the default.
@@ -66,7 +66,7 @@ const KNOWN_ERROR_CODES: ReadonlySet<string> = new Set([
 export function helpUrlForCode(code: string): string | undefined {
   if (!KNOWN_ERROR_CODES.has(code)) return undefined;
   const slug = code.toLowerCase().replace(/_/g, '-');
-  return `https://carbon.dev/errors/${slug}`;
+  return `https://github.com/TaxCollector23/carbon/issues?q=${slug}`;
 }
 
 export class CarbonError extends Error {
@@ -74,8 +74,8 @@ export class CarbonError extends Error {
   readonly details: Readonly<Record<string, unknown>>;
   readonly expose: boolean;
   /**
-   * Documentation URL for this error. Defaults to the canonical carbon.dev
-   * page for known codes; consumers can override on construction. Never
+   * Documentation URL for this error. Defaults to a canonical GitHub issue
+   * search for known codes; consumers can override on construction. Never
    * present when the code is unknown and no explicit URL was supplied — we
    * don't want the docs site to inherit dead links from typos.
    */

@@ -20,7 +20,10 @@ test('ai-quality page renders empty state or a report card for a project', async
   const noProjects = page.getByText(/no projects yet — create one/i);
 
   await Promise.race([
-    picker.first().waitFor({ state: 'visible', timeout: 15_000 }).catch(() => null),
+    picker
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 })
+      .catch(() => null),
     noProjects.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => null),
   ]);
 
@@ -40,7 +43,6 @@ test('ai-quality page renders empty state or a report card for a project', async
   ]);
 
   const ok =
-    (await empty.isVisible().catch(() => false)) ||
-    (await latest.isVisible().catch(() => false));
+    (await empty.isVisible().catch(() => false)) || (await latest.isVisible().catch(() => false));
   expect(ok).toBeTruthy();
 });

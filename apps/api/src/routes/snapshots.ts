@@ -5,7 +5,12 @@ import { diffSnapshots, parseSnapshot, serializeSnapshot, type StateSnapshot } f
 import { StorageKeys } from '@carbon/storage';
 import type { AppContext } from '../context.js';
 import { requireScope } from '../plugins/scopes.js';
-import { zodBody, zodQuery, zodResponse, zodResponseWithExample } from '../plugins/schema-helpers.js';
+import {
+  zodBody,
+  zodQuery,
+  zodResponse,
+  zodResponseWithExample,
+} from '../plugins/schema-helpers.js';
 import { getActor, recordEvent } from '../services/events.js';
 import { recordUsage } from '../services/usage.js';
 import { ProjectSlug, resolveProjectAccess } from './project-access.js';
@@ -17,9 +22,7 @@ import { collectStorage } from './storage-listing.js';
  * takes a name — read and delete included — to keep path traversal shapes off
  * the surface area.
  */
-const SnapshotName = z
-  .string()
-  .regex(/^[a-z0-9][a-z0-9-]{0,63}$/, 'invalid snapshot name');
+const SnapshotName = z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/, 'invalid snapshot name');
 
 const CreateSnapshotBody = z.object({
   projectSlug: ProjectSlug,
@@ -116,42 +119,46 @@ export async function registerSnapshotRoutes(app: FastifyInstance, ctx: AppConte
     },
   );
 
-  app.post('/v1/snapshots', {
-    preHandler: requireScope('write'),
-    schema: {
-      summary: 'Save a snapshot',
-      description:
-        'Persist a `StateSnapshot` for the given project under `name`. Overwrites any existing snapshot with the same name; ' +
-        'name must match /^[a-z0-9][a-z0-9-]{0,63}$/ since it is used as a storage key segment.',
-      body: zodBody(CreateSnapshotBody),
-      response: { 201: zodResponse(SnapshotCreateResponse) },
+  app.post(
+    '/v1/snapshots',
+    {
+      preHandler: requireScope('write'),
+      schema: {
+        summary: 'Save a snapshot',
+        description:
+          'Persist a `StateSnapshot` for the given project under `name`. Overwrites any existing snapshot with the same name; ' +
+          'name must match /^[a-z0-9][a-z0-9-]{0,63}$/ since it is used as a storage key segment.',
+        body: zodBody(CreateSnapshotBody),
+        response: { 201: zodResponse(SnapshotCreateResponse) },
+      },
     },
-  }, async (req, reply) => {
-    const body = CreateSnapshotBody.parse(req.body);
-    const project = await resolveProjectAccess(ctx, req, body.projectSlug);
-    const key = StorageKeys.snapshot(project.storageSlug, body.name);
-    await ctx.storage.put(key, serializeSnapshot(body.snapshot as unknown as StateSnapshot), {
-      contentType: 'application/json',
-    });
-    if (project.orgId) {
-      const actor = getActor(req);
-      await recordEvent(ctx, {
-        orgId: project.orgId,
-        actorType: actor.actorType,
-        actorId: actor.actorId,
-        action: 'snapshot.saved',
-        metadata: { projectSlug: project.slug, name: body.name },
+    async (req, reply) => {
+      const body = CreateSnapshotBody.parse(req.body);
+      const project = await resolveProjectAccess(ctx, req, body.projectSlug);
+      const key = StorageKeys.snapshot(project.storageSlug, body.name);
+      await ctx.storage.put(key, serializeSnapshot(body.snapshot as unknown as StateSnapshot), {
+        contentType: 'application/json',
       });
-      await recordUsage(ctx, {
-        orgId: project.orgId,
-        kind: 'snapshot_saved',
-        amount: 1,
-        metadata: { projectSlug: project.slug, name: body.name },
-      });
-    }
-    reply.status(201);
-    return { name: body.name, storageKey: key };
-  });
+      if (project.orgId) {
+        const actor = getActor(req);
+        await recordEvent(ctx, {
+          orgId: project.orgId,
+          actorType: actor.actorType,
+          actorId: actor.actorId,
+          action: 'snapshot.saved',
+          metadata: { projectSlug: project.slug, name: body.name },
+        });
+        await recordUsage(ctx, {
+          orgId: project.orgId,
+          kind: 'snapshot_saved',
+          amount: 1,
+          metadata: { projectSlug: project.slug, name: body.name },
+        });
+      }
+      reply.status(201);
+      return { name: body.name, storageKey: key };
+    },
+  );
 
   app.get<{ Params: { slug: string; name: string } }>(
     '/v1/projects/:slug/snapshots/:name',

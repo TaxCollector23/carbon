@@ -153,9 +153,7 @@ export default function SnapshotsSection() {
         open={!!compareFrom}
         onClose={closeCompare}
         title={
-          compareTo
-            ? `Diff: ${compareFrom} → ${compareTo}`
-            : `Compare "${compareFrom ?? ''}" with…`
+          compareTo ? `Diff: ${compareFrom} → ${compareTo}` : `Compare "${compareFrom ?? ''}" with…`
         }
       >
         {!compareTo ? (
@@ -207,9 +205,7 @@ export function ProjectPicker({
 }) {
   if (loading) return <Skeleton className="h-9 w-64" />;
   if (error)
-    return (
-      <p className="text-destructive text-sm">Could not load projects: {error.message}</p>
-    );
+    return <p className="text-destructive text-sm">Could not load projects: {error.message}</p>;
   if (slugs.length === 0)
     return (
       <p className="text-muted-foreground text-sm">

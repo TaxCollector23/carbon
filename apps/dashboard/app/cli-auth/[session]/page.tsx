@@ -13,16 +13,10 @@ import CliAuthApproval from './approval';
  * fetch() so the same-origin session cookie is forwarded to
  * `POST /v1/cli-auth/:id/approve` on apps/api.
  */
-export default async function CliAuthPage({
-  params,
-}: {
-  params: Promise<{ session: string }>;
-}) {
+export default async function CliAuthPage({ params }: { params: Promise<{ session: string }> }) {
   const { session } = await params;
   const hdrs = await headers();
-  const sessionResult = await auth.api
-    .getSession({ headers: hdrs })
-    .catch(() => null);
+  const sessionResult = await auth.api.getSession({ headers: hdrs }).catch(() => null);
 
   if (!sessionResult?.user) {
     // Bounce through the sign-in page and come back here after auth. When the
@@ -36,7 +30,7 @@ export default async function CliAuthPage({
     name: sessionResult.user.name ?? null,
   };
 
-  const apiUrl = process.env.NEXT_PUBLIC_CARBON_API_URL ?? 'http://localhost:3000';
+  const apiUrl = process.env.NEXT_PUBLIC_CARBON_API_URL ?? 'http://localhost:4000';
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-lg items-center p-6">

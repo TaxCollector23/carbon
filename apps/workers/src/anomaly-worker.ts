@@ -178,10 +178,7 @@ function groupBursts(rows: readonly EventRow[], windowMs: number, threshold: num
     while (start < list.length) {
       let end = start;
       const startTime = list[start]!.createdAt.getTime();
-      while (
-        end + 1 < list.length &&
-        list[end + 1]!.createdAt.getTime() - startTime <= windowMs
-      ) {
+      while (end + 1 < list.length && list[end + 1]!.createdAt.getTime() - startTime <= windowMs) {
         end++;
       }
       const count = end - start + 1;
@@ -244,8 +241,10 @@ async function summarize(burst: Burst, capabilities: AiCapabilities): Promise<st
 function ruleSummary(burst: Burst): string {
   const durationMs = burst.to.getTime() - burst.from.getTime();
   const seconds = Math.max(1, Math.round(durationMs / 1000));
-  const durationLabel = seconds >= 60 ? `${Math.round(seconds / 60)}m${seconds % 60}s` : `${seconds}s`;
-  const actor =
-    burst.actorId ? `${burst.actorType} ${burst.actorId}` : `an anonymous ${burst.actorType}`;
+  const durationLabel =
+    seconds >= 60 ? `${Math.round(seconds / 60)}m${seconds % 60}s` : `${seconds}s`;
+  const actor = burst.actorId
+    ? `${burst.actorType} ${burst.actorId}`
+    : `an anonymous ${burst.actorType}`;
   return `${actor} performed ${burst.action} ${burst.count} times in ${durationLabel}.`;
 }

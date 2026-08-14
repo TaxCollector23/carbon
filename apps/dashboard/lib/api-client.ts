@@ -16,9 +16,8 @@ export type { paths as ApiPaths, components as ApiComponents } from './api-types
  * `Authorization: Bearer <key>`. Either credential is accepted by the API's
  * `api-key`/`session-auth` plugins.
  *
- * Endpoints not yet on the server (events / organizations / billing) are
- * called defensively: callers should try/catch on `ApiError` and treat a
- * 404/501 as "feature not deployed yet".
+ * Optional endpoints are called defensively: callers should try/catch on
+ * `ApiError` and treat a 404/501 as "not available in this environment".
  */
 
 export type Scope = 'read' | 'write' | 'admin';
@@ -449,12 +448,7 @@ export interface SearchResult {
 }
 
 export type JobStatus =
-  | 'queued'
-  | 'running'
-  | 'succeeded'
-  | 'failed'
-  | 'needs_review'
-  | (string & {});
+  'queued' | 'running' | 'succeeded' | 'failed' | 'needs_review' | (string & {});
 
 export interface Job {
   id: string;
@@ -517,7 +511,8 @@ export interface LoadTestResult {
 
 // -----------------------------------------------------------------------------
 
-export type SessionTokenGetter = () => string | null | undefined | Promise<string | null | undefined>;
+export type SessionTokenGetter = () =>
+  string | null | undefined | Promise<string | null | undefined>;
 
 export interface ApiClientOptions {
   baseUrl?: string;
@@ -526,7 +521,7 @@ export interface ApiClientOptions {
 
 const DEFAULT_BASE_URL =
   (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_CARBON_API_URL) ||
-  'http://localhost:3000';
+  'http://localhost:4000';
 
 const API_KEY_STORAGE_KEY = 'carbon.apiKey';
 const ORG_ID_STORAGE_KEY = 'carbon.orgId';
@@ -596,11 +591,7 @@ export function createApiClient(options: ApiClientOptions = {}) {
         credentials: 'include',
         headers,
         body:
-          body === undefined
-            ? undefined
-            : body instanceof FormData
-              ? body
-              : JSON.stringify(body),
+          body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),
         ...init,
       });
     } catch (err) {
@@ -627,9 +618,11 @@ export function createApiClient(options: ApiClientOptions = {}) {
     }
 
     if (!response.ok) {
-      const errObj = (json && typeof json === 'object' && 'error' in json ? (json as { error: unknown }).error : json) as
-        | { code?: string; message?: string; details?: unknown; help?: string }
-        | null;
+      const errObj = (
+        json && typeof json === 'object' && 'error' in json
+          ? (json as { error: unknown }).error
+          : json
+      ) as { code?: string; message?: string; details?: unknown; help?: string } | null;
       const apiErr = new ApiError({
         status: response.status,
         code: errObj?.code ?? `HTTP_${response.status}`,
@@ -642,7 +635,9 @@ export function createApiClient(options: ApiClientOptions = {}) {
       if (typeof window !== 'undefined' && apiErr.code === 'IDEMPOTENCY_KEY_REQUIRED') {
         try {
           window.dispatchEvent(
-            new CustomEvent('carbon:api-error', { detail: { code: apiErr.code, message: apiErr.message } }),
+            new CustomEvent('carbon:api-error', {
+              detail: { code: apiErr.code, message: apiErr.message },
+            }),
           );
         } catch {
           /* ignore */
@@ -741,7 +736,13 @@ export function createApiClient(options: ApiClientOptions = {}) {
     listEmulators() {
       return request<{ data: EmulatorRecord[] }>('GET', '/v1/emulators');
     },
-    startEmulator(body: { projectSlug: string; irId: string; port?: number; host?: string; snapshot?: string }) {
+    startEmulator(body: {
+      projectSlug: string;
+      irId: string;
+      port?: number;
+      host?: string;
+      snapshot?: string;
+    }) {
       return request<EmulatorRecord>('POST', '/v1/emulators', body);
     },
     stopEmulator(id: string) {
@@ -767,7 +768,9 @@ export function createApiClient(options: ApiClientOptions = {}) {
     },
 
     // ------------------------------- events ---------------------------------
-    listEvents(params: { limit?: number; projectId?: string; action?: string; cursor?: string } = {}) {
+    listEvents(
+      params: { limit?: number; projectId?: string; action?: string; cursor?: string } = {},
+    ) {
       const q = toQuery(params);
       return request<ListResponse<EventRow>>('GET', `/v1/events${q}`);
     },

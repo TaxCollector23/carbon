@@ -1,6 +1,6 @@
 # @carbon/vitest
 
-Ergonomic [vitest](https://vitest.dev) integration for [Carbon](https://github.com/carbon-dev/carbon) — boot a scoped Carbon emulator per test (or per file) from your OpenAPI/GraphQL spec.
+Ergonomic [vitest](https://vitest.dev) integration for [Carbon](https://github.com/TaxCollector23/carbon) — boot a scoped Carbon emulator per test (or per file) from your OpenAPI/GraphQL spec.
 
 ## Install
 

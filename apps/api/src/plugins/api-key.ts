@@ -4,6 +4,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import { CarbonError } from '@carbon/core';
 import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
+import type { SessionAuthenticatedRequest } from './session-auth.js';
 
 /**
  * API key authentication.
@@ -21,8 +22,9 @@ import type { AppContext } from '../context.js';
  * is safe and orders of magnitude cheaper on the hot path.
  *
  * Unauthenticated routes come from `publicPaths` — see `PUBLIC_PATHS` in
- * `server.ts`. Everything else requires a key unless
- * `CARBON_AUTH_MODE=disabled`.
+ * `server.ts`. Browser/dashboard requests authenticate with Better Auth,
+ * which must run before this hook; this hook skips only after a valid
+ * `req.sessionUser` is already attached.
  */
 
 const KEY_PATTERN = /^ck_live_([a-f0-9]{12})\.([A-Za-z0-9_-]{32,128})$/;
@@ -74,23 +76,28 @@ export async function registerApiKeyAuth(
 
   app.addHook('onRequest', async (req, reply) => {
     if (isPublicPath(publicPaths, pathname(req.url))) return;
-    const raw = req.headers[header];
-    if (Array.isArray(raw) && raw.length !== 1) {
+    const credential = extractPresentedKey(req, header);
+    if (credential.duplicate) {
       throw new CarbonError({
         code: 'CARBON_UNAUTHENTICATED',
-        message: `Multiple ${header} headers are not allowed`,
+        message: `Multiple ${credential.headerName} headers are not allowed`,
         expose: true,
       });
     }
-    const presented = Array.isArray(raw) ? raw[0] : raw;
-    if (!presented) {
+
+    if (!credential.presented) {
+      // The session-auth hook is registered before API-key auth in server.ts.
+      // Only a verified Better Auth session should bypass API-key validation;
+      // a random bearer token or stale cookie still lands here as 401.
+      if ((req as SessionAuthenticatedRequest).sessionUser) return;
       throw new CarbonError({
         code: 'CARBON_UNAUTHENTICATED',
         message: `Missing ${header} header`,
         expose: true,
       });
     }
-    const { prefix, secret } = splitKey(presented);
+
+    const { prefix, secret } = splitKey(credential.presented);
     if (!prefix || !secret) {
       throw new CarbonError({
         code: 'CARBON_UNAUTHENTICATED',
@@ -193,6 +200,37 @@ function splitKey(token: string): { prefix?: string; secret?: string } {
   const [, prefix, secret] = match;
   if (!prefix || !secret) return {};
   return { prefix, secret };
+}
+
+function extractPresentedKey(
+  req: FastifyRequest,
+  header: string,
+): { presented?: string; duplicate: boolean; headerName: string } {
+  const keyHeader = req.headers[header];
+  if (Array.isArray(keyHeader)) {
+    return {
+      presented: keyHeader[0],
+      duplicate: keyHeader.length !== 1,
+      headerName: header,
+    };
+  }
+  if (typeof keyHeader === 'string' && keyHeader.trim() !== '') {
+    return { presented: keyHeader.trim(), duplicate: false, headerName: header };
+  }
+
+  const rawAuth = req.headers.authorization;
+  const auth = Array.isArray(rawAuth) ? rawAuth[0] : rawAuth;
+  if (Array.isArray(rawAuth) && rawAuth.length !== 1) {
+    return { duplicate: true, headerName: 'authorization' };
+  }
+  if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
+    const token = auth.slice(7).trim();
+    if (token.startsWith('ck_live_')) {
+      return { presented: token, duplicate: false, headerName: 'authorization' };
+    }
+  }
+
+  return { duplicate: false, headerName: header };
 }
 
 function sha256(input: string): Buffer {

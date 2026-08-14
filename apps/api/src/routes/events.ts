@@ -62,188 +62,200 @@ interface EventRow {
 }
 
 export async function registerEventRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
-  app.get('/v1/events', {
-    preHandler: requireScope('read'),
-    schema: {
-      summary: 'List audit events',
-      description:
-        'Return audit events for the caller\'s org in descending time order. ' +
-        'Supports keyset pagination via `cursor` (ISO 8601 timestamp of the last item seen) and ' +
-        'optional filtering by `projectId` or `action`.',
-      querystring: zodQuery(ListQuery),
-      response: {
-        200: zodResponseWithExample(EventListResponse, {
-          data: [
-            {
-              id: 'evt_01HXK5N9Q1B7C4D3E2F1G0H9J8',
-              orgId: 'org_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
-              projectId: 'prj_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
-              actorType: 'user',
-              actorId: 'usr_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
-              action: 'project.created',
-              metadata: { slug: 'checkout-api', name: 'Checkout API' },
-              createdAt: '2025-11-14T18:22:41.000Z',
-            },
-          ],
-          nextCursor: null,
-          hasMore: false,
-        }),
+  app.get(
+    '/v1/events',
+    {
+      preHandler: requireScope('read'),
+      schema: {
+        summary: 'List audit events',
+        description:
+          "Return audit events for the caller's org in descending time order. " +
+          'Supports keyset pagination via `cursor` (ISO 8601 timestamp of the last item seen) and ' +
+          'optional filtering by `projectId` or `action`.',
+        querystring: zodQuery(ListQuery),
+        response: {
+          200: zodResponseWithExample(EventListResponse, {
+            data: [
+              {
+                id: 'evt_01HXK5N9Q1B7C4D3E2F1G0H9J8',
+                orgId: 'org_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+                projectId: 'prj_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+                actorType: 'user',
+                actorId: 'usr_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+                action: 'project.created',
+                metadata: { slug: 'checkout-api', name: 'Checkout API' },
+                createdAt: '2025-11-14T18:22:41.000Z',
+              },
+            ],
+            nextCursor: null,
+            hasMore: false,
+          }),
+        },
       },
     },
-  }, async (req) => {
-    const query = ListQuery.parse(req.query);
-    const orgId = resolveCallerOrg(req, { queryOrg: query.orgId, mode: 'return-empty' });
-    if (!orgId) {
-      // Auth-disabled dev mode with no query fallback → return empty rather
-      // than 400. Keeps the dashboard's honest "no activity yet" state truthful
-      // instead of turning into a red error banner.
-      return { data: [], nextCursor: null, hasMore: false };
-    }
-    const rows = await fetchEvents(ctx, {
-      orgId,
-      limit: query.limit + 1,
-      cursor: query.cursor ? new Date(query.cursor) : undefined,
-      projectId: query.projectId,
-      action: query.action,
-    });
-    const hasMore = rows.length > query.limit;
-    const items = hasMore ? rows.slice(0, query.limit) : rows;
-    const last = items[items.length - 1];
-    const nextCursor = hasMore && last ? last.createdAt.toISOString() : null;
-    return { data: items, nextCursor, hasMore };
-  });
-
-  app.get('/v1/events/stream', {
-    preHandler: requireScope('read'),
-    // No response schema: this is a text/event-stream long-lived response and
-    // Fastify's serializer would otherwise try to shape the reply. We manage
-    // the wire format by writing directly to `reply.raw`.
-    schema: {
-      summary: 'Server-Sent Events stream of audit events',
-      description:
-        'Long-lived text/event-stream connection. Emits `hello` on open, ' +
-        '`ping` heartbeats every ~15s, and `new-event` frames as events land ' +
-        'for the caller\'s org.',
-      querystring: zodQuery(StreamQuery),
+    async (req) => {
+      const query = ListQuery.parse(req.query);
+      const orgId = resolveCallerOrg(req, { queryOrg: query.orgId, mode: 'return-empty' });
+      if (!orgId) {
+        // Auth-disabled dev mode with no query fallback → return empty rather
+        // than 400. Keeps the dashboard's honest "no activity yet" state truthful
+        // instead of turning into a red error banner.
+        return { data: [], nextCursor: null, hasMore: false };
+      }
+      const rows = await fetchEvents(ctx, {
+        orgId,
+        limit: query.limit + 1,
+        cursor: query.cursor ? new Date(query.cursor) : undefined,
+        projectId: query.projectId,
+        action: query.action,
+      });
+      const hasMore = rows.length > query.limit;
+      const items = hasMore ? rows.slice(0, query.limit) : rows;
+      const last = items[items.length - 1];
+      const nextCursor = hasMore && last ? last.createdAt.toISOString() : null;
+      return { data: items, nextCursor, hasMore };
     },
-  }, async (req, reply) => {
-    const query = StreamQuery.parse(req.query);
-    const orgId = resolveCallerOrg(req, { queryOrg: query.orgId });
+  );
 
-    const filter = (evt: PublishedEvent): boolean => {
-      if (evt.orgId !== orgId) return false;
-      if (query.projectId && evt.projectId !== query.projectId) return false;
-      if (query.action && evt.action !== query.action) return false;
-      return true;
-    };
-
-    const raw = reply.raw;
-    // Detach Fastify from the socket so we own the write path. Without this,
-    // the send() at the end of the handler would try to serialize.
-    reply.hijack();
-
-    raw.writeHead(200, {
-      'content-type': 'text/event-stream; charset=utf-8',
-      'cache-control': 'no-cache, no-transform',
-      connection: 'keep-alive',
-      // Some proxies (nginx) buffer text/event-stream by default; disable that.
-      'x-accel-buffering': 'no',
-    });
-
-    const connectionId = randomUUID();
-    writeSseFrame(raw, 'hello', { connectionId, orgId });
-
-    const onLocal = (evt: PublishedEvent): void => {
-      if (!filter(evt)) return;
-      writeSseFrame(raw, 'new-event', evt);
-    };
-    eventBus.on('new-event', onLocal);
-
-    // Cross-instance fanout via Redis pub/sub when available. The shared
-    // `RedisEventBus` maintains ONE duplicated ioredis client for the whole
-    // process and multiplexes org channels onto it — so N tabs no longer
-    // means N `duplicate()`s. `unsubscribeRedis` is called on socket close.
-    let unsubscribeRedis: (() => void) | undefined;
-    if (orgId && ctx.redis) {
-      try {
-        const bus = getRedisEventBus(ctx.redis, ctx.logger);
-        unsubscribeRedis = await bus.subscribe(orgId, (evt) => {
-          if (filter(evt)) writeSseFrame(raw, 'new-event', evt);
-        });
-      } catch (err) {
-        ctx.logger.warn('events.stream.redis_subscribe_failed', {
-          message: err instanceof Error ? err.message : String(err),
-        });
-        unsubscribeRedis = undefined;
-      }
-    }
-
-    const heartbeatMs = heartbeatIntervalMs();
-    const heartbeat = setInterval(() => {
-      writeSseFrame(raw, 'ping', { at: new Date().toISOString() });
-    }, heartbeatMs);
-    // Timers keeping the process alive would block graceful shutdown when the
-    // only remaining work is an idle SSE loop.
-    heartbeat.unref?.();
-
-    const cleanup = (): void => {
-      clearInterval(heartbeat);
-      eventBus.off('new-event', onLocal);
-      if (unsubscribeRedis) {
-        unsubscribeRedis();
-        unsubscribeRedis = undefined;
-      }
-      try {
-        raw.end();
-      } catch {
-        // Socket already gone; nothing to do.
-      }
-    };
-
-    req.raw.on('close', cleanup);
-    req.raw.on('error', cleanup);
-  });
-
-  app.get('/v1/events/export', {
-    preHandler: requireScope('read'),
-    schema: {
-      summary: 'Export audit events as CSV',
-      description:
-        'Stream audit events as a CSV attachment. Same filters as `GET /v1/events` but returns a single denormalized CSV row per event, ' +
-        'capped at `limit` (max 10,000).',
-      querystring: zodQuery(ExportQuery),
+  app.get(
+    '/v1/events/stream',
+    {
+      preHandler: requireScope('read'),
+      // No response schema: this is a text/event-stream long-lived response and
+      // Fastify's serializer would otherwise try to shape the reply. We manage
+      // the wire format by writing directly to `reply.raw`.
+      schema: {
+        summary: 'Server-Sent Events stream of audit events',
+        description:
+          'Long-lived text/event-stream connection. Emits `hello` on open, ' +
+          '`ping` heartbeats every ~15s, and `new-event` frames as events land ' +
+          "for the caller's org.",
+        querystring: zodQuery(StreamQuery),
+      },
     },
-  }, async (req, reply) => {
-    const query = ExportQuery.parse(req.query);
-    const orgId = resolveCallerOrg(req, { queryOrg: query.orgId });
-    const rows = await fetchEvents(ctx, {
-      orgId,
-      limit: query.limit,
-      projectId: query.projectId,
-      action: query.action,
-    });
-    const header = 'id,createdAt,orgId,projectId,actorType,actorId,action,metadata';
-    const lines = [header];
-    for (const row of rows) {
-      lines.push(
-        [
-          row.id,
-          row.createdAt.toISOString(),
-          row.orgId,
-          row.projectId ?? '',
-          row.actorType,
-          row.actorId ?? '',
-          row.action,
-          JSON.stringify(row.metadata ?? {}),
-        ]
-          .map(csvEscape)
-          .join(','),
-      );
-    }
-    reply.header('content-type', 'text/csv; charset=utf-8');
-    reply.header('content-disposition', `attachment; filename="events-${Date.now()}.csv"`);
-    return lines.join('\n');
-  });
+    async (req, reply) => {
+      const query = StreamQuery.parse(req.query);
+      const orgId = resolveCallerOrg(req, { queryOrg: query.orgId });
+
+      const filter = (evt: PublishedEvent): boolean => {
+        if (evt.orgId !== orgId) return false;
+        if (query.projectId && evt.projectId !== query.projectId) return false;
+        if (query.action && evt.action !== query.action) return false;
+        return true;
+      };
+
+      const raw = reply.raw;
+      // Detach Fastify from the socket so we own the write path. Without this,
+      // the send() at the end of the handler would try to serialize.
+      reply.hijack();
+
+      raw.writeHead(200, {
+        'content-type': 'text/event-stream; charset=utf-8',
+        'cache-control': 'no-cache, no-transform',
+        connection: 'keep-alive',
+        // Some proxies (nginx) buffer text/event-stream by default; disable that.
+        'x-accel-buffering': 'no',
+      });
+
+      const connectionId = randomUUID();
+      writeSseFrame(raw, 'hello', { connectionId, orgId });
+
+      const onLocal = (evt: PublishedEvent): void => {
+        if (!filter(evt)) return;
+        writeSseFrame(raw, 'new-event', evt);
+      };
+      eventBus.on('new-event', onLocal);
+
+      // Cross-instance fanout via Redis pub/sub when available. The shared
+      // `RedisEventBus` maintains ONE duplicated ioredis client for the whole
+      // process and multiplexes org channels onto it — so N tabs no longer
+      // means N `duplicate()`s. `unsubscribeRedis` is called on socket close.
+      let unsubscribeRedis: (() => void) | undefined;
+      if (orgId && ctx.redis) {
+        try {
+          const bus = getRedisEventBus(ctx.redis, ctx.logger);
+          unsubscribeRedis = await bus.subscribe(orgId, (evt) => {
+            if (filter(evt)) writeSseFrame(raw, 'new-event', evt);
+          });
+        } catch (err) {
+          ctx.logger.warn('events.stream.redis_subscribe_failed', {
+            message: err instanceof Error ? err.message : String(err),
+          });
+          unsubscribeRedis = undefined;
+        }
+      }
+
+      const heartbeatMs = heartbeatIntervalMs();
+      const heartbeat = setInterval(() => {
+        writeSseFrame(raw, 'ping', { at: new Date().toISOString() });
+      }, heartbeatMs);
+      // Timers keeping the process alive would block graceful shutdown when the
+      // only remaining work is an idle SSE loop.
+      heartbeat.unref?.();
+
+      const cleanup = (): void => {
+        clearInterval(heartbeat);
+        eventBus.off('new-event', onLocal);
+        if (unsubscribeRedis) {
+          unsubscribeRedis();
+          unsubscribeRedis = undefined;
+        }
+        try {
+          raw.end();
+        } catch {
+          // Socket already gone; nothing to do.
+        }
+      };
+
+      req.raw.on('close', cleanup);
+      req.raw.on('error', cleanup);
+    },
+  );
+
+  app.get(
+    '/v1/events/export',
+    {
+      preHandler: requireScope('read'),
+      schema: {
+        summary: 'Export audit events as CSV',
+        description:
+          'Stream audit events as a CSV attachment. Same filters as `GET /v1/events` but returns a single denormalized CSV row per event, ' +
+          'capped at `limit` (max 10,000).',
+        querystring: zodQuery(ExportQuery),
+      },
+    },
+    async (req, reply) => {
+      const query = ExportQuery.parse(req.query);
+      const orgId = resolveCallerOrg(req, { queryOrg: query.orgId });
+      const rows = await fetchEvents(ctx, {
+        orgId,
+        limit: query.limit,
+        projectId: query.projectId,
+        action: query.action,
+      });
+      const header = 'id,createdAt,orgId,projectId,actorType,actorId,action,metadata';
+      const lines = [header];
+      for (const row of rows) {
+        lines.push(
+          [
+            row.id,
+            row.createdAt.toISOString(),
+            row.orgId,
+            row.projectId ?? '',
+            row.actorType,
+            row.actorId ?? '',
+            row.action,
+            JSON.stringify(row.metadata ?? {}),
+          ]
+            .map(csvEscape)
+            .join(','),
+        );
+      }
+      reply.header('content-type', 'text/csv; charset=utf-8');
+      reply.header('content-disposition', `attachment; filename="events-${Date.now()}.csv"`);
+      return lines.join('\n');
+    },
+  );
 }
 
 interface FetchEventsInput {

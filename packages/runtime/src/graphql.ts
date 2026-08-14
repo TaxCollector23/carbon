@@ -81,9 +81,7 @@ function synthesizeSdl(ctx: RuntimeContext): string | null {
   const typeBlocks = resources.map((r) => {
     // We know very little about field types at this point — degrade to
     // scalar `String` so buildSchema succeeds.
-    const fields = Object.keys(
-      (r.schema.kind === 'object' && r.schema.properties) || { id: null },
-    );
+    const fields = Object.keys((r.schema.kind === 'object' && r.schema.properties) || { id: null });
     const decls = fields.length > 0 ? fields.map((f) => `  ${f}: String`).join('\n') : '  id: ID';
     return `type ${r.name} {\n${decls}\n}`;
   });
@@ -138,14 +136,18 @@ function attachResolvers(
   const fields = type.getFields();
   for (const fieldName of Object.keys(fields)) {
     const field = fields[fieldName]!;
-    const resolver = origin === 'query'
-      ? buildQueryResolver(field, resourceByName, ctx)
-      : buildMutationResolver(field, fieldName, resourceByName, ctx);
+    const resolver =
+      origin === 'query'
+        ? buildQueryResolver(field, resourceByName, ctx)
+        : buildMutationResolver(field, fieldName, resourceByName, ctx);
     if (resolver) root[fieldName] = resolver;
   }
 }
 
-function unwrapReturnTypeName(field: GraphQLField<unknown, unknown>): { name: string; list: boolean } {
+function unwrapReturnTypeName(field: GraphQLField<unknown, unknown>): {
+  name: string;
+  list: boolean;
+} {
   let t = field.type as { toString(): string; ofType?: unknown };
   let list = false;
   // Walk NonNull/List wrappers by stringifying and inspecting — the
@@ -181,7 +183,16 @@ function buildQueryResolver(
   };
 }
 
-const MUTATION_PREFIXES = ['create', 'add', 'update', 'edit', 'patch', 'delete', 'remove', 'destroy'];
+const MUTATION_PREFIXES = [
+  'create',
+  'add',
+  'update',
+  'edit',
+  'patch',
+  'delete',
+  'remove',
+  'destroy',
+];
 
 function buildMutationResolver(
   field: GraphQLField<unknown, unknown>,
@@ -195,8 +206,7 @@ function buildMutationResolver(
   // stripping the prefix from the field name (delete* returns Boolean).
   const { name: returnTypeName } = unwrapReturnTypeName(field);
   const resourceId =
-    resourceByName.get(returnTypeName) ??
-    resourceByName.get(fieldName.slice(prefix.length));
+    resourceByName.get(returnTypeName) ?? resourceByName.get(fieldName.slice(prefix.length));
   if (!resourceId) return null;
 
   if (prefix === 'create' || prefix === 'add') {

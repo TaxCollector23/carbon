@@ -85,18 +85,10 @@ export class CarbonError extends Error {
   public readonly details: unknown;
   public readonly response?: Response;
 
-  constructor(
-    payload: unknown,
-    response?: Response,
-    message?: string,
-  ) {
+  constructor(payload: unknown, response?: Response, message?: string) {
     const p = (payload && typeof payload === 'object' ? payload : {}) as Record<string, unknown>;
-    const status =
-      typeof p.status === 'number'
-        ? (p.status as number)
-        : response?.status ?? 0;
-    const code =
-      typeof p.code === 'string' ? (p.code as string) : 'CARBON_ERROR';
+    const status = typeof p.status === 'number' ? (p.status as number) : (response?.status ?? 0);
+    const code = typeof p.code === 'string' ? (p.code as string) : 'CARBON_ERROR';
     const msg =
       message ??
       (typeof p.message === 'string' ? (p.message as string) : `Carbon API error ${status}`);

@@ -11,8 +11,9 @@ import { loadCredentials, type Credentials } from './credentials.js';
  * process exits with code 7 (auth-required) so scripts can tell it apart
  * from a network or assertion failure.
  *
- * Local-only commands (init, doctor, completion, emulate against a local
- * spec) never call this. `login` and `logout` obviously never call it.
+ * Commands that only touch local files or local runtimes (init, doctor,
+ * completion, emulate against a local spec) never call this. `login` and
+ * `logout` obviously never call it.
  */
 export const EXIT_AUTH_REQUIRED = 7;
 
@@ -32,7 +33,7 @@ export async function requireAuth(): Promise<Credentials> {
   } else {
     ui.error("You're not signed in.");
     process.stdout.write(
-      "\n  Run `carbon login` to open the Carbon dashboard, create an account,\n" +
+      '\n  Run `carbon login` to open the Carbon dashboard, create an account,\n' +
         '  and link this CLI. It takes about 30 seconds.\n\n',
     );
   }

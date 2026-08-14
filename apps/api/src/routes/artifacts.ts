@@ -136,7 +136,7 @@ export async function registerArtifactRoutes(app: FastifyInstance, ctx: AppConte
     {
       preHandler: requireScope('read'),
       schema: {
-        summary: 'List a project\'s artifacts',
+        summary: "List a project's artifacts",
         description:
           'Enumerate IR + graph artifacts for a project, newest first. Bounded scan — pass `limit` (max 500); `truncated: true` means more artifacts exist beyond the limit.',
         querystring: zodQuery(ArtifactListQuery),
@@ -191,8 +191,9 @@ export async function registerArtifactRoutes(app: FastifyInstance, ctx: AppConte
     {
       preHandler: requireScope('write'),
       schema: {
-        summary: 'Set an artifact\'s tags',
-        description: 'Replace the tag list on an artifact. Caller must have write access to the underlying project.',
+        summary: "Set an artifact's tags",
+        description:
+          'Replace the tag list on an artifact. Caller must have write access to the underlying project.',
         body: zodBody(TagsBody),
         response: { 200: zodResponse(TagsResponse) },
       },
@@ -239,7 +240,8 @@ export async function registerArtifactRoutes(app: FastifyInstance, ctx: AppConte
       preHandler: requireScope('write'),
       schema: {
         summary: 'Post a comment on an artifact',
-        description: 'Append a comment to an artifact. `authorId` is derived from the session user (null for API-key callers).',
+        description:
+          'Append a comment to an artifact. `authorId` is derived from the session user (null for API-key callers).',
         body: zodBody(CommentBody),
         response: { 201: zodResponse(CommentSchema) },
       },

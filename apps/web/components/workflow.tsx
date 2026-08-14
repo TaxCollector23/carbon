@@ -29,7 +29,7 @@ const steps = [
 
 export function Workflow() {
   return (
-    <Section id="workflow" className="bg-subtle/50 ">
+    <Section id="workflow" className="bg-subtle/50">
       <div className="grid gap-12 lg:grid-cols-[0.7fr_1.3fr]">
         <SectionHeading
           title="Four commands."

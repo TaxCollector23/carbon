@@ -16,7 +16,10 @@ test('drift page renders the config card and history for a project', async ({ pa
   const noProjects = page.getByText(/no projects yet — create one/i);
 
   await Promise.race([
-    picker.first().waitFor({ state: 'visible', timeout: 15_000 }).catch(() => null),
+    picker
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 })
+      .catch(() => null),
     noProjects.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => null),
   ]);
 

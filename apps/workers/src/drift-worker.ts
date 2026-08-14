@@ -159,7 +159,9 @@ async function checkOne(
 async function loadExchanges(
   storage: Storage | undefined,
   storageKey: string,
-): Promise<Array<{ method: string; url: string; expectedStatus: number; expectedBody: string | null }>> {
+): Promise<
+  Array<{ method: string; url: string; expectedStatus: number; expectedBody: string | null }>
+> {
   if (!storage) return [];
   const bytes = await storage.get(storageKey);
   if (!bytes) return [];
@@ -171,7 +173,12 @@ async function loadExchanges(
   }
   const raw = (parsed as { exchanges?: unknown }).exchanges;
   if (!Array.isArray(raw)) return [];
-  const out: Array<{ method: string; url: string; expectedStatus: number; expectedBody: string | null }> = [];
+  const out: Array<{
+    method: string;
+    url: string;
+    expectedStatus: number;
+    expectedBody: string | null;
+  }> = [];
   for (const ex of raw) {
     const req = (ex as { request?: { method?: string; url?: string } }).request;
     const res = (ex as { response?: { status?: number; body?: string | null } }).response;
@@ -253,9 +260,12 @@ function bodyShape(body: string | null): string {
     return `text:${trimmed.length}`;
   }
   if (parsed === null) return 'null';
-  if (Array.isArray(parsed)) return `array:${parsed.length === 0 ? 0 : parsed.length > 10 ? '10+' : parsed.length}`;
+  if (Array.isArray(parsed))
+    return `array:${parsed.length === 0 ? 0 : parsed.length > 10 ? '10+' : parsed.length}`;
   if (typeof parsed !== 'object') return typeof parsed;
-  return `object:{${Object.keys(parsed as object).sort().join(',')}}`;
+  return `object:{${Object.keys(parsed as object)
+    .sort()
+    .join(',')}}`;
 }
 
 function extractUpstreamUrl(meta: unknown): string | null {

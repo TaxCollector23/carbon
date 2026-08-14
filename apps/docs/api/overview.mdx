@@ -4,7 +4,7 @@ description: 'The Carbon control-plane HTTP API, and the three ways to authentic
 ---
 
 The control-plane API is versioned under `/v1/*` on your API host
-(hosted default: `https://api.carbon.dev`; self-hosted: whatever you
+(hosted default: `<api-origin>`; self-hosted: whatever you
 front the `apps/api` service with).
 
 ## Machine-readable spec
@@ -23,7 +23,7 @@ programmatic callers:
 ### 1. API key (`x-carbon-key`) — recommended for CLI, CI, servers
 
 ```bash
-curl -H "x-carbon-key: ck_live_…" https://api.carbon.dev/v1/me
+curl -H "x-carbon-key: ck_live_…" <api-origin>/v1/me
 ```
 
 Keys are minted per-org and carry a scope (`read`, `write`, `admin`).
@@ -38,7 +38,7 @@ The Better Auth session token, sent as a `Bearer` on the
 API host when it isn't same-origin.
 
 ```bash
-curl -H "Authorization: Bearer <session-token>" https://api.carbon.dev/v1/me
+curl -H "Authorization: Bearer <session-token>" <api-origin>/v1/me
 ```
 
 ### 3. Session cookie — for same-origin browser calls

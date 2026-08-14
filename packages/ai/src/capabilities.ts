@@ -145,10 +145,7 @@ export class AiCapabilities {
     });
   }
 
-  explainEndpoint(input: {
-    ir: IntermediateRepresentation;
-    endpointId: string;
-  }): Promise<string> {
+  explainEndpoint(input: { ir: IntermediateRepresentation; endpointId: string }): Promise<string> {
     return this.requireProvider()
       .complete({
         system:
@@ -231,8 +228,26 @@ function parseSingleClause(clause: string): ErrorInjectionRule | null {
   return null;
 }
 
-const SAMPLE_FIRST_NAMES = ['Ada', 'Grace', 'Alan', 'Linus', 'Katherine', 'Margaret', 'Dennis', 'Barbara'];
-const SAMPLE_LAST_NAMES = ['Lovelace', 'Hopper', 'Turing', 'Torvalds', 'Johnson', 'Hamilton', 'Ritchie', 'Liskov'];
+const SAMPLE_FIRST_NAMES = [
+  'Ada',
+  'Grace',
+  'Alan',
+  'Linus',
+  'Katherine',
+  'Margaret',
+  'Dennis',
+  'Barbara',
+];
+const SAMPLE_LAST_NAMES = [
+  'Lovelace',
+  'Hopper',
+  'Turing',
+  'Torvalds',
+  'Johnson',
+  'Hamilton',
+  'Ritchie',
+  'Liskov',
+];
 
 function templateSeedData(input: {
   resources: readonly { name: string; fields?: readonly string[] }[];

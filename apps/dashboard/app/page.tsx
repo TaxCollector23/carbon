@@ -3,8 +3,7 @@
 import Link from 'next/link';
 import { Box, KeyRound, Layers, Server } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { Button } from '@carbon/ui';
+import { Suspense, useEffect } from 'react';
 import { Topbar } from '@/components/topbar';
 import { ErrorBanner, Skeleton } from '@/components/ui';
 import { useApiKeys, useEmulators, useProjects } from '@/lib/hooks/api';
@@ -13,6 +12,9 @@ import { useSnapshots } from '@/lib/hooks/api';
 import { getSectionCopy } from '@/lib/empty-data';
 import { HealthPill } from '@/components/health-pill';
 import { TrySampleButton } from './[section]/_actions/try-sample';
+
+const MARKETING_URL =
+  process.env.NEXT_PUBLIC_MARKETING_URL?.replace(/\/+$/, '') ?? 'https://carbon-web-psi.vercel.app';
 
 /**
  * Overview page. Fetches counts+recent items for the four resources that
@@ -23,6 +25,14 @@ import { TrySampleButton } from './[section]/_actions/try-sample';
  * currently selected project (see useSelectedProjectSlug).
  */
 export default function DashboardHome() {
+  return (
+    <Suspense fallback={<DashboardSkeleton />}>
+      <DashboardHomeInner />
+    </Suspense>
+  );
+}
+
+function DashboardHomeInner() {
   const projects = useProjects();
   const emulators = useEmulators();
   const keys = useApiKeys();
@@ -53,8 +63,8 @@ export default function DashboardHome() {
             <div className="max-w-2xl">
               <h2 className="text-2xl font-medium tracking-tight">Workspace overview</h2>
               <p className="text-muted-foreground mt-3 text-sm leading-6">
-                Live totals from the control plane. Numbers reflect the API server this
-                dashboard is pointed at ({process.env.NEXT_PUBLIC_CARBON_API_URL ?? 'http://localhost:3000'}).
+                Live totals from the control plane. Numbers reflect the API server this dashboard is
+                pointed at ({process.env.NEXT_PUBLIC_CARBON_API_URL ?? 'http://localhost:4000'}).
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -63,9 +73,12 @@ export default function DashboardHome() {
                 autoInstantiate={sampleParam}
                 onDone={() => void projects.refetch()}
               />
-              <Link href="/#cli" className="text-muted-foreground hover:text-foreground text-sm">
+              <a
+                href={`${MARKETING_URL}/#cli`}
+                className="text-muted-foreground hover:text-foreground text-sm"
+              >
                 Install CLI →
-              </Link>
+              </a>
             </div>
           </div>
         </section>
@@ -105,9 +118,7 @@ export default function DashboardHome() {
           />
         </section>
 
-        {projects.error ? (
-          <ErrorBanner error={projects.error} onRetry={projects.refetch} />
-        ) : null}
+        {projects.error ? <ErrorBanner error={projects.error} onRetry={projects.refetch} /> : null}
 
         <section className="grid gap-6 lg:grid-cols-2">
           <RecentList
@@ -138,6 +149,28 @@ export default function DashboardHome() {
             }
             emptyKey="keys"
           />
+        </section>
+      </main>
+    </>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <>
+      <Topbar title="Overview" />
+      <main className="space-y-8 p-8">
+        <section className="border-border border-y py-7">
+          <Skeleton className="h-8 w-56" />
+          <Skeleton className="mt-4 h-4 w-full max-w-xl" />
+        </section>
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {['Projects', 'Snapshots', 'Emulators', 'API keys'].map((title) => (
+            <div key={title} className="border-border rounded-md border p-4">
+              <div className="text-muted-foreground text-xs">{title}</div>
+              <Skeleton className="mt-3 h-7 w-12" />
+            </div>
+          ))}
         </section>
       </main>
     </>
@@ -231,6 +264,3 @@ function RecentList({
     </div>
   );
 }
-
-// Silence "unused" if Button import is stripped in future iterations.
-export const _Button = Button;

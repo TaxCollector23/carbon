@@ -37,7 +37,7 @@ Pagination follows SCIM conventions: `startIndex` (1-based),
 ## Example: invite a user
 
 ```bash
-curl -X POST https://api.carbon.dev/scim/v2/Users \
+curl -X POST <api-origin>/scim/v2/Users \
   -H "X-SCIM-Token: ck_live_admin_…" \
   -H "content-type: application/scim+json" \
   -d '{
@@ -69,7 +69,7 @@ Response (201):
 ## Example: de-provision
 
 ```bash
-curl -X PATCH https://api.carbon.dev/scim/v2/Users/usr_… \
+curl -X PATCH <api-origin>/scim/v2/Users/usr_… \
   -H "X-SCIM-Token: ck_live_admin_…" \
   -H "content-type: application/scim+json" \
   -d '{

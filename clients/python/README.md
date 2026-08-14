@@ -1,6 +1,6 @@
 # carbon-client
 
-Official Python client for the [Carbon](https://carbon.dev) control-plane API.
+Official Python client for the [Carbon](https://carbon-web-psi.vercel.app) control-plane API.
 Thin sync + async wrapper over [`httpx`](https://www.python-httpx.org/) with
 typed responses for the top control-plane endpoints.
 
@@ -48,18 +48,18 @@ asyncio.run(main())
 
 The hand-written surface covers the top 10 control-plane endpoints:
 
-| Method              | Endpoint                     |
-| ------------------- | ---------------------------- |
-| `list_projects`     | `GET /v1/projects`           |
-| `create_project`    | `POST /v1/projects`          |
-| `get_project`       | `GET /v1/projects/{id}`      |
-| `list_snapshots`    | `GET /v1/snapshots`          |
-| `list_emulators`    | `GET /v1/emulators`          |
-| `list_events`       | `GET /v1/events`             |
-| `list_api_keys`     | `GET /v1/api-keys`           |
-| `create_api_key`    | `POST /v1/api-keys`          |
-| `list_usage`        | `GET /v1/usage`              |
-| `get_health`        | `GET /v1/health/live`        |
+| Method           | Endpoint                |
+| ---------------- | ----------------------- |
+| `list_projects`  | `GET /v1/projects`      |
+| `create_project` | `POST /v1/projects`     |
+| `get_project`    | `GET /v1/projects/{id}` |
+| `list_snapshots` | `GET /v1/snapshots`     |
+| `list_emulators` | `GET /v1/emulators`     |
+| `list_events`    | `GET /v1/events`        |
+| `list_api_keys`  | `GET /v1/api-keys`      |
+| `create_api_key` | `POST /v1/api-keys`     |
+| `list_usage`     | `GET /v1/usage`         |
+| `get_health`     | `GET /v1/health/live`   |
 
 Each has an `a`-prefixed async twin (`alist_projects`, `acreate_project`, …)
 usable via `async with CarbonClient(...)`.

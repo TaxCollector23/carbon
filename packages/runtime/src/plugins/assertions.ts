@@ -37,9 +37,10 @@ export function assertionsPlugin(
   onViolation: OnViolation | (() => OnViolation),
 ): RuntimePlugin {
   const getRules = typeof rules === 'function' ? rules : () => rules;
-  const getSink = typeof onViolation === 'function' && onViolation.length === 0
-    ? (onViolation as () => OnViolation)
-    : () => onViolation as OnViolation;
+  const getSink =
+    typeof onViolation === 'function' && onViolation.length === 0
+      ? (onViolation as () => OnViolation)
+      : () => onViolation as OnViolation;
   return {
     name: 'assertions',
     register(app) {

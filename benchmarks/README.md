@@ -6,14 +6,14 @@ fixtures, no numbers hand-picked to look good on a landing page.
 
 ## What we measure and why
 
-| Script | Measures | Why it's the honest metric |
-| --- | --- | --- |
-| [`scripts/stateful-consistency.ts`](./scripts/stateful-consistency.ts) | CREATE -> READ -> PATCH -> READ -> DELETE -> 404 over real HTTP | The thing no static mock can do. Prints an assertion + response for every step. |
-| [`scripts/cold-start.ts`](./scripts/cold-start.ts) | Spec-to-first-2xx cold start, spawning the actual CLI as a child process, median of 10 runs | This is what a user feels when they run `carbon-dev emulate --from spec.json`. |
-| [`scripts/throughput.ts`](./scripts/throughput.ts) | Requests per second and latency histogram over a real TCP socket with [`autocannon`](https://github.com/mcollina/autocannon) at 100 connections for 30s | In-process `fastify.inject` skips kernel + socket cost; TCP loopback is honest. |
-| [`scripts/snapshot-restore.ts`](./scripts/snapshot-restore.ts) | Snapshot-restore latency for 10,000 rows across 5 resources, 20 iterations | Bench isolates the state engine, including disk read + JSON parse. |
-| [`scripts/memory.ts`](./scripts/memory.ts) | RSS delta after inserting 1,000 seeded rows over HTTP, `--max-old-space-size=512` | RSS is what your Docker container gets billed for, not `heapUsed`. |
-| [`../benchmarks/runtime-baseline.ts`](./runtime-baseline.ts) | In-process `fastify.inject` micro-timings | Kept as an internal regression signal; **do not** compare it to competitor numbers. |
+| Script                                                                 | Measures                                                                                                                                                | Why it's the honest metric                                                          |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| [`scripts/stateful-consistency.ts`](./scripts/stateful-consistency.ts) | CREATE -> READ -> PATCH -> READ -> DELETE -> 404 over real HTTP                                                                                         | The thing no static mock can do. Prints an assertion + response for every step.     |
+| [`scripts/cold-start.ts`](./scripts/cold-start.ts)                     | Spec-to-first-2xx cold start, spawning the actual CLI as a child process, median of 10 runs                                                             | This is what a user feels when they run `carbon-api emulate --from spec.json`.      |
+| [`scripts/throughput.ts`](./scripts/throughput.ts)                     | Requests per second and latency histogram over a real TCP socket with [`autocannon`](https://github.com/mcollina/autocannon) at 100 connections for 30s | In-process `fastify.inject` skips kernel + socket cost; TCP loopback is honest.     |
+| [`scripts/snapshot-restore.ts`](./scripts/snapshot-restore.ts)         | Snapshot-restore latency for 10,000 rows across 5 resources, 20 iterations                                                                              | Bench isolates the state engine, including disk read + JSON parse.                  |
+| [`scripts/memory.ts`](./scripts/memory.ts)                             | RSS delta after inserting 1,000 seeded rows over HTTP, `--max-old-space-size=512`                                                                       | RSS is what your Docker container gets billed for, not `heapUsed`.                  |
+| [`../benchmarks/runtime-baseline.ts`](./runtime-baseline.ts)           | In-process `fastify.inject` micro-timings                                                                                                               | Kept as an internal regression signal; **do not** compare it to competitor numbers. |
 
 ## What we do NOT measure
 
@@ -35,7 +35,7 @@ Prereqs: Node >= 20.11, pnpm 11.
 ```bash
 # From repo root
 pnpm install
-pnpm --filter carbon-dev build   # needed for cold-start.ts
+pnpm --filter carbon-api build   # needed for cold-start.ts
 pnpm bench                       # or: pnpm --filter @carbon/benchmarks bench:all
 ```
 

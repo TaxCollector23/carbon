@@ -207,9 +207,7 @@ function RecordingRow({
         <Td className="font-mono text-xs">{r.id}</Td>
         <Td>{r.requestCount}</Td>
         <Td className="text-xs">{r.upstreamUrl ?? '—'}</Td>
-        <Td className="text-xs">
-          {r.firstAt ? new Date(r.firstAt).toLocaleString() : '—'}
-        </Td>
+        <Td className="text-xs">{r.firstAt ? new Date(r.firstAt).toLocaleString() : '—'}</Td>
         <Td>{formatBytes(r.size)}</Td>
         <Td>
           <div className="flex gap-1">
@@ -263,7 +261,7 @@ function ExchangesTable({ exchanges }: { exchanges: RecordingExchangesResponse }
           {exchanges.exchanges.map((e) => (
             <tr key={e.id}>
               <Td className="font-mono">{e.method}</Td>
-              <Td className="font-mono break-all">{e.url}</Td>
+              <Td className="break-all font-mono">{e.url}</Td>
               <Td>{e.status}</Td>
               <Td>{e.latencyMs} ms</Td>
             </tr>
@@ -301,7 +299,7 @@ function ReplayResultView({ result }: { result: RecordingReplayResult }) {
             {result.results.map((row) => (
               <tr key={row.exchangeId}>
                 <Td className="font-mono">{row.method}</Td>
-                <Td className="font-mono break-all">{row.url}</Td>
+                <Td className="break-all font-mono">{row.url}</Td>
                 <Td>
                   {row.status ?? 'ERR'} / {row.expectedStatus}
                 </Td>

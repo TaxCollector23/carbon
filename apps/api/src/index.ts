@@ -93,47 +93,48 @@ async function main(): Promise<void> {
   // `CARBON_AI_PROVIDER=mock` bypasses OpenRouter entirely and hands back a
   // deterministic MockAiProvider — the way integration tests and CI exercise
   // the ingest + judge pipeline without an LLM key.
-  const aiProvider = env.CARBON_AI_PROVIDER === 'mock'
-    ? new MockAiProvider({ defaultModel: env.CARBON_AI_MODEL, logger })
-    : env.CARBON_AI_API_KEY
-    ? new OpenRouterProvider({
-        apiKey: env.CARBON_AI_API_KEY,
-        defaultModel: env.CARBON_AI_MODEL,
-        logger,
-        onUsage: (evt) => {
-          logger.info('usage.ai.call', {
-            provider: evt.provider,
-            model: evt.model,
-            promptTokens: evt.usage.promptTokens,
-            completionTokens: evt.usage.completionTokens,
-            totalTokens: evt.usage.totalTokens,
-            latencyMs: evt.latencyMs,
-          });
-          // Prefer the org threaded through by the ingestion pipeline
-          // (`evt.context.orgId`) so multi-tenant hosts attribute each AI
-          // call to the caller that triggered it. The env pin is retained
-          // as a fallback for system-caller paths (CLI, workers) that do
-          // not carry a per-request org — without either, the row is
-          // dropped rather than mis-attributed.
-          const orgId = evt.context?.orgId ?? process.env.CARBON_METER_ORG_ID;
-          if (ctxRef && orgId) {
-            void recordUsage(ctxRef, {
-              orgId,
-              kind: 'ai_call',
-              amount: evt.usage.totalTokens || 1,
-              metadata: {
+  const aiProvider =
+    env.CARBON_AI_PROVIDER === 'mock'
+      ? new MockAiProvider({ defaultModel: env.CARBON_AI_MODEL, logger })
+      : env.CARBON_AI_API_KEY
+        ? new OpenRouterProvider({
+            apiKey: env.CARBON_AI_API_KEY,
+            defaultModel: env.CARBON_AI_MODEL,
+            logger,
+            onUsage: (evt) => {
+              logger.info('usage.ai.call', {
                 provider: evt.provider,
                 model: evt.model,
                 promptTokens: evt.usage.promptTokens,
                 completionTokens: evt.usage.completionTokens,
+                totalTokens: evt.usage.totalTokens,
                 latencyMs: evt.latencyMs,
-                projectId: evt.context?.projectId,
-              },
-            });
-          }
-        },
-      })
-    : undefined;
+              });
+              // Prefer the org threaded through by the ingestion pipeline
+              // (`evt.context.orgId`) so multi-tenant hosts attribute each AI
+              // call to the caller that triggered it. The env pin is retained
+              // as a fallback for system-caller paths (CLI, workers) that do
+              // not carry a per-request org — without either, the row is
+              // dropped rather than mis-attributed.
+              const orgId = evt.context?.orgId ?? process.env.CARBON_METER_ORG_ID;
+              if (ctxRef && orgId) {
+                void recordUsage(ctxRef, {
+                  orgId,
+                  kind: 'ai_call',
+                  amount: evt.usage.totalTokens || 1,
+                  metadata: {
+                    provider: evt.provider,
+                    model: evt.model,
+                    promptTokens: evt.usage.promptTokens,
+                    completionTokens: evt.usage.completionTokens,
+                    latencyMs: evt.latencyMs,
+                    projectId: evt.context?.projectId,
+                  },
+                });
+              }
+            },
+          })
+        : undefined;
   const ai = aiProvider ? new AiCapabilities(aiProvider) : undefined;
   const judge = aiProvider
     ? new AiJudge({ provider: aiProvider, threshold: env.CARBON_AI_JUDGE_THRESHOLD })

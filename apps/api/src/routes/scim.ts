@@ -176,248 +176,289 @@ export async function registerScimRoutes(app: FastifyInstance, ctx: AppContext):
     return apiKey.orgId;
   };
 
-  app.get('/scim/v2/Users', {
-    schema: {
-      summary: 'SCIM: list users',
-      description: 'Enterprise-only. Authenticate with `x-carbon-key` (admin) or `X-SCIM-Token`. Supports the standard `userName eq "..."` filter plus `startIndex`/`count` paging.',
-      querystring: zodQuery(ListQuery),
-      response: { 200: zodResponse(ScimUserListResponse) },
+  app.get(
+    '/scim/v2/Users',
+    {
+      schema: {
+        summary: 'SCIM: list users',
+        description:
+          'Enterprise-only. Authenticate with `x-carbon-key` (admin) or `X-SCIM-Token`. Supports the standard `userName eq "..."` filter plus `startIndex`/`count` paging.',
+        querystring: zodQuery(ListQuery),
+        response: { 200: zodResponse(ScimUserListResponse) },
+      },
     },
-  }, async (req, reply) => {
-    const orgId = await gate(req, reply);
-    if (!orgId) return;
-    const { filter, startIndex, count } = ListQuery.parse(req.query);
+    async (req, reply) => {
+      const orgId = await gate(req, reply);
+      if (!orgId) return;
+      const { filter, startIndex, count } = ListQuery.parse(req.query);
 
-    let emailFilter: string | undefined;
-    if (filter) {
-      // Support the single canonical SCIM filter every IdP sends:
-      //   userName eq "user@example.com"
-      const m = /userName\s+eq\s+"([^"]+)"/i.exec(filter);
-      if (m) emailFilter = m[1];
-    }
-
-    const memberships = await ctx.db
-      .select({
-        userId: schema.memberships.userId,
-        role: schema.memberships.role,
-        email: schema.users.email,
-        name: schema.users.name,
-        createdAt: schema.users.createdAt,
-        updatedAt: schema.users.updatedAt,
-      })
-      .from(schema.memberships)
-      .innerJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
-      .where(
-        emailFilter
-          ? and(eq(schema.memberships.orgId, orgId), eq(schema.users.email, emailFilter))
-          : eq(schema.memberships.orgId, orgId),
-      );
-
-    const totalResults = memberships.length;
-    const page = memberships.slice(startIndex - 1, startIndex - 1 + count);
-    return {
-      schemas: [SCIM_LIST_SCHEMA],
-      totalResults,
-      startIndex,
-      itemsPerPage: page.length,
-      Resources: page.map((m) => toScimUser(m.userId, m.email, m.name, true, m.createdAt, m.updatedAt)),
-    };
-  });
-
-  app.get<{ Params: { id: string } }>('/scim/v2/Users/:id', {
-    schema: {
-      summary: 'SCIM: get user by id',
-      description: 'Enterprise-only. Returns the SCIM Core User representation, or a SCIM error envelope on 404.',
-      response: { 200: zodResponse(ScimUserSchema) },
-    },
-  }, async (req, reply) => {
-    const orgId = await gate(req, reply);
-    if (!orgId) return;
-    const row = await loadUser(ctx, orgId, req.params.id);
-    if (!row) {
-      scimError(reply, 404, 'User not found');
-      return;
-    }
-    return toScimUser(row.userId, row.email, row.name, true, row.createdAt, row.updatedAt);
-  });
-
-  app.post('/scim/v2/Users', {
-    schema: {
-      summary: 'SCIM: create user',
-      description: 'Enterprise-only. Provisions a user (if missing) and attaches a membership. Existing users are re-attached idempotently. SCIM provisioning does not set a password — an invitation token is created for the invitee to finish sign-up.',
-      body: zodBody(CreateUserBody),
-      response: { 201: zodResponse(ScimUserSchema) },
-    },
-  }, async (req, reply) => {
-    const orgId = await gate(req, reply);
-    if (!orgId) return;
-    let body: z.infer<typeof CreateUserBody>;
-    try {
-      body = CreateUserBody.parse(req.body);
-    } catch (err) {
-      scimError(reply, 400, err instanceof Error ? err.message : 'Invalid SCIM user');
-      return;
-    }
-    const email = body.userName.toLowerCase();
-
-    // If the user already exists globally, just attach a membership.
-    const existing = (
-      await ctx.db.select().from(schema.users).where(eq(schema.users.email, email)).limit(1)
-    )[0];
-
-    let userId: string;
-    let createdAt: Date;
-    let updatedAt: Date;
-    if (existing) {
-      userId = existing.id;
-      createdAt = existing.createdAt;
-      updatedAt = existing.updatedAt;
-    } else {
-      userId = makeId('usr');
-      const now = new Date();
-      const inserted = await ctx.db
-        .insert(schema.users)
-        .values({
-          id: userId,
-          email,
-          emailVerified: false,
-          name: body.name?.formatted ?? null,
-        })
-        .returning();
-      createdAt = inserted[0]?.createdAt ?? now;
-      updatedAt = inserted[0]?.updatedAt ?? now;
-
-      // Provisioning via SCIM does not set a password — record an invitation
-      // so the user can finish sign-up via the normal Better Auth flow.
-      await ctx.db.insert(schema.invitations).values({
-        id: makeId('inv'),
-        orgId,
-        email,
-        role: 'member',
-        token: randomBytes(24).toString('hex'),
-        expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-      });
-    }
-
-    const existingMembership = (
-      await ctx.db
-        .select()
-        .from(schema.memberships)
-        .where(and(eq(schema.memberships.orgId, orgId), eq(schema.memberships.userId, userId)))
-        .limit(1)
-    )[0];
-    if (!existingMembership) {
-      await ctx.db.insert(schema.memberships).values({
-        id: makeId('mbr'),
-        userId,
-        orgId,
-        role: 'member',
-      });
-    }
-
-    reply.status(201);
-    return toScimUser(userId, email, body.name?.formatted ?? null, body.active !== false, createdAt, updatedAt);
-  });
-
-  app.patch<{ Params: { id: string } }>('/scim/v2/Users/:id', {
-    schema: {
-      summary: 'SCIM: patch user',
-      description: 'Enterprise-only. Applies a SCIM PatchOp. Setting `active: false` removes the membership; other operations are accepted as no-ops so IdPs do not retry.',
-      body: zodBody(PatchBody),
-      response: { 200: zodResponse(ScimUserSchema) },
-    },
-  }, async (req, reply) => {
-    const orgId = await gate(req, reply);
-    if (!orgId) return;
-    let body: z.infer<typeof PatchBody>;
-    try {
-      body = PatchBody.parse(req.body);
-    } catch (err) {
-      scimError(reply, 400, err instanceof Error ? err.message : 'Invalid PatchOp');
-      return;
-    }
-    const row = await loadUser(ctx, orgId, req.params.id);
-    if (!row) {
-      scimError(reply, 404, 'User not found');
-      return;
-    }
-    // Only one op matters at the moment: setting active=false → remove the
-    // membership. Everything else is accepted as a no-op so IdPs don't retry.
-    let active = true;
-    for (const op of body.Operations) {
-      const value = op.value as { active?: boolean } | boolean | undefined;
-      if (op.path === 'active') {
-        active = typeof value === 'boolean' ? value : true;
-      } else if (typeof value === 'object' && value && 'active' in value) {
-        active = value.active !== false;
+      let emailFilter: string | undefined;
+      if (filter) {
+        // Support the single canonical SCIM filter every IdP sends:
+        //   userName eq "user@example.com"
+        const m = /userName\s+eq\s+"([^"]+)"/i.exec(filter);
+        if (m) emailFilter = m[1];
       }
-    }
-    if (!active) {
+
+      const memberships = await ctx.db
+        .select({
+          userId: schema.memberships.userId,
+          role: schema.memberships.role,
+          email: schema.users.email,
+          name: schema.users.name,
+          createdAt: schema.users.createdAt,
+          updatedAt: schema.users.updatedAt,
+        })
+        .from(schema.memberships)
+        .innerJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
+        .where(
+          emailFilter
+            ? and(eq(schema.memberships.orgId, orgId), eq(schema.users.email, emailFilter))
+            : eq(schema.memberships.orgId, orgId),
+        );
+
+      const totalResults = memberships.length;
+      const page = memberships.slice(startIndex - 1, startIndex - 1 + count);
+      return {
+        schemas: [SCIM_LIST_SCHEMA],
+        totalResults,
+        startIndex,
+        itemsPerPage: page.length,
+        Resources: page.map((m) =>
+          toScimUser(m.userId, m.email, m.name, true, m.createdAt, m.updatedAt),
+        ),
+      };
+    },
+  );
+
+  app.get<{ Params: { id: string } }>(
+    '/scim/v2/Users/:id',
+    {
+      schema: {
+        summary: 'SCIM: get user by id',
+        description:
+          'Enterprise-only. Returns the SCIM Core User representation, or a SCIM error envelope on 404.',
+        response: { 200: zodResponse(ScimUserSchema) },
+      },
+    },
+    async (req, reply) => {
+      const orgId = await gate(req, reply);
+      if (!orgId) return;
+      const row = await loadUser(ctx, orgId, req.params.id);
+      if (!row) {
+        scimError(reply, 404, 'User not found');
+        return;
+      }
+      return toScimUser(row.userId, row.email, row.name, true, row.createdAt, row.updatedAt);
+    },
+  );
+
+  app.post(
+    '/scim/v2/Users',
+    {
+      schema: {
+        summary: 'SCIM: create user',
+        description:
+          'Enterprise-only. Provisions a user (if missing) and attaches a membership. Existing users are re-attached idempotently. SCIM provisioning does not set a password — an invitation token is created for the invitee to finish sign-up.',
+        body: zodBody(CreateUserBody),
+        response: { 201: zodResponse(ScimUserSchema) },
+      },
+    },
+    async (req, reply) => {
+      const orgId = await gate(req, reply);
+      if (!orgId) return;
+      let body: z.infer<typeof CreateUserBody>;
+      try {
+        body = CreateUserBody.parse(req.body);
+      } catch (err) {
+        scimError(reply, 400, err instanceof Error ? err.message : 'Invalid SCIM user');
+        return;
+      }
+      const email = body.userName.toLowerCase();
+
+      // If the user already exists globally, just attach a membership.
+      const existing = (
+        await ctx.db.select().from(schema.users).where(eq(schema.users.email, email)).limit(1)
+      )[0];
+
+      let userId: string;
+      let createdAt: Date;
+      let updatedAt: Date;
+      if (existing) {
+        userId = existing.id;
+        createdAt = existing.createdAt;
+        updatedAt = existing.updatedAt;
+      } else {
+        userId = makeId('usr');
+        const now = new Date();
+        const inserted = await ctx.db
+          .insert(schema.users)
+          .values({
+            id: userId,
+            email,
+            emailVerified: false,
+            name: body.name?.formatted ?? null,
+          })
+          .returning();
+        createdAt = inserted[0]?.createdAt ?? now;
+        updatedAt = inserted[0]?.updatedAt ?? now;
+
+        // Provisioning via SCIM does not set a password — record an invitation
+        // so the user can finish sign-up via the normal Better Auth flow.
+        await ctx.db.insert(schema.invitations).values({
+          id: makeId('inv'),
+          orgId,
+          email,
+          role: 'member',
+          token: randomBytes(24).toString('hex'),
+          expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+        });
+      }
+
+      const existingMembership = (
+        await ctx.db
+          .select()
+          .from(schema.memberships)
+          .where(and(eq(schema.memberships.orgId, orgId), eq(schema.memberships.userId, userId)))
+          .limit(1)
+      )[0];
+      if (!existingMembership) {
+        await ctx.db.insert(schema.memberships).values({
+          id: makeId('mbr'),
+          userId,
+          orgId,
+          role: 'member',
+        });
+      }
+
+      reply.status(201);
+      return toScimUser(
+        userId,
+        email,
+        body.name?.formatted ?? null,
+        body.active !== false,
+        createdAt,
+        updatedAt,
+      );
+    },
+  );
+
+  app.patch<{ Params: { id: string } }>(
+    '/scim/v2/Users/:id',
+    {
+      schema: {
+        summary: 'SCIM: patch user',
+        description:
+          'Enterprise-only. Applies a SCIM PatchOp. Setting `active: false` removes the membership; other operations are accepted as no-ops so IdPs do not retry.',
+        body: zodBody(PatchBody),
+        response: { 200: zodResponse(ScimUserSchema) },
+      },
+    },
+    async (req, reply) => {
+      const orgId = await gate(req, reply);
+      if (!orgId) return;
+      let body: z.infer<typeof PatchBody>;
+      try {
+        body = PatchBody.parse(req.body);
+      } catch (err) {
+        scimError(reply, 400, err instanceof Error ? err.message : 'Invalid PatchOp');
+        return;
+      }
+      const row = await loadUser(ctx, orgId, req.params.id);
+      if (!row) {
+        scimError(reply, 404, 'User not found');
+        return;
+      }
+      // Only one op matters at the moment: setting active=false → remove the
+      // membership. Everything else is accepted as a no-op so IdPs don't retry.
+      let active = true;
+      for (const op of body.Operations) {
+        const value = op.value as { active?: boolean } | boolean | undefined;
+        if (op.path === 'active') {
+          active = typeof value === 'boolean' ? value : true;
+        } else if (typeof value === 'object' && value && 'active' in value) {
+          active = value.active !== false;
+        }
+      }
+      if (!active) {
+        await ctx.db
+          .delete(schema.memberships)
+          .where(
+            and(eq(schema.memberships.orgId, orgId), eq(schema.memberships.userId, row.userId)),
+          );
+      }
+      return toScimUser(row.userId, row.email, row.name, active, row.createdAt, row.updatedAt);
+    },
+  );
+
+  app.delete<{ Params: { id: string } }>(
+    '/scim/v2/Users/:id',
+    {
+      schema: {
+        summary: 'SCIM: delete user',
+        description:
+          "Enterprise-only. Removes the membership for the target user in the caller's org. The underlying user row is retained.",
+      },
+    },
+    async (req, reply) => {
+      const orgId = await gate(req, reply);
+      if (!orgId) return;
+      const row = await loadUser(ctx, orgId, req.params.id);
+      if (!row) {
+        scimError(reply, 404, 'User not found');
+        return;
+      }
       await ctx.db
         .delete(schema.memberships)
         .where(and(eq(schema.memberships.orgId, orgId), eq(schema.memberships.userId, row.userId)));
-    }
-    return toScimUser(row.userId, row.email, row.name, active, row.createdAt, row.updatedAt);
-  });
-
-  app.delete<{ Params: { id: string } }>('/scim/v2/Users/:id', {
-    schema: {
-      summary: 'SCIM: delete user',
-      description: 'Enterprise-only. Removes the membership for the target user in the caller\'s org. The underlying user row is retained.',
+      reply.status(204);
     },
-  }, async (req, reply) => {
-    const orgId = await gate(req, reply);
-    if (!orgId) return;
-    const row = await loadUser(ctx, orgId, req.params.id);
-    if (!row) {
-      scimError(reply, 404, 'User not found');
-      return;
-    }
-    await ctx.db
-      .delete(schema.memberships)
-      .where(and(eq(schema.memberships.orgId, orgId), eq(schema.memberships.userId, row.userId)));
-    reply.status(204);
-  });
+  );
 
-  app.get('/scim/v2/Groups', {
-    schema: {
-      summary: 'SCIM: list groups (by role)',
-      description: 'Enterprise-only. Returns one SCIM Group per membership role in the caller\'s org (`owner`/`admin`/`member`) with members listed.',
-      response: { 200: zodResponse(ScimGroupListResponse) },
+  app.get(
+    '/scim/v2/Groups',
+    {
+      schema: {
+        summary: 'SCIM: list groups (by role)',
+        description:
+          "Enterprise-only. Returns one SCIM Group per membership role in the caller's org (`owner`/`admin`/`member`) with members listed.",
+        response: { 200: zodResponse(ScimGroupListResponse) },
+      },
     },
-  }, async (req, reply) => {
-    const orgId = await gate(req, reply);
-    if (!orgId) return;
-    const rows = await ctx.db
-      .select({
-        userId: schema.memberships.userId,
-        role: schema.memberships.role,
-        email: schema.users.email,
-      })
-      .from(schema.memberships)
-      .innerJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
-      .where(eq(schema.memberships.orgId, orgId));
-    const byRole = new Map<string, Array<{ value: string; display: string }>>();
-    for (const r of rows) {
-      const arr = byRole.get(r.role) ?? [];
-      arr.push({ value: r.userId, display: r.email });
-      byRole.set(r.role, arr);
-    }
-    const groups = Array.from(byRole.entries()).map(([role, members]) => ({
-      schemas: [SCIM_GROUP_SCHEMA],
-      id: `${orgId}:${role}`,
-      displayName: role,
-      members,
-      meta: { resourceType: 'Group' as const },
-    }));
-    return {
-      schemas: [SCIM_LIST_SCHEMA],
-      totalResults: groups.length,
-      startIndex: 1,
-      itemsPerPage: groups.length,
-      Resources: groups,
-    };
-  });
+    async (req, reply) => {
+      const orgId = await gate(req, reply);
+      if (!orgId) return;
+      const rows = await ctx.db
+        .select({
+          userId: schema.memberships.userId,
+          role: schema.memberships.role,
+          email: schema.users.email,
+        })
+        .from(schema.memberships)
+        .innerJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
+        .where(eq(schema.memberships.orgId, orgId));
+      const byRole = new Map<string, Array<{ value: string; display: string }>>();
+      for (const r of rows) {
+        const arr = byRole.get(r.role) ?? [];
+        arr.push({ value: r.userId, display: r.email });
+        byRole.set(r.role, arr);
+      }
+      const groups = Array.from(byRole.entries()).map(([role, members]) => ({
+        schemas: [SCIM_GROUP_SCHEMA],
+        id: `${orgId}:${role}`,
+        displayName: role,
+        members,
+        meta: { resourceType: 'Group' as const },
+      }));
+      return {
+        schemas: [SCIM_LIST_SCHEMA],
+        totalResults: groups.length,
+        startIndex: 1,
+        itemsPerPage: groups.length,
+        Resources: groups,
+      };
+    },
+  );
 }
 
 async function loadUser(

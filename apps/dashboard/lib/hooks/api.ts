@@ -52,9 +52,7 @@ export function useApiKeys(limit = 100) {
   return useAsync(() => api.listApiKeys({ limit }), [limit]);
 }
 
-export function useEvents(
-  params: { projectId?: string; action?: string; limit?: number } = {},
-) {
+export function useEvents(params: { projectId?: string; action?: string; limit?: number } = {}) {
   return useAsync(() => api.listEvents(params), [params.projectId, params.action, params.limit]);
 }
 

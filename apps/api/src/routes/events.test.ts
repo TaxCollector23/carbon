@@ -207,15 +207,15 @@ describe('event routes', () => {
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toContain('text/csv');
     const lines = res.body.split('\n');
-    expect(lines[0]).toBe(
-      'id,createdAt,orgId,projectId,actorType,actorId,action,metadata',
-    );
+    expect(lines[0]).toBe('id,createdAt,orgId,projectId,actorType,actorId,action,metadata');
     // Two lines: header + one org_a row. The org_b row must NOT appear.
     expect(lines).toHaveLength(2);
     expect(lines[1]).toContain('org_a');
     expect(lines[1]).not.toContain('org_b');
     // Escaped metadata cell wraps its contents in quotes and doubles the
     // internal quote — otherwise the "world" would break the column count.
-    expect(lines[1]).toMatch(/"\{""note"":""hello, \\?""world\\?""""\}"|"\{""note"":""hello, \\"world\\""""\}"/);
+    expect(lines[1]).toMatch(
+      /"\{""note"":""hello, \\?""world\\?""""\}"|"\{""note"":""hello, \\"world\\""""\}"/,
+    );
   });
 });

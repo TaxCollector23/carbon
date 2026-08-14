@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type {
-  EndpointId,
-  IntermediateRepresentation,
-  ResourceId,
-} from '@carbon/types';
+import type { EndpointId, IntermediateRepresentation, ResourceId } from '@carbon/types';
 import { BehaviorGraphBuilder } from './builder.js';
 
 const customer = 'customer' as ResourceId;
@@ -78,9 +74,7 @@ describe('BehaviorGraphBuilder', () => {
 
   it('emits a unique constraint on the primary key', () => {
     const graph = new BehaviorGraphBuilder().build(ir());
-    const unique = graph.constraints.find(
-      (c) => c.kind === 'unique' && c.resource === customer,
-    );
+    const unique = graph.constraints.find((c) => c.kind === 'unique' && c.resource === customer);
     expect(unique).toBeTruthy();
   });
 });

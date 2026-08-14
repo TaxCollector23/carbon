@@ -55,7 +55,7 @@ message rather than a silent success.
 ## Register a SAML provider
 
 ```bash
-curl -X POST https://api.carbon.dev/v1/sso/providers \
+curl -X POST <api-origin>/v1/sso/providers \
   -H "x-carbon-key: ck_live_admin_…" \
   -H "content-type: application/json" \
   -d '{
@@ -71,7 +71,7 @@ curl -X POST https://api.carbon.dev/v1/sso/providers \
 ## Register an OIDC provider
 
 ```bash
-curl -X POST https://api.carbon.dev/v1/sso/providers \
+curl -X POST <api-origin>/v1/sso/providers \
   -H "x-carbon-key: ck_live_admin_…" \
   -H "content-type: application/json" \
   -d '{

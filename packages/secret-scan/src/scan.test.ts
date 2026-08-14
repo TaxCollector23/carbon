@@ -20,7 +20,11 @@ async function seed() {
   // Bad file — two hits on different lines.
   await writeFile(
     join(dir, 'src', 'bad.ts'),
-    ['export const stripe = "' + SK_LIVE + '";', 'export const carbon = "' + CK_LIVE + '";', ''].join('\n'),
+    [
+      'export const stripe = "' + SK_LIVE + '";',
+      'export const carbon = "' + CK_LIVE + '";',
+      '',
+    ].join('\n'),
   );
   // Bad file inside node_modules — must be ignored by default.
   await writeFile(join(dir, 'node_modules', 'evil', 'leak.js'), 'const x="' + GH_PAT + '";');

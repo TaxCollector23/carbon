@@ -4,7 +4,6 @@ import { join } from 'node:path';
 import { homedir, platform, release } from 'node:os';
 
 const TELEMETRY_FILE = join(homedir(), '.carbon', 'telemetry.json');
-const DEFAULT_ENDPOINT = 'https://carbon.dev/t';
 const HARD_TIMEOUT_MS = 500;
 
 interface TelemetryState {
@@ -33,7 +32,7 @@ export function track(event: string, data: Record<string, unknown> = {}): void {
 export function isEnabled(): boolean {
   const flag = (process.env.CARBON_TELEMETRY ?? '').toLowerCase();
   if (flag === '0' || flag === 'false' || flag === 'off' || flag === 'no') return false;
-  return true;
+  return telemetryEndpoint() !== null;
 }
 
 /**
@@ -54,7 +53,8 @@ export async function maybeShowNotice(write: (line: string) => void): Promise<vo
 async function sendSafely(event: string, data: Record<string, unknown>): Promise<void> {
   try {
     const state = await loadOrCreate();
-    const endpoint = process.env.CARBON_TELEMETRY_URL ?? DEFAULT_ENDPOINT;
+    const endpoint = telemetryEndpoint();
+    if (!endpoint) return;
     const version = process.env.CARBON_VERSION ?? 'unknown';
     const payload = {
       event,
@@ -79,6 +79,11 @@ async function sendSafely(event: string, data: Record<string, unknown>): Promise
   } catch {
     // Telemetry is never allowed to surface errors to the user.
   }
+}
+
+function telemetryEndpoint(): string | null {
+  const endpoint = process.env.CARBON_TELEMETRY_URL?.trim();
+  return endpoint && endpoint.length > 0 ? endpoint : null;
 }
 
 async function loadOrCreate(): Promise<TelemetryState> {

@@ -10,7 +10,11 @@ import { api, ApiError, type HealthDeep } from '@/lib/api-client';
  * don't nag viewers who legitimately can't see the endpoint.
  */
 export function HealthPill() {
-  const [state, setState] = useState<{ data: HealthDeep | null; hidden: boolean; error: string | null }>({
+  const [state, setState] = useState<{
+    data: HealthDeep | null;
+    hidden: boolean;
+    error: string | null;
+  }>({
     data: null,
     hidden: false,
     error: null,
@@ -28,7 +32,11 @@ export function HealthPill() {
           setState({ data: null, hidden: true, error: null });
           return;
         }
-        setState({ data: null, hidden: false, error: err instanceof Error ? err.message : String(err) });
+        setState({
+          data: null,
+          hidden: false,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
     void tick();
@@ -71,9 +79,12 @@ export function HealthPill() {
   const title = data
     ? Object.entries(data.dependencies)
         .filter(([, v]) => v)
-        .map(([k, v]) => `${k}: ${v!.status} (${v!.latencyMs}ms)${v!.message ? ` — ${v!.message}` : ''}`)
+        .map(
+          ([k, v]) =>
+            `${k}: ${v!.status} (${v!.latencyMs}ms)${v!.message ? ` — ${v!.message}` : ''}`,
+        )
         .join('\n')
-    : error ?? 'checking…';
+    : (error ?? 'checking…');
 
   return (
     <span

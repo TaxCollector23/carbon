@@ -234,128 +234,133 @@ function randomSlugSuffix(): string {
   return Math.random().toString(36).slice(2, 8);
 }
 
-export async function registerSampleRoutes(
-  app: FastifyInstance,
-  ctx: AppContext,
-): Promise<void> {
-  app.get('/v1/samples', {
-    preHandler: requireScope('read'),
-    schema: {
-      summary: 'List curated samples',
-      description:
-        'Return every sample that can be instantiated into a fresh project via ' +
-        '`POST /v1/samples/instantiate`. Content is static per deploy.',
-      response: { 200: zodResponse(ListResponse) },
-    },
-  }, async () => {
-    return { data: SAMPLES.map(summarize) };
-  });
-
-  app.post('/v1/samples/instantiate', {
-    preHandler: requireScope('admin'),
-    schema: {
-      summary: 'Instantiate a curated sample into a fresh project',
-      description:
-        'Admin-scope one-click: create a new project, ingest the bundled OpenAPI spec ' +
-        'for the named sample, and return the fresh project slug plus the ingest summary. ' +
-        'Slug shape is `<slugPrefix|sample-{id}>-<random>`. Unknown `sampleId` → 404.',
-      body: zodBody(InstantiateBody),
-      response: {
-        201: zodResponse(InstantiateResponse),
+export async function registerSampleRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
+  app.get(
+    '/v1/samples',
+    {
+      preHandler: requireScope('read'),
+      schema: {
+        summary: 'List curated samples',
+        description:
+          'Return every sample that can be instantiated into a fresh project via ' +
+          '`POST /v1/samples/instantiate`. Content is static per deploy.',
+        response: { 200: zodResponse(ListResponse) },
       },
     },
-  }, async (req, reply) => {
-    const body = InstantiateBody.parse(req.body ?? {});
-    const sample = SampleById.get(body.sampleId);
-    if (!sample) throw new NotFoundError('sample', body.sampleId);
+    async () => {
+      return { data: SAMPLES.map(summarize) };
+    },
+  );
 
-    // Callers must be authenticated to a real org — we cannot create a
-    // sample project in dev-mode "no org" mode because ingest persists to
-    // storage keyed by org id, and the dashboard's redirect target is
-    // per-org too.
-    const orgId = resolveCallerOrg(req, {
-      mode: 'throw',
-      message: 'orgId is required to instantiate a sample — attach a session or API key',
-    });
+  app.post(
+    '/v1/samples/instantiate',
+    {
+      preHandler: requireScope('admin'),
+      schema: {
+        summary: 'Instantiate a curated sample into a fresh project',
+        description:
+          'Admin-scope one-click: create a new project, ingest the bundled OpenAPI spec ' +
+          'for the named sample, and return the fresh project slug plus the ingest summary. ' +
+          'Slug shape is `<slugPrefix|sample-{id}>-<random>`. Unknown `sampleId` → 404.',
+        body: zodBody(InstantiateBody),
+        response: {
+          201: zodResponse(InstantiateResponse),
+        },
+      },
+    },
+    async (req, reply) => {
+      const body = InstantiateBody.parse(req.body ?? {});
+      const sample = SampleById.get(body.sampleId);
+      if (!sample) throw new NotFoundError('sample', body.sampleId);
 
-    const slugBase = body.slugPrefix ?? `sample-${sample.id}`;
-    const slug = `${slugBase}-${randomSlugSuffix()}`;
-    const projectId = makeId('prj');
-
-    try {
-      await ctx.db.insert(schema.projects).values({
-        id: projectId,
-        orgId,
-        slug,
-        name: `${sample.name} sample`,
+      // Callers must be authenticated to a real org — we cannot create a
+      // sample project in dev-mode "no org" mode because ingest persists to
+      // storage keyed by org id, and the dashboard's redirect target is
+      // per-org too.
+      const orgId = resolveCallerOrg(req, {
+        mode: 'throw',
+        message: 'orgId is required to instantiate a sample — attach a session or API key',
       });
-    } catch (err) {
-      // Astronomically unlikely (6 base36 chars per suffix) but a duplicate
-      // slug is the only expected failure mode here — surface it precisely
-      // instead of a bare 500.
-      if (err instanceof Error && /duplicate|unique/i.test(err.message)) {
-        throw new CarbonError({
-          code: 'CARBON_CONFLICT',
-          message: `Sample slug collision on ${slug} — retry.`,
-          expose: true,
+
+      const slugBase = body.slugPrefix ?? `sample-${sample.id}`;
+      const slug = `${slugBase}-${randomSlugSuffix()}`;
+      const projectId = makeId('prj');
+
+      try {
+        await ctx.db.insert(schema.projects).values({
+          id: projectId,
+          orgId,
+          slug,
+          name: `${sample.name} sample`,
         });
+      } catch (err) {
+        // Astronomically unlikely (6 base36 chars per suffix) but a duplicate
+        // slug is the only expected failure mode here — surface it precisely
+        // instead of a bare 500.
+        if (err instanceof Error && /duplicate|unique/i.test(err.message)) {
+          throw new CarbonError({
+            code: 'CARBON_CONFLICT',
+            message: `Sample slug collision on ${slug} — retry.`,
+            expose: true,
+          });
+        }
+        throw err;
       }
-      throw err;
-    }
 
-    const spec = loadSampleSpec(sample.id);
-    const storageSlug = `${orgId}/${slug}`;
-    const result = await ctx.ingestion.ingest({
-      projectSlug: storageSlug,
-      input: { kind: 'json', content: spec, hint: 'openapi' } as never,
-      origin: `sample:${sample.id}`,
-      enrich: false,
-      context: { orgId },
-    });
+      const spec = loadSampleSpec(sample.id);
+      const storageSlug = `${orgId}/${slug}`;
+      const result = await ctx.ingestion.ingest({
+        projectSlug: storageSlug,
+        input: { kind: 'json', content: spec, hint: 'openapi' } as never,
+        origin: `sample:${sample.id}`,
+        enrich: false,
+        context: { orgId },
+      });
 
-    const actor = getActor(req);
-    await recordEvent(ctx, {
-      orgId,
-      projectId,
-      actorType: actor.actorType,
-      actorId: actor.actorId,
-      action: 'sample.instantiated',
-      metadata: {
-        sampleId: sample.id,
+      const actor = getActor(req);
+      await recordEvent(ctx, {
+        orgId,
+        projectId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        action: 'sample.instantiated',
+        metadata: {
+          sampleId: sample.id,
+          projectSlug: slug,
+          irId: result.irId,
+          graphId: result.graphId,
+          endpoints: result.ir.endpoints.length,
+        },
+      });
+      await recordUsage(ctx, {
+        orgId,
+        kind: 'ingest',
+        amount: 1,
+        metadata: {
+          projectSlug: slug,
+          specKind: 'json',
+          source: 'sample',
+          sampleId: sample.id,
+        },
+      });
+
+      reply.status(201);
+      return {
         projectSlug: slug,
-        irId: result.irId,
-        graphId: result.graphId,
-        endpoints: result.ir.endpoints.length,
-      },
-    });
-    await recordUsage(ctx, {
-      orgId,
-      kind: 'ingest',
-      amount: 1,
-      metadata: {
-        projectSlug: slug,
-        specKind: 'json',
-        source: 'sample',
-        sampleId: sample.id,
-      },
-    });
-
-    reply.status(201);
-    return {
-      projectSlug: slug,
-      projectId,
-      orgId,
-      sample: summarize(sample),
-      sampleAnnotations: {
-        highlight: sample.annotations.highlight,
-        tryThis: [...sample.annotations.tryThis],
-      },
-      ingestResult: {
-        irId: result.irId,
-        graphId: result.graphId,
-        endpoints: result.ir.endpoints.length,
-        resources: result.ir.resources.length,
-      },
-    };
-  });
+        projectId,
+        orgId,
+        sample: summarize(sample),
+        sampleAnnotations: {
+          highlight: sample.annotations.highlight,
+          tryThis: [...sample.annotations.tryThis],
+        },
+        ingestResult: {
+          irId: result.irId,
+          graphId: result.graphId,
+          endpoints: result.ir.endpoints.length,
+          resources: result.ir.resources.length,
+        },
+      };
+    },
+  );
 }

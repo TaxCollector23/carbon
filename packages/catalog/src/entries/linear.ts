@@ -11,7 +11,7 @@ export const linear: CatalogEntry = {
   specUrl: 'https://api.linear.app/graphql',
   specFormat: 'graphql',
   homepage: 'https://developers.linear.app/docs',
-  quickstart: 'npx carbon-dev emulate --catalog linear',
+  quickstart: 'npx carbon-api emulate --catalog linear',
   seedResources: ['Issue', 'Project', 'Team', 'User'],
   description:
     'A local GraphQL replica of the Linear API. Query issues, mutate projects, subscribe to comments — Carbon holds workspace state between requests so your Linear-powered tool can be built and tested without connecting to a real Linear workspace.',

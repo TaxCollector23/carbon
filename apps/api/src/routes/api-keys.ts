@@ -6,7 +6,12 @@ import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
 import { resolveCallerOrg } from '../plugins/caller-org.js';
 import { requireScope } from '../plugins/scopes.js';
-import { zodBody, zodQuery, zodResponse, zodResponseWithExample } from '../plugins/schema-helpers.js';
+import {
+  zodBody,
+  zodQuery,
+  zodResponse,
+  zodResponseWithExample,
+} from '../plugins/schema-helpers.js';
 
 const ApiKeySummary = z.object({
   id: z.string(),
@@ -67,12 +72,7 @@ const CreateBody = z.object({
    * When set, the minted key auto-expires after this many seconds. Use for
    * CI/short-lived credentials. 60s minimum, 90 days maximum.
    */
-  expiresInSeconds: z
-    .number()
-    .int()
-    .min(60)
-    .max(MAX_EXPIRES_IN_SECONDS)
-    .optional(),
+  expiresInSeconds: z.number().int().min(60).max(MAX_EXPIRES_IN_SECONDS).optional(),
 });
 
 const RotateBody = z.object({
@@ -89,125 +89,134 @@ export async function registerApiKeyRoutes(app: FastifyInstance, ctx: AppContext
   // Every /v1/api-keys route is admin — key management is the most sensitive
   // surface on the control plane and must never be reachable from a
   // `write`-scoped key.
-  app.get('/v1/api-keys', {
-    preHandler: requireScope('admin'),
-    schema: {
-      summary: 'List API keys',
-      description: 'Return every non-revoked API key on the caller\'s org. Secrets and hashes are never returned; only the id/prefix/scopes/metadata.',
-      querystring: zodQuery(ListQuery),
-      response: { 200: zodResponse(ApiKeyListResponse) },
-    },
-  }, async (req) => {
-    const { limit } = ListQuery.parse(req.query);
-    const orgId = resolveCallerOrg(req, { mode: 'optional' });
-    const where = orgId
-      ? and(eq(schema.apiKeys.orgId, orgId), isNull(schema.apiKeys.revokedAt))
-      : isNull(schema.apiKeys.revokedAt);
-    // Never select `hash` — the column holds the only server-side material an
-    // attacker would need to verify a guessed secret offline.
-    const rows = await ctx.db
-      .select({
-        id: schema.apiKeys.id,
-        orgId: schema.apiKeys.orgId,
-        name: schema.apiKeys.name,
-        prefix: schema.apiKeys.prefix,
-        scopes: schema.apiKeys.scopes,
-        projectIds: schema.apiKeys.projectIds,
-        lastUsedAt: schema.apiKeys.lastUsedAt,
-        createdAt: schema.apiKeys.createdAt,
-        expiresAt: schema.apiKeys.expiresAt,
-        rotatedFromId: schema.apiKeys.rotatedFromId,
-      })
-      .from(schema.apiKeys)
-      .where(where)
-      .orderBy(desc(schema.apiKeys.createdAt))
-      .limit(limit);
-    return { data: rows, limit };
-  });
-
-  app.post('/v1/api-keys', {
-    preHandler: requireScope('admin'),
-    schema: {
-      summary: 'Mint an API key',
-      description:
-        'Mint a new API key. The presented secret is returned exactly once — store it immediately. ' +
-        'Only the hashed form is persisted server-side.',
-      body: zodBody(CreateBody),
-      response: {
-        201: zodResponseWithExample(MintedApiKey, {
-          id: 'akid_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
-          // Presented exactly once — copy immediately, only a bcrypt hash is
-          // retained server-side.
-          secret: 'ck_live_abcdef0123456789abcdef0123456789abcdef0123456789ab',
-          presented: 'ck_live_abcdef0123456789abcdef0123456789abcdef0123456789ab',
-          prefix: 'ck_live_abcdef01',
-          scopes: ['read', 'write'],
-          projectIds: null,
-          expiresAt: null,
-          rotatedFromId: null,
-        }),
+  app.get(
+    '/v1/api-keys',
+    {
+      preHandler: requireScope('admin'),
+      schema: {
+        summary: 'List API keys',
+        description:
+          "Return every non-revoked API key on the caller's org. Secrets and hashes are never returned; only the id/prefix/scopes/metadata.",
+        querystring: zodQuery(ListQuery),
+        response: { 200: zodResponse(ApiKeyListResponse) },
       },
     },
-  }, async (req, reply) => {
-    const body = CreateBody.parse(req.body);
-    const orgId = resolveCallerOrg(req, { queryOrg: body.orgId, mode: 'optional' });
-    if (!orgId) {
-      throw new CarbonError({
-        code: 'CARBON_INVALID_INPUT',
-        message: 'orgId is required when API auth is disabled',
-        expose: true,
-      });
-    }
-    // Prevent a project-pinned key from being minted against ids the caller's
-    // org does not own — otherwise a subtle typo silently produces a key that
-    // is scoped to nothing at all, and a malicious caller could probe for
-    // valid project ids across orgs.
-    if (body.projectIds && body.projectIds.length > 0) {
+    async (req) => {
+      const { limit } = ListQuery.parse(req.query);
+      const orgId = resolveCallerOrg(req, { mode: 'optional' });
+      const where = orgId
+        ? and(eq(schema.apiKeys.orgId, orgId), isNull(schema.apiKeys.revokedAt))
+        : isNull(schema.apiKeys.revokedAt);
+      // Never select `hash` — the column holds the only server-side material an
+      // attacker would need to verify a guessed secret offline.
       const rows = await ctx.db
-        .select({ id: schema.projects.id })
-        .from(schema.projects)
-        .where(
-          and(eq(schema.projects.orgId, orgId), inArray(schema.projects.id, body.projectIds)),
-        );
-      const owned = new Set(rows.map((r) => r.id));
-      const missing = body.projectIds.filter((id) => !owned.has(id));
-      if (missing.length > 0) {
+        .select({
+          id: schema.apiKeys.id,
+          orgId: schema.apiKeys.orgId,
+          name: schema.apiKeys.name,
+          prefix: schema.apiKeys.prefix,
+          scopes: schema.apiKeys.scopes,
+          projectIds: schema.apiKeys.projectIds,
+          lastUsedAt: schema.apiKeys.lastUsedAt,
+          createdAt: schema.apiKeys.createdAt,
+          expiresAt: schema.apiKeys.expiresAt,
+          rotatedFromId: schema.apiKeys.rotatedFromId,
+        })
+        .from(schema.apiKeys)
+        .where(where)
+        .orderBy(desc(schema.apiKeys.createdAt))
+        .limit(limit);
+      return { data: rows, limit };
+    },
+  );
+
+  app.post(
+    '/v1/api-keys',
+    {
+      preHandler: requireScope('admin'),
+      schema: {
+        summary: 'Mint an API key',
+        description:
+          'Mint a new API key. The presented secret is returned exactly once — store it immediately. ' +
+          'Only the hashed form is persisted server-side.',
+        body: zodBody(CreateBody),
+        response: {
+          201: zodResponseWithExample(MintedApiKey, {
+            id: 'akid_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+            // Presented exactly once — copy immediately, only a bcrypt hash is
+            // retained server-side.
+            secret: 'ck_live_abcdef0123456789abcdef0123456789abcdef0123456789ab',
+            presented: 'ck_live_abcdef0123456789abcdef0123456789abcdef0123456789ab',
+            prefix: 'ck_live_abcdef01',
+            scopes: ['read', 'write'],
+            projectIds: null,
+            expiresAt: null,
+            rotatedFromId: null,
+          }),
+        },
+      },
+    },
+    async (req, reply) => {
+      const body = CreateBody.parse(req.body);
+      const orgId = resolveCallerOrg(req, { queryOrg: body.orgId, mode: 'optional' });
+      if (!orgId) {
         throw new CarbonError({
           code: 'CARBON_INVALID_INPUT',
-          message: 'projectIds contains ids not owned by this org',
-          details: { missing },
+          message: 'orgId is required when API auth is disabled',
           expose: true,
         });
       }
-    }
-    const expiresAt = body.expiresInSeconds
-      ? new Date(Date.now() + body.expiresInSeconds * 1000)
-      : null;
-    const key = await mintApiKey(ctx, {
-      orgId,
-      name: body.name,
-      scopes: body.scopes,
-      projectIds: body.projectIds,
-      expiresAt,
-    });
-    const actor = getActor(req);
-    await recordEvent(ctx, {
-      orgId,
-      actorType: actor.actorType,
-      actorId: actor.actorId,
-      action: 'api_key.created',
-      metadata: {
-        keyId: key.id,
-        prefix: key.prefix,
+      // Prevent a project-pinned key from being minted against ids the caller's
+      // org does not own — otherwise a subtle typo silently produces a key that
+      // is scoped to nothing at all, and a malicious caller could probe for
+      // valid project ids across orgs.
+      if (body.projectIds && body.projectIds.length > 0) {
+        const rows = await ctx.db
+          .select({ id: schema.projects.id })
+          .from(schema.projects)
+          .where(
+            and(eq(schema.projects.orgId, orgId), inArray(schema.projects.id, body.projectIds)),
+          );
+        const owned = new Set(rows.map((r) => r.id));
+        const missing = body.projectIds.filter((id) => !owned.has(id));
+        if (missing.length > 0) {
+          throw new CarbonError({
+            code: 'CARBON_INVALID_INPUT',
+            message: 'projectIds contains ids not owned by this org',
+            details: { missing },
+            expose: true,
+          });
+        }
+      }
+      const expiresAt = body.expiresInSeconds
+        ? new Date(Date.now() + body.expiresInSeconds * 1000)
+        : null;
+      const key = await mintApiKey(ctx, {
+        orgId,
         name: body.name,
         scopes: body.scopes,
         projectIds: body.projectIds,
-        expiresAt: expiresAt ? expiresAt.toISOString() : null,
-      },
-    });
-    reply.status(201);
-    return key;
-  });
+        expiresAt,
+      });
+      const actor = getActor(req);
+      await recordEvent(ctx, {
+        orgId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        action: 'api_key.created',
+        metadata: {
+          keyId: key.id,
+          prefix: key.prefix,
+          name: body.name,
+          scopes: body.scopes,
+          projectIds: body.projectIds,
+          expiresAt: expiresAt ? expiresAt.toISOString() : null,
+        },
+      });
+      reply.status(201);
+      return key;
+    },
+  );
 
   app.post<{ Params: { id: string } }>(
     '/v1/api-keys/:id/rotate',
@@ -321,4 +330,3 @@ export async function registerApiKeyRoutes(app: FastifyInstance, ctx: AppContext
     },
   );
 }
-

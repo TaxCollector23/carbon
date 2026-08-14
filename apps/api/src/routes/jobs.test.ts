@@ -117,9 +117,7 @@ describe('GET /v1/jobs', () => {
     expect(body.data[0].id).toBe('job_a');
     expect(body.data[0].orgId).toBeUndefined();
     expect(body.hasMore).toBe(false);
-    expect(jobs.list).toHaveBeenCalledWith(
-      expect.objectContaining({ orgId: 'org_1', limit: 10 }),
-    );
+    expect(jobs.list).toHaveBeenCalledWith(expect.objectContaining({ orgId: 'org_1', limit: 10 }));
   });
 
   it('passes the status filter through', async () => {
@@ -153,6 +151,34 @@ describe('POST /v1/jobs/:id/retry', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ id: 'job_a', status: 'queued' });
     expect(jobs.retry).toHaveBeenCalledWith('job_a');
+  });
+
+  it('re-enqueues a stored ingest payload when a queue is configured', async () => {
+    const payload = {
+      statusJobId: 'job_a',
+      orgId: 'org_1',
+      projectSlug: 'org_1/acme',
+      publicSlug: 'acme',
+      source: { kind: 'json', content: { openapi: '3.0.0' } },
+      enrich: false,
+    };
+    const jobs = {
+      get: vi.fn(async () => makeJob({ status: 'failed', attempts: 1, meta: { payload } })),
+      retry: vi.fn(async () => makeJob({ status: 'queued', attempts: 1, meta: { payload } })),
+    } as unknown as JobService;
+    const add = vi.fn(async () => ({ id: 'manual_retry' }));
+    const app = await build({
+      ...makeCtx(jobs),
+      ingestionQueue: { add } as unknown as AppContext['ingestionQueue'],
+    });
+    const res = await app.inject({ method: 'POST', url: '/v1/jobs/job_a/retry' });
+    expect(res.statusCode).toBe(200);
+    expect(add).toHaveBeenCalledWith(
+      'ingest',
+      payload,
+      expect.objectContaining({ jobId: expect.stringContaining('job_a:manual:') }),
+    );
+    expect(res.json().meta).toBeUndefined();
   });
 
   it('returns 404 on cross-org retry attempts', async () => {

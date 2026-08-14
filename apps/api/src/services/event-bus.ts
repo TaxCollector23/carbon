@@ -28,10 +28,7 @@ export class RedisEventBus {
     private readonly logger?: Logger,
   ) {}
 
-  async subscribe(
-    orgId: string,
-    listener: (evt: PublishedEvent) => void,
-  ): Promise<() => void> {
+  async subscribe(orgId: string, listener: (evt: PublishedEvent) => void): Promise<() => void> {
     if (this.closed) {
       // Bus was torn down (server shutdown). Return a no-op unsubscribe so
       // the SSE handler's cleanup path stays uniform.
@@ -110,7 +107,9 @@ export class RedisEventBus {
   private deliver(channel: string, message: string): void {
     // Channel shape is `carbon:events:<orgId>` — parse the tail once instead
     // of storing a reverse map.
-    const orgId = channel.startsWith('carbon:events:') ? channel.slice('carbon:events:'.length) : '';
+    const orgId = channel.startsWith('carbon:events:')
+      ? channel.slice('carbon:events:'.length)
+      : '';
     if (!orgId) return;
     const set = this.listeners.get(orgId);
     if (!set || set.size === 0) return;

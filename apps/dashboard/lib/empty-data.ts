@@ -65,27 +65,38 @@ export const sections: Record<string, SectionCopy> = {
   'ai-quality': {
     title: 'AI quality',
     emptyTitle: 'No AI quality reports yet',
-    description: 'Groundedness scores for each AI-inferred spec ingest. Run `carbon ingest` to generate a quality report.',
+    description:
+      'Groundedness scores for each AI-inferred spec ingest. Run `carbon ingest` to generate a quality report.',
   },
   'chaos-presets': {
     title: 'Chaos presets',
     emptyTitle: 'No chaos presets yet',
-    description: 'Presets bundle latency and error injection rules you can apply to any running emulator to simulate failure modes.',
+    description:
+      'Presets bundle latency and error injection rules you can apply to any running emulator to simulate failure modes.',
   },
   usage: {
     title: 'Usage',
     emptyTitle: 'No usage recorded',
-    description: 'Metered events (ingests, AI calls, emulator runs) will appear here once you start using the API.',
+    description:
+      'Metered events (ingests, AI calls, emulator runs) will appear here once you start using the API.',
   },
   'feature-flags': {
     title: 'Feature flags',
     emptyTitle: 'No feature flags yet',
-    description: 'Feature flags gate experimental behaviour across the dashboard, emulator, and CLI. Override values per org here.',
+    description:
+      'Feature flags gate experimental behaviour across the dashboard, emulator, and CLI. Override values per org here.',
   },
   jobs: {
     title: 'Jobs',
     emptyTitle: 'No jobs in the last 24h',
-    description: 'Async work (ingest, exports, etc.) shows up here while it runs. Records expire after 24h.',
+    description:
+      'Async work (ingest, exports, etc.) shows up here while it runs. Records expire after 24h.',
+  },
+  drift: {
+    title: 'Drift',
+    emptyTitle: 'No drift checks yet',
+    description:
+      'Run a drift check after recording upstream traffic to compare the replica against the live API.',
   },
 } as const;
 

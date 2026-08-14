@@ -21,13 +21,12 @@ permissions:
 
 env:
   TURBO_TELEMETRY_DISABLED: 1
+  NODE_VERSION: 24
 
 jobs:
   install:
     name: Install
     runs-on: ubuntu-latest
-    outputs:
-      cache-hit: ${{ steps.pnpm-cache.outputs.cache-hit }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -36,10 +35,9 @@ jobs:
           run_install: false
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
-      - id: pnpm-cache
-        run: pnpm install --frozen-lockfile=false
+      - run: pnpm install --frozen-lockfile=false
 
   typecheck:
     name: Typecheck
@@ -52,7 +50,7 @@ jobs:
           version: 11.6.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile=false
       - run: pnpm turbo run typecheck
@@ -68,7 +66,7 @@ jobs:
           version: 11.6.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile=false
       # Typecheck only — several examples want real fixtures or network
@@ -86,7 +84,7 @@ jobs:
           version: 11.6.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile=false
       - run: pnpm test
@@ -95,7 +93,7 @@ jobs:
         # pre-commit hook (someone disabled it, someone force-pushed), CI
         # refuses to move it any further. Blocks `deploy` because that job
         # `needs: [test, ...]`.
-        run: pnpm --filter carbon-dev exec carbon audit-secrets
+        run: pnpm --filter carbon-api exec carbon audit-secrets
       - name: Dashboard OpenAPI codegen drift check
         run: |
           pnpm --filter @carbon/dashboard codegen:api:from-file
@@ -116,7 +114,7 @@ jobs:
           version: 11.6.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile=false
       - run: pnpm format:check
@@ -152,7 +150,7 @@ jobs:
           version: 11.6.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile=false
       - name: Run API integration suite
@@ -164,7 +162,7 @@ jobs:
     needs: [typecheck, test]
     strategy:
       matrix:
-        node: [20]
+        node: [24]
     services:
       postgres:
         image: postgres:16
@@ -230,7 +228,7 @@ jobs:
           version: 11.6.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile=false
       - name: Validate docs (strict)
@@ -247,8 +245,6 @@ jobs:
           rm -rf site
           mkdir -p site
           unzip -q docs-site.zip -d site
-          # Preserve CNAME for the custom-domain switch.
-          cp CNAME site/CNAME || true
       - name: Upload workflow artifact (debugging)
         uses: actions/upload-artifact@v4
         with:
@@ -257,9 +253,9 @@ jobs:
           if-no-files-found: error
           retention-days: 7
       - name: Upload Pages artifact
-        # Only produce the pages artifact on main so PR builds don't try to
+        # Only produce the pages artifact on master so PR builds don't try to
         # deploy. `actions/deploy-pages` in the next job reads this.
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push' && (env.MINTLIFY_TOKEN != '' || vars.CARBON_DOCS_PUBLIC == 'true')
+        if: github.ref == 'refs/heads/master' && github.event_name == 'push' && vars.CARBON_DOCS_PUBLIC == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: apps/docs/site
@@ -268,7 +264,7 @@ jobs:
     name: Docs deploy (GitHub Pages)
     runs-on: ubuntu-latest
     needs: docs-build
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push' && vars.CARBON_DOCS_PUBLIC == 'true'
     # No-op until an operator enables Pages in repo settings
     # (Settings -> Pages -> Source: GitHub Actions). Until then, the
     # deploy-pages step will fail loudly and the rest of the pipeline is
@@ -288,7 +284,7 @@ jobs:
     name: Deploy to Fly.io
     runs-on: ubuntu-latest
     needs: [typecheck, test, format, examples, integration, e2e]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push' && vars.CARBON_ENABLE_FLY_DEPLOY == 'true'
     concurrency:
       group: deploy-fly-${{ github.ref }}
       cancel-in-progress: false

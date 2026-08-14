@@ -476,13 +476,7 @@ const INGEST_DURATION_BUCKETS_MS = [100, 500, 1_000, 5_000, 15_000, 60_000, 300_
 
 /** BullMQ queue states we surface as `carbon_ingest_queue_depth{state=...}`. */
 type QueueState = 'waiting' | 'active' | 'delayed' | 'failed' | 'completed';
-const QUEUE_STATES: readonly QueueState[] = [
-  'waiting',
-  'active',
-  'delayed',
-  'failed',
-  'completed',
-];
+const QUEUE_STATES: readonly QueueState[] = ['waiting', 'active', 'delayed', 'failed', 'completed'];
 
 /**
  * A very small subset of BullMQ's `Queue`. Kept structural so tests don't have

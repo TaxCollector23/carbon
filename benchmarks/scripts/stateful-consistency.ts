@@ -52,7 +52,10 @@ async function main() {
         status,
         responseBody: json,
         elapsedMs,
-        ok: status === 201 && typeof id === 'string' && (json as { name?: string } | null)?.name === 'Fido',
+        ok:
+          status === 201 &&
+          typeof id === 'string' &&
+          (json as { name?: string } | null)?.name === 'Fido',
         assertion: 'status=201 and response.id defined and response.name==="Fido"',
       });
     }
@@ -194,6 +197,6 @@ async function http(
 }
 
 void main().catch((err) => {
-  console.error(err instanceof Error ? err.stack ?? err.message : err);
+  console.error(err instanceof Error ? (err.stack ?? err.message) : err);
   process.exit(1);
 });

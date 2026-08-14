@@ -157,12 +157,16 @@ interface GqlType {
 }
 
 function stripComments(sdl: string): string {
-  return sdl.replace(/#[^\n]*/g, '').replace(/"""[\s\S]*?"""/g, '').replace(/"[^"]*"/g, '""');
+  return sdl
+    .replace(/#[^\n]*/g, '')
+    .replace(/"""[\s\S]*?"""/g, '')
+    .replace(/"[^"]*"/g, '""');
 }
 
 function parseTypes(sdl: string): GqlType[] {
   const results: GqlType[] = [];
-  const re = /(type|input|interface|enum|union)\s+(\w+)(?:\s+implements\s+[\w& ]+)?\s*\{([\s\S]*?)\}/g;
+  const re =
+    /(type|input|interface|enum|union)\s+(\w+)(?:\s+implements\s+[\w& ]+)?\s*\{([\s\S]*?)\}/g;
   let match: RegExpExecArray | null;
   while ((match = re.exec(sdl)) !== null) {
     const kind = match[1] as GqlType['kind'];
@@ -295,8 +299,10 @@ function classifyMutation(
   if (origin === 'query') return isList ? 'list' : 'get';
   const lower = name.toLowerCase();
   if (lower.startsWith('create') || lower.startsWith('add')) return 'create';
-  if (lower.startsWith('update') || lower.startsWith('edit') || lower.startsWith('patch')) return 'update';
-  if (lower.startsWith('delete') || lower.startsWith('remove') || lower.startsWith('destroy')) return 'delete';
+  if (lower.startsWith('update') || lower.startsWith('edit') || lower.startsWith('patch'))
+    return 'update';
+  if (lower.startsWith('delete') || lower.startsWith('remove') || lower.startsWith('destroy'))
+    return 'delete';
   return 'action';
 }
 

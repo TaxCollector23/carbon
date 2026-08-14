@@ -109,7 +109,8 @@ function makeDb(store: Store): AppContext['db'] {
     },
     insert: (table: unknown) => ({
       values: async (v: any) => {
-        if (table === schema.slackInstallations) store.installs.push({ ...v, installedAt: v.installedAt ?? new Date() });
+        if (table === schema.slackInstallations)
+          store.installs.push({ ...v, installedAt: v.installedAt ?? new Date() });
         else if (table === schema.slackChannelSubscriptions) store.subs.push({ ...v });
         else if (table === schema.events) store.events.push({ orgId: v.orgId, action: v.action });
       },
@@ -150,13 +151,15 @@ function makeCtx(store: Store): AppContext {
 
 function makeStubApi(overrides: Partial<SlackApiClient> = {}): SlackApiClient {
   return {
-    exchangeCode: overrides.exchangeCode ?? vi.fn(async () => ({
-      ok: true,
-      access_token: 'xoxb-real-token',
-      bot_user_id: 'U_BOT',
-      app_id: 'A123',
-      team: { id: 'T_TEAM', name: 'Acme' },
-    })),
+    exchangeCode:
+      overrides.exchangeCode ??
+      vi.fn(async () => ({
+        ok: true,
+        access_token: 'xoxb-real-token',
+        bot_user_id: 'U_BOT',
+        app_id: 'A123',
+        team: { id: 'T_TEAM', name: 'Acme' },
+      })),
     postMessage: overrides.postMessage ?? vi.fn(async () => ({ ok: true, ts: '1.0' })),
     revoke: overrides.revoke ?? vi.fn(async () => ({ ok: true, revoked: true })),
   };
@@ -190,7 +193,10 @@ async function build(
     const s = (err as { statusCode?: number }).statusCode;
     if (typeof s === 'number' && s >= 400 && s < 500) {
       reply.status(s).send({
-        error: { code: 'CARBON_INVALID_INPUT', message: err instanceof Error ? err.message : String(err) },
+        error: {
+          code: 'CARBON_INVALID_INPUT',
+          message: err instanceof Error ? err.message : String(err),
+        },
       });
       return;
     }

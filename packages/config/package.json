@@ -11,7 +11,11 @@
     "./tailwind": "./tailwind/index.ts",
     "./eslint": "./eslint/index.js"
   },
-  "files": ["tsconfig", "tailwind", "eslint"],
+  "files": [
+    "tsconfig",
+    "tailwind",
+    "eslint"
+  ],
   "devDependencies": {
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2"

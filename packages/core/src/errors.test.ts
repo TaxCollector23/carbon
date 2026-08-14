@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { CarbonError, helpUrlForCode, InvalidInputError, NotFoundError } from './errors.js';
 
 describe('CarbonError', () => {
-  it('defaults `help` to the canonical carbon.dev URL for known codes', () => {
+  it('defaults `help` to the canonical GitHub URL for known codes', () => {
     const err = new CarbonError({ code: 'CARBON_RATE_LIMITED', message: 'slow down' });
-    expect(err.help).toBe('https://carbon.dev/errors/carbon-rate-limited');
+    expect(err.help).toBe('https://github.com/TaxCollector23/carbon/issues?q=carbon-rate-limited');
   });
 
   it('honors an explicit help URL override', () => {
@@ -32,17 +32,17 @@ describe('CarbonError', () => {
 
   it('subclasses inherit the default help URL', () => {
     expect(new NotFoundError('project', 'p1').help).toBe(
-      'https://carbon.dev/errors/carbon-not-found',
+      'https://github.com/TaxCollector23/carbon/issues?q=carbon-not-found',
     );
     expect(new InvalidInputError('bad').help).toBe(
-      'https://carbon.dev/errors/carbon-invalid-input',
+      'https://github.com/TaxCollector23/carbon/issues?q=carbon-invalid-input',
     );
   });
 
   it('helpUrlForCode returns undefined for unknown codes', () => {
     expect(helpUrlForCode('CARBON_MADE_UP')).toBeUndefined();
     expect(helpUrlForCode('CARBON_RATE_LIMITED')).toBe(
-      'https://carbon.dev/errors/carbon-rate-limited',
+      'https://github.com/TaxCollector23/carbon/issues?q=carbon-rate-limited',
     );
   });
 });

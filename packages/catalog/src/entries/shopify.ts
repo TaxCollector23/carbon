@@ -9,11 +9,10 @@ export const shopify: CatalogEntry = {
   tagline: 'Storefront + admin API',
   category: 'other',
   logo: 'H',
-  specUrl:
-    'https://raw.githubusercontent.com/allengrant/shopify_openapi/master/admin_api.json',
+  specUrl: 'https://raw.githubusercontent.com/allengrant/shopify_openapi/master/admin_api.json',
   specFormat: 'openapi',
   homepage: 'https://shopify.dev/docs/api/admin-rest',
-  quickstart: 'npx carbon-dev emulate --catalog shopify',
+  quickstart: 'npx carbon-api emulate --catalog shopify',
   seedResources: ['products', 'orders', 'customers', 'fulfillments'],
   description:
     'Boot a local Shopify Admin replica for storefront and back-office development. Create products, place orders, and process fulfillments — Carbon persists shop state between requests so your commerce integration behaves like a real store.',

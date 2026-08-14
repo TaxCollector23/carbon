@@ -41,12 +41,12 @@ pnpm --filter @carbon/e2e test:headed    # headed browser
 
 ## Configuration knobs
 
-| Env var                      | Purpose                                                        |
-| ---------------------------- | -------------------------------------------------------------- |
-| `CARBON_E2E_DB`              | DB name to create/reuse. Random per-run when unset.            |
-| `CARBON_E2E_DATABASE_URL`    | Full override for the DB URL. Skips dropdb in teardown.        |
-| `CARBON_E2E_PG_USER/HOST/PORT` | Individual pg connection overrides.                         |
-| `CARBON_E2E_KEEP_DB=1`       | Skip teardown so the DB can be inspected after the run.        |
+| Env var                        | Purpose                                                 |
+| ------------------------------ | ------------------------------------------------------- |
+| `CARBON_E2E_DB`                | DB name to create/reuse. Random per-run when unset.     |
+| `CARBON_E2E_DATABASE_URL`      | Full override for the DB URL. Skips dropdb in teardown. |
+| `CARBON_E2E_PG_USER/HOST/PORT` | Individual pg connection overrides.                     |
+| `CARBON_E2E_KEEP_DB=1`         | Skip teardown so the DB can be inspected after the run. |
 
 ## Test suites
 

@@ -91,20 +91,13 @@ describe('docs plugin', () => {
       expect(body.info.license?.name).toBe('Apache-2.0');
       expect(Array.isArray(body.servers)).toBe(true);
       expect(body.servers).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ url: 'http://localhost:4000' }),
-          expect.objectContaining({ url: 'https://api.carbon.dev' }),
-        ]),
+        expect.arrayContaining([expect.objectContaining({ url: 'http://localhost:4000' })]),
       );
       expect(body.components.securitySchemes.apiKey).toBeTruthy();
       expect(body.components.securitySchemes.bearerAuth).toBeTruthy();
       expect(body.components.securitySchemes.sessionCookie).toBeTruthy();
       expect(body.security).toEqual(
-        expect.arrayContaining([
-          { apiKey: [] },
-          { bearerAuth: [] },
-          { sessionCookie: [] },
-        ]),
+        expect.arrayContaining([{ apiKey: [] }, { bearerAuth: [] }, { sessionCookie: [] }]),
       );
     } finally {
       await app.close();
@@ -167,10 +160,7 @@ describe('docs plugin', () => {
           Record<
             string,
             {
-              responses?: Record<
-                string,
-                { content?: Record<string, { schema?: unknown }> }
-              >;
+              responses?: Record<string, { content?: Record<string, { schema?: unknown }> }>;
             }
           >
         >;
@@ -188,8 +178,7 @@ describe('docs plugin', () => {
       for (const [path, method, status] of cases) {
         const op = body.paths[path]?.[method];
         expect(op, `missing operation ${method.toUpperCase()} ${path}`).toBeTruthy();
-        const responseSchema =
-          op?.responses?.[status]?.content?.['application/json']?.schema;
+        const responseSchema = op?.responses?.[status]?.content?.['application/json']?.schema;
         expect(
           responseSchema,
           `missing responses.${status}.content.application/json.schema for ${method.toUpperCase()} ${path}`,
@@ -205,7 +194,11 @@ describe('docs plugin', () => {
     await registerDocs(app, 'test-1.2.3');
     const ctx = {
       db: {} as unknown,
-      storage: { list: () => (async function* () {})(), get: async () => null, head: async () => null } as unknown,
+      storage: {
+        list: () => (async function* () {})(),
+        get: async () => null,
+        head: async () => null,
+      } as unknown,
       emulators: { list: () => [] } as unknown,
     } as unknown as AppContext;
     await registerProjectRoutes(app, ctx);
@@ -232,10 +225,7 @@ describe('docs plugin', () => {
           Record<
             string,
             {
-              responses?: Record<
-                string,
-                { content?: Record<string, { schema?: unknown }> }
-              >;
+              responses?: Record<string, { content?: Record<string, { schema?: unknown }> }>;
             }
           >
         >;
@@ -259,8 +249,7 @@ describe('docs plugin', () => {
         const get = ops.get;
         if (!get) continue;
         if (SKIP.includes(path)) continue;
-        const schema =
-          get.responses?.['200']?.content?.['application/json']?.schema;
+        const schema = get.responses?.['200']?.content?.['application/json']?.schema;
         if (!schema) missing.push(`GET ${path}`);
       }
       expect(missing, `missing response.200 schemas:\n${missing.join('\n')}`).toEqual([]);
@@ -278,13 +267,7 @@ describe('docs plugin', () => {
       };
       const groups = spec['x-tagGroups'];
       expect(groups, 'x-tagGroups should be present in the served spec').toBeTruthy();
-      expect(groups?.map((g) => g.name)).toEqual([
-        'Core',
-        'Runtime',
-        'Enterprise',
-        'Ops',
-        'Auth',
-      ]);
+      expect(groups?.map((g) => g.name)).toEqual(['Core', 'Runtime', 'Enterprise', 'Ops', 'Auth']);
       // Every tag registered in API_TAGS must appear in exactly one group so
       // Scalar's sidebar cannot silently drop one.
       const grouped = new Set(groups?.flatMap((g) => g.tags) ?? []);
@@ -293,13 +276,30 @@ describe('docs plugin', () => {
         // in the fixture map — just assert every tag is grouped somewhere.
         // (SCIM is grouped under Enterprise; Export under Enterprise; etc.)
         // A missing tag would fail the sidebar rendering.
-        if (t.name === 'Ingest' || t.name === 'Artifacts' || t.name === 'Graphs' || t.name === 'Assertions' ||
-            t.name === 'Projects' || t.name === 'Emulators' || t.name === 'Snapshots' ||
-            t.name === 'Chaos Presets' || t.name === 'Contract' || t.name === 'Share Links' ||
-            t.name === 'Organizations' || t.name === 'Billing' || t.name === 'SSO' ||
-            t.name === 'SCIM' || t.name === 'Export' || t.name === 'Events' ||
-            t.name === 'Usage' || t.name === 'AI Quality' || t.name === 'Health' ||
-            t.name === 'Api Keys' || t.name === 'CLI Auth' || t.name === 'Me') {
+        if (
+          t.name === 'Ingest' ||
+          t.name === 'Artifacts' ||
+          t.name === 'Graphs' ||
+          t.name === 'Assertions' ||
+          t.name === 'Projects' ||
+          t.name === 'Emulators' ||
+          t.name === 'Snapshots' ||
+          t.name === 'Chaos Presets' ||
+          t.name === 'Contract' ||
+          t.name === 'Share Links' ||
+          t.name === 'Organizations' ||
+          t.name === 'Billing' ||
+          t.name === 'SSO' ||
+          t.name === 'SCIM' ||
+          t.name === 'Export' ||
+          t.name === 'Events' ||
+          t.name === 'Usage' ||
+          t.name === 'AI Quality' ||
+          t.name === 'Health' ||
+          t.name === 'Api Keys' ||
+          t.name === 'CLI Auth' ||
+          t.name === 'Me'
+        ) {
           expect(grouped, `tag "${t.name}" is not in any x-tagGroups section`).toContain(t.name);
         }
       }
@@ -313,7 +313,11 @@ describe('docs plugin', () => {
     await registerDocs(app, 'test-1.2.3');
     const ctx = {
       db: {} as unknown,
-      storage: { list: () => (async function* () {})(), get: async () => null, head: async () => null } as unknown,
+      storage: {
+        list: () => (async function* () {})(),
+        get: async () => null,
+        head: async () => null,
+      } as unknown,
       emulators: { list: () => [] } as unknown,
     } as unknown as AppContext;
     await registerProjectRoutes(app, ctx);
@@ -359,10 +363,7 @@ describe('docs plugin', () => {
         const example =
           (mediaType as { example?: unknown })?.example ??
           (mediaType?.schema as { examples?: unknown[] } | undefined)?.examples?.[0];
-        expect(
-          example,
-          `missing example on ${method.toUpperCase()} ${path}`,
-        ).toBeTruthy();
+        expect(example, `missing example on ${method.toUpperCase()} ${path}`).toBeTruthy();
       }
     } finally {
       await app.close();

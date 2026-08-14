@@ -23,9 +23,7 @@ function buildApp(
       reply.status(status).send({ error: { code: err.code, message: err.message } });
       return;
     }
-    reply
-      .status(500)
-      .send({ error: { code: 'CARBON_INTERNAL', message: (err as Error).message } });
+    reply.status(500).send({ error: { code: 'CARBON_INTERNAL', message: (err as Error).message } });
   });
   app.addHook('onRequest', async (req) => {
     if (apiKey) (req as AuthenticatedRequest).apiKey = apiKey;
@@ -59,8 +57,7 @@ describe('requireScope guard', () => {
   it('read-only key is rejected on a write route', async () => {
     const app = buildApp(
       { id: 'k', orgId: 'o', prefix: 'p', scopes: ['read'], projectIds: null, expiresAt: null },
-      (a) =>
-        a.post('/w', { preHandler: requireScope('write') }, async () => ({ ok: true })),
+      (a) => a.post('/w', { preHandler: requireScope('write') }, async () => ({ ok: true })),
     );
     const res = await app.inject({ method: 'POST', url: '/w' });
     expect(res.statusCode).toBe(403);
@@ -82,8 +79,7 @@ describe('requireScope guard', () => {
   it('admin key can hit an admin-scoped api-keys route', async () => {
     const app = buildApp(
       { id: 'k', orgId: 'o', prefix: 'p', scopes: ['admin'], projectIds: null, expiresAt: null },
-      (a) =>
-        a.post('/a', { preHandler: requireScope('admin') }, async () => ({ ok: true })),
+      (a) => a.post('/a', { preHandler: requireScope('admin') }, async () => ({ ok: true })),
     );
     expect((await app.inject({ method: 'POST', url: '/a' })).statusCode).toBe(200);
   });
@@ -91,8 +87,7 @@ describe('requireScope guard', () => {
   it('write key is rejected on an admin-scoped route', async () => {
     const app = buildApp(
       { id: 'k', orgId: 'o', prefix: 'p', scopes: ['write'], projectIds: null, expiresAt: null },
-      (a) =>
-        a.post('/a', { preHandler: requireScope('admin') }, async () => ({ ok: true })),
+      (a) => a.post('/a', { preHandler: requireScope('admin') }, async () => ({ ok: true })),
     );
     const res = await app.inject({ method: 'POST', url: '/a' });
     expect(res.statusCode).toBe(403);
@@ -147,7 +142,14 @@ describe('project pinning via resolveProjectAccess', () => {
   it('unpinned key (projectIds: null) has access to any project in its org', async () => {
     const ctx = makeCtx([{ id: 'prj_a', slug: 'a', orgId: 'org_1' }]);
     const req = {
-      apiKey: { id: 'k', orgId: 'org_1', prefix: 'p', scopes: ['admin'], projectIds: null, expiresAt: null },
+      apiKey: {
+        id: 'k',
+        orgId: 'org_1',
+        prefix: 'p',
+        scopes: ['admin'],
+        projectIds: null,
+        expiresAt: null,
+      },
     } as unknown as Parameters<typeof resolveProjectAccess>[1];
     const access = await resolveProjectAccess(ctx, req, 'a');
     expect(access.slug).toBe('a');

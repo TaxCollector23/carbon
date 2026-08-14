@@ -2,11 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
 import { BehaviorGraphBuilder } from '@carbon/graph';
 import { InMemoryStateEngine } from '@carbon/state';
-import type {
-  EndpointId,
-  IntermediateRepresentation,
-  ResourceId,
-} from '@carbon/types';
+import type { EndpointId, IntermediateRepresentation, ResourceId } from '@carbon/types';
 import { createRuntime, type Runtime } from './runtime.js';
 
 const customer = 'customer' as ResourceId;
@@ -94,8 +90,7 @@ describe('runtime state stream (websocket)', () => {
 
     expect(frames[0]).toMatchObject({ type: 'snapshot' });
     const mutation = frames.find((f) => f.type === 'mutation') as
-      | { type: 'mutation'; entry: { op: string; resource: string; id: string } }
-      | undefined;
+      { type: 'mutation'; entry: { op: string; resource: string; id: string } } | undefined;
     expect(mutation).toBeDefined();
     expect(mutation!.entry.op).toBe('create');
     expect(mutation!.entry.resource).toBe('customer');

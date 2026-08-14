@@ -51,83 +51,103 @@ export async function registerChaosPresetRoutes(
   app: FastifyInstance,
   ctx: AppContext,
 ): Promise<void> {
-  app.get('/v1/chaos-presets', {
-    preHandler: requireScope('read'),
-    schema: {
-      summary: 'List chaos presets',
-      description: 'Return every chaos preset visible to the caller\'s org, sorted by name.',
-      response: {
-        200: zodResponseWithExample(ChaosPresetListResponse, {
-          data: [
-            {
-              id: 'chaos_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
-              orgId: 'org_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
-              name: 'flaky-checkout',
-              description: '10% 500s and 200ms latency on POST /orders',
-              rules: [
-                { kind: 'error', match: { method: 'POST', path: '/orders' }, probability: 0.1, status: 500 },
-                { kind: 'latency', match: { path: '/orders' }, floorMs: 200, jitterMs: 50 },
-              ],
-              builtIn: false,
-              createdAt: '2025-11-14T18:22:41.000Z',
-            },
-          ],
-        }),
+  app.get(
+    '/v1/chaos-presets',
+    {
+      preHandler: requireScope('read'),
+      schema: {
+        summary: 'List chaos presets',
+        description: "Return every chaos preset visible to the caller's org, sorted by name.",
+        response: {
+          200: zodResponseWithExample(ChaosPresetListResponse, {
+            data: [
+              {
+                id: 'chaos_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+                orgId: 'org_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+                name: 'flaky-checkout',
+                description: '10% 500s and 200ms latency on POST /orders',
+                rules: [
+                  {
+                    kind: 'error',
+                    match: { method: 'POST', path: '/orders' },
+                    probability: 0.1,
+                    status: 500,
+                  },
+                  { kind: 'latency', match: { path: '/orders' }, floorMs: 200, jitterMs: 50 },
+                ],
+                builtIn: false,
+                createdAt: '2025-11-14T18:22:41.000Z',
+              },
+            ],
+          }),
+        },
       },
     },
-  }, async (req) => {
-    const orgId = resolveCallerOrg(req, { queryOrg: readQueryOrg(req), message: 'orgId is required — presets are org-scoped' });
-    const rows = await ctx.db
-      .select()
-      .from(schema.chaosPresets)
-      .where(eq(schema.chaosPresets.orgId, orgId))
-      .orderBy(asc(schema.chaosPresets.name));
-    return { data: rows };
-  });
-
-  app.post('/v1/chaos-presets', {
-    preHandler: requireScope('write'),
-    schema: {
-      summary: 'Create a chaos preset',
-      description: 'Register a named chaos preset scoped to the caller\'s org. Names are unique per org; duplicates return 409.',
-      body: zodBody(CreateBody),
-      response: { 201: zodResponse(ChaosPresetSchema) },
-    },
-  }, async (req, reply) => {
-    const body = CreateBody.parse(req.body);
-    const orgId = resolveCallerOrg(req, { queryOrg: readQueryOrg(req), message: 'orgId is required — presets are org-scoped' });
-    const id = makeId('chaos');
-    try {
-      await ctx.db.insert(schema.chaosPresets).values({
-        id,
-        orgId,
-        name: body.name,
-        description: body.description,
-        rules: body.rules,
-        builtIn: false,
+    async (req) => {
+      const orgId = resolveCallerOrg(req, {
+        queryOrg: readQueryOrg(req),
+        message: 'orgId is required — presets are org-scoped',
       });
-    } catch (err) {
-      // Unique (orgId, name) violation: return a 409 rather than 500.
-      if (err instanceof Error && /unique/i.test(err.message)) {
-        throw new CarbonError({
-          code: 'CARBON_CONFLICT',
-          message: `chaos preset "${body.name}" already exists`,
-          expose: true,
+      const rows = await ctx.db
+        .select()
+        .from(schema.chaosPresets)
+        .where(eq(schema.chaosPresets.orgId, orgId))
+        .orderBy(asc(schema.chaosPresets.name));
+      return { data: rows };
+    },
+  );
+
+  app.post(
+    '/v1/chaos-presets',
+    {
+      preHandler: requireScope('write'),
+      schema: {
+        summary: 'Create a chaos preset',
+        description:
+          "Register a named chaos preset scoped to the caller's org. Names are unique per org; duplicates return 409.",
+        body: zodBody(CreateBody),
+        response: { 201: zodResponse(ChaosPresetSchema) },
+      },
+    },
+    async (req, reply) => {
+      const body = CreateBody.parse(req.body);
+      const orgId = resolveCallerOrg(req, {
+        queryOrg: readQueryOrg(req),
+        message: 'orgId is required — presets are org-scoped',
+      });
+      const id = makeId('chaos');
+      try {
+        await ctx.db.insert(schema.chaosPresets).values({
+          id,
+          orgId,
+          name: body.name,
+          description: body.description,
+          rules: body.rules,
+          builtIn: false,
         });
+      } catch (err) {
+        // Unique (orgId, name) violation: return a 409 rather than 500.
+        if (err instanceof Error && /unique/i.test(err.message)) {
+          throw new CarbonError({
+            code: 'CARBON_CONFLICT',
+            message: `chaos preset "${body.name}" already exists`,
+            expose: true,
+          });
+        }
+        throw err;
       }
-      throw err;
-    }
-    const actor = getActor(req);
-    await recordEvent(ctx, {
-      orgId,
-      actorType: actor.actorType,
-      actorId: actor.actorId,
-      action: 'chaos_preset.created',
-      metadata: { presetId: id, name: body.name },
-    });
-    reply.status(201);
-    return { id, orgId, name: body.name, description: body.description, rules: body.rules };
-  });
+      const actor = getActor(req);
+      await recordEvent(ctx, {
+        orgId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        action: 'chaos_preset.created',
+        metadata: { presetId: id, name: body.name },
+      });
+      reply.status(201);
+      return { id, orgId, name: body.name, description: body.description, rules: body.rules };
+    },
+  );
 
   app.delete<{ Params: { id: string } }>(
     '/v1/chaos-presets/:id',
@@ -135,11 +155,15 @@ export async function registerChaosPresetRoutes(
       preHandler: requireScope('admin'),
       schema: {
         summary: 'Delete a chaos preset',
-        description: 'Delete a chaos preset owned by the caller\'s org. Built-in presets and cross-org ids return 404.',
+        description:
+          "Delete a chaos preset owned by the caller's org. Built-in presets and cross-org ids return 404.",
       },
     },
     async (req, reply) => {
-      const orgId = resolveCallerOrg(req, { queryOrg: readQueryOrg(req), message: 'orgId is required — presets are org-scoped' });
+      const orgId = resolveCallerOrg(req, {
+        queryOrg: readQueryOrg(req),
+        message: 'orgId is required — presets are org-scoped',
+      });
       // Never let a caller delete another org's presets — a shared control
       // plane where every DELETE was global-scope would be a trivial escalation.
       const deleted = await ctx.db

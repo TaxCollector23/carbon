@@ -230,6 +230,12 @@ export async function buildServer(
   });
   await registerAccessLog(app, ctx);
 
+  // Registered before the API-key hook so valid dashboard sessions can satisfy
+  // protected routes without `x-carbon-key`. Bearer API keys start with
+  // `ck_live_`, and the session hook deliberately ignores them, so generated
+  // clients still take the API-key path below.
+  await registerSessionAuth(app, ctx);
+
   if (options.auth) {
     await registerApiKeyAuth(app, ctx, {
       publicPaths: options.auth.publicPaths ?? publicPaths,
@@ -237,13 +243,6 @@ export async function buildServer(
       headerName: options.auth.headerName,
     });
   }
-
-  // Registered *after* the api-key hook so that when both would accept a
-  // request the api-key path runs first — deterministic ordering matters when
-  // an ambiguous Bearer token is presented. Human/browser auth is Better
-  // Auth session cookies (or bearer session tokens) resolved against the
-  // shared Postgres.
-  await registerSessionAuth(app, ctx);
 
   if (options.redis) {
     if (options.rateLimit) {

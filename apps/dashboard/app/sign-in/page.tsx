@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn } from '@/lib/auth-client';
 import { AuthShell, FieldLabel, inputClass } from '@/components/auth-shell';
+import { SocialAuthButtons } from '@/components/social-auth-buttons';
 
 interface DiscoveredProvider {
   id: string;
@@ -137,13 +138,21 @@ function SignInInner() {
             Sign in with {ssoProvider.name}
           </a>
         ) : (
-          <button
-            type="submit"
-            disabled={pending}
-            className="bg-primary text-primary-foreground w-full rounded-md px-4 py-2.5 text-sm font-medium disabled:opacity-60"
-          >
-            {pending ? 'Signing in…' : 'Sign in'}
-          </button>
+          <>
+            <SocialAuthButtons next={next} onError={(message) => setError(message || null)} />
+            <div className="flex items-center gap-3">
+              <span className="bg-border h-px flex-1" />
+              <span className="text-muted-foreground text-xs">or</span>
+              <span className="bg-border h-px flex-1" />
+            </div>
+            <button
+              type="submit"
+              disabled={pending}
+              className="bg-primary text-primary-foreground w-full rounded-md px-4 py-2.5 text-sm font-medium disabled:opacity-60"
+            >
+              {pending ? 'Signing in...' : 'Sign in'}
+            </button>
+          </>
         )}
       </form>
     </AuthShell>

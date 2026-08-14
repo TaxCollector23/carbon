@@ -49,7 +49,12 @@ async function build(storage: MemoryStorage): Promise<FastifyInstance> {
   });
   app.addHook('onRequest', async (req) => {
     (req as AuthenticatedRequest).apiKey = {
-      id: 'k', orgId: 'org_1', prefix: 'aa', scopes: ['read'], projectIds: null, expiresAt: null,
+      id: 'k',
+      orgId: 'org_1',
+      prefix: 'aa',
+      scopes: ['read'],
+      projectIds: null,
+      expiresAt: null,
     };
   });
   await registerGraphRoutes(app, makeCtx(storage));
@@ -62,17 +67,31 @@ const irFixture = {
   api: { name: 't', version: '0', source: { kind: 'openapi', ingestedAt: 0 } },
   servers: [],
   auth: [],
-  resources: [
-    { id: 'customer', name: 'Customer', primaryKey: 'id', schema: { kind: 'unknown' } },
-  ],
+  resources: [{ id: 'customer', name: 'Customer', primaryKey: 'id', schema: { kind: 'unknown' } }],
   endpoints: [
     {
-      id: 'GET:/customers', method: 'GET', path: '/customers', operation: 'list',
-      resource: 'customer', params: [], requestBody: null, responses: [], auth: [], meta: {},
+      id: 'GET:/customers',
+      method: 'GET',
+      path: '/customers',
+      operation: 'list',
+      resource: 'customer',
+      params: [],
+      requestBody: null,
+      responses: [],
+      auth: [],
+      meta: {},
     },
     {
-      id: 'POST:/customers', method: 'POST', path: '/customers', operation: 'create',
-      resource: 'customer', params: [], requestBody: null, responses: [], auth: [], meta: {},
+      id: 'POST:/customers',
+      method: 'POST',
+      path: '/customers',
+      operation: 'create',
+      resource: 'customer',
+      params: [],
+      requestBody: null,
+      responses: [],
+      auth: [],
+      meta: {},
     },
   ],
   relationships: [],
@@ -89,10 +108,7 @@ describe('graph route', () => {
 
   it('returns { nodes, edges, transitions, constraints } for an ingested IR', async () => {
     const storage = new MemoryStorage();
-    await storage.put(
-      'projects/org_1/demo/ir/ir-abc.json',
-      JSON.stringify(irFixture),
-    );
+    await storage.put('projects/org_1/demo/ir/ir-abc.json', JSON.stringify(irFixture));
     const app = await build(storage);
     const res = await app.inject({ method: 'GET', url: '/v1/projects/demo/graph' });
     expect(res.statusCode).toBe(200);

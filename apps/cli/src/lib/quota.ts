@@ -109,7 +109,12 @@ export async function checkIngestQuota(opts: QuotaCheckOptions): Promise<QuotaCh
     return { blocked: false, used: 0, cap, plan };
   }
 
-  const used = await fetchIngestCount(opts.apiUrl, opts.apiKey, fetchImpl, FREE_TIER_INGEST_WINDOW_DAYS);
+  const used = await fetchIngestCount(
+    opts.apiUrl,
+    opts.apiKey,
+    fetchImpl,
+    FREE_TIER_INGEST_WINDOW_DAYS,
+  );
   if (used === null) {
     return { blocked: false, used: 0, cap, plan, softFailed: true };
   }
@@ -126,7 +131,7 @@ export function printQuotaExceeded(result: QuotaCheckResult): void {
   );
   ui.warn('The free / developer plan caps AI-assisted ingestion at 10 per month.');
   ui.warn('Upgrade to Team ($29 / dev / month) for unlimited ingests and cloud sync:');
-  ui.warn('   → https://carbon.dev/#pricing');
+  ui.warn('   → https://carbon-web-psi.vercel.app/#pricing');
   ui.warn('   → run `carbon login` after upgrading, then re-run this command.');
 }
 
@@ -140,6 +145,6 @@ export function printQuotaAdvisory(result: QuotaCheckResult): void {
   if (result.plan !== 'developer') return;
   if (result.used < Math.max(1, result.cap - 2)) return;
   ui.warn(
-    `Heads up: ${result.used} / ${result.cap} free ingests used in the last ${FREE_TIER_INGEST_WINDOW_DAYS} days. Upgrade to Team for unlimited: https://carbon.dev/#pricing`,
+    `Heads up: ${result.used} / ${result.cap} free ingests used in the last ${FREE_TIER_INGEST_WINDOW_DAYS} days. Upgrade to Team for unlimited: https://carbon-web-psi.vercel.app/#pricing`,
   );
 }

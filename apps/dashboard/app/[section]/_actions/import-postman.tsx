@@ -80,9 +80,7 @@ export function ImportPostmanButton({
           Imported {status.result.endpoints} endpoints, {status.result.resources} resources.
         </p>
       )}
-      {status.kind === 'error' && (
-        <p className="text-xs text-red-600">Failed: {status.message}</p>
-      )}
+      {status.kind === 'error' && <p className="text-xs text-red-600">Failed: {status.message}</p>}
     </div>
   );
 }

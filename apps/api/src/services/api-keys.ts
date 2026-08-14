@@ -158,7 +158,9 @@ export async function rotateApiKey(
   };
 
   const db = ctx.db as unknown as {
-    transaction?: (fn: (tx: AppContext['db']) => Promise<RotateApiKeyResult>) => Promise<RotateApiKeyResult>;
+    transaction?: (
+      fn: (tx: AppContext['db']) => Promise<RotateApiKeyResult>,
+    ) => Promise<RotateApiKeyResult>;
   };
   if (typeof db.transaction === 'function') {
     return db.transaction(async (tx) => doWork(tx));

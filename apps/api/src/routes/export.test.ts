@@ -147,7 +147,10 @@ function makeCtx(store: Store): AppContext {
   };
 }
 
-async function build(store: Store, opts: { admin: boolean; orgId?: string }): Promise<FastifyInstance> {
+async function build(
+  store: Store,
+  opts: { admin: boolean; orgId?: string },
+): Promise<FastifyInstance> {
   const app = Fastify();
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof ZodError) {
@@ -269,9 +272,16 @@ describe('POST /v1/export', () => {
     expect(typeof body.ranges.since).toBe('string');
     expect(typeof body.ranges.until).toBe('string');
     // Default include list — all eight buckets present.
-    expect(Object.keys(body.bundle).sort()).toEqual(
-      ['ai_quality', 'api_keys', 'audit', 'events', 'members', 'projects', 'snapshots', 'usage'],
-    );
+    expect(Object.keys(body.bundle).sort()).toEqual([
+      'ai_quality',
+      'api_keys',
+      'audit',
+      'events',
+      'members',
+      'projects',
+      'snapshots',
+      'usage',
+    ]);
     // api_keys bucket must never surface the hash column, even though the
     // underlying row carries it.
     for (const row of body.bundle.api_keys ?? []) {

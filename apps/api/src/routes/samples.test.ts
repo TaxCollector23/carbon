@@ -40,7 +40,11 @@ function makeCtx(store: Store, ingest = vi.fn()): AppContext {
   ingest.mockImplementation(async () => ({
     irId: 'ir_sample',
     graphId: 'g_sample',
-    ir: { api: { title: 'Sample' }, endpoints: new Array(17).fill({}), resources: new Array(4).fill({}) },
+    ir: {
+      api: { title: 'Sample' },
+      endpoints: new Array(17).fill({}),
+      resources: new Array(4).fill({}),
+    },
     warnings: [],
   }));
   return {
@@ -69,11 +73,15 @@ async function build(
     }
     if (isCarbonError(err)) {
       const status =
-        err.code === 'CARBON_FORBIDDEN' ? 403
-          : err.code === 'CARBON_NOT_FOUND' ? 404
-          : err.code === 'CARBON_CONFLICT' ? 409
-          : err.code === 'CARBON_INVALID_INPUT' ? 400
-          : 500;
+        err.code === 'CARBON_FORBIDDEN'
+          ? 403
+          : err.code === 'CARBON_NOT_FOUND'
+            ? 404
+            : err.code === 'CARBON_CONFLICT'
+              ? 409
+              : err.code === 'CARBON_INVALID_INPUT'
+                ? 400
+                : 500;
       reply.status(status).send({ error: { code: err.code, message: err.message } });
       return;
     }
@@ -141,7 +149,10 @@ describe('POST /v1/samples/instantiate', () => {
     expect(arg.origin).toBe('sample:petstore');
     expect(arg.context).toEqual({ orgId: 'org_1' });
     // Spec really was loaded from the fixture file.
-    expect(arg.input.content).toMatchObject({ openapi: expect.any(String), paths: expect.any(Object) });
+    expect(arg.input.content).toMatchObject({
+      openapi: expect.any(String),
+      paths: expect.any(Object),
+    });
   });
 
   it('returns 404 for an unknown sampleId (and does not create a project)', async () => {

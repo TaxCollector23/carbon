@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function ContactPage() {
   return (
-    <div className="bg-background text-foreground dark min-h-dvh">
+    <div className="bg-background text-foreground min-h-dvh">
       <Nav />
       <main id="main" className="pt-16">
         <Section id="contact" className="py-24">
@@ -31,9 +31,12 @@ export default function ContactPage() {
                 <li>• Bring-your-own LLM key for AI inference</li>
               </ul>
               <p className="text-muted-foreground mt-8 text-sm">
-                Prefer email? Reach us at{' '}
-                <a className="text-foreground underline" href="mailto:sales@carbon.dev">
-                  sales@carbon.dev
+                Open-source questions can go through{' '}
+                <a
+                  className="text-foreground underline"
+                  href="https://github.com/TaxCollector23/carbon/issues"
+                >
+                  GitHub issues
                 </a>
                 .
               </p>

@@ -32,7 +32,7 @@ const features = [
 
 export function Features() {
   return (
-    <Section id="features" className="bg-subtle/50 ">
+    <Section id="features" className="bg-subtle/50">
       <div className="grid gap-12 lg:grid-cols-[0.72fr_1.28fr]">
         <SectionHeading
           title="Everything a real backend does. None of the network."

@@ -126,7 +126,12 @@ async function build(store: Store): Promise<FastifyInstance> {
   });
   app.addHook('onRequest', async (req) => {
     (req as AuthenticatedRequest).apiKey = {
-      id: 'k', orgId: 'org_1', prefix: 'aa', scopes: ['write'], projectIds: null, expiresAt: null,
+      id: 'k',
+      orgId: 'org_1',
+      prefix: 'aa',
+      scopes: ['write'],
+      projectIds: null,
+      expiresAt: null,
     };
   });
   await registerAssertionRoutes(app, makeCtx(store));
@@ -141,7 +146,12 @@ describe('assertion routes', () => {
     const create = await app.inject({
       method: 'POST',
       url: '/v1/assertions',
-      payload: { projectId: 'proj_1', name: 'p95-lt-200', kind: 'latency', config: { budgetMs: 200 } },
+      payload: {
+        projectId: 'proj_1',
+        name: 'p95-lt-200',
+        kind: 'latency',
+        config: { budgetMs: 200 },
+      },
     });
     expect(create.statusCode).toBe(201);
     expect(store.rows).toHaveLength(1);
@@ -153,7 +163,9 @@ describe('assertion routes', () => {
 
     const id = store.rows[0]!.id;
     const patch = await app.inject({
-      method: 'PATCH', url: `/v1/assertions/${id}`, payload: { enabled: false },
+      method: 'PATCH',
+      url: `/v1/assertions/${id}`,
+      payload: { enabled: false },
     });
     expect(patch.statusCode).toBe(200);
     expect(store.rows[0]!.enabled).toBe(false);

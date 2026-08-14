@@ -170,12 +170,20 @@ describe('drift routes', () => {
     const store = seed({
       drifts: [
         {
-          id: 'drift_a', projectId: 'proj_1', status: 'ok', ranAt: new Date(1_000),
-          result: { sampled: 3, mismatches: 0 }, createdAt: new Date(1_000),
+          id: 'drift_a',
+          projectId: 'proj_1',
+          status: 'ok',
+          ranAt: new Date(1_000),
+          result: { sampled: 3, mismatches: 0 },
+          createdAt: new Date(1_000),
         },
         {
-          id: 'drift_b', projectId: 'proj_1', status: 'drift', ranAt: new Date(2_000),
-          result: { sampled: 3, mismatches: 1 }, createdAt: new Date(2_000),
+          id: 'drift_b',
+          projectId: 'proj_1',
+          status: 'drift',
+          ranAt: new Date(2_000),
+          result: { sampled: 3, mismatches: 1 },
+          createdAt: new Date(2_000),
         },
       ],
     });
@@ -214,13 +222,21 @@ describe('drift routes', () => {
     const store = seed({
       artifacts: [
         {
-          id: 'rec_a', projectId: 'proj_1', kind: 'recording',
+          id: 'rec_a',
+          projectId: 'proj_1',
+          kind: 'recording',
           meta: { upstreamUrl: 'https://old.example.com', driftIntervalMinutes: 30 },
           createdAt: new Date(1_000),
         },
         {
-          id: 'rec_b', projectId: 'proj_1', kind: 'recording',
-          meta: { upstreamUrl: 'https://api.example.com', driftIntervalMinutes: 60, driftEnabled: true },
+          id: 'rec_b',
+          projectId: 'proj_1',
+          kind: 'recording',
+          meta: {
+            upstreamUrl: 'https://api.example.com',
+            driftIntervalMinutes: 60,
+            driftEnabled: true,
+          },
           createdAt: new Date(2_000),
         },
       ],
@@ -238,8 +254,11 @@ describe('drift routes', () => {
     const store = seed({
       artifacts: [
         {
-          id: 'rec_a', projectId: 'proj_1', kind: 'recording',
-          meta: { unrelated: 'keep-me' }, createdAt: new Date(2_000),
+          id: 'rec_a',
+          projectId: 'proj_1',
+          kind: 'recording',
+          meta: { unrelated: 'keep-me' },
+          createdAt: new Date(2_000),
         },
       ],
     });

@@ -5,7 +5,13 @@ import { isCarbonError, NoopLogger } from '@carbon/core';
 import { MemoryStorage } from '@carbon/storage';
 import { schema } from '@carbon/database';
 import { AiCapabilities, AiJudge } from '@carbon/ai';
-import type { AiProvider, CompletionRequest, CompletionResponse, StructuredRequest, UsageEvent } from '@carbon/ai';
+import type {
+  AiProvider,
+  CompletionRequest,
+  CompletionResponse,
+  StructuredRequest,
+  UsageEvent,
+} from '@carbon/ai';
 import { createIngestionPipeline } from '@carbon/ingestion';
 import { OpenApiParser, ParserRegistry } from '@carbon/parser';
 import type { AppContext } from '../context.js';
@@ -93,11 +99,7 @@ async function build(store: Store, orgId: string): Promise<FastifyInstance> {
     }
     if (isCarbonError(err)) {
       const status =
-        err.code === 'CARBON_INVALID_INPUT'
-          ? 400
-          : err.code === 'CARBON_FORBIDDEN'
-            ? 403
-            : 500;
+        err.code === 'CARBON_INVALID_INPUT' ? 400 : err.code === 'CARBON_FORBIDDEN' ? 403 : 500;
       reply.status(status).send({ error: { code: err.code, message: err.message } });
       return;
     }

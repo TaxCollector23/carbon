@@ -132,10 +132,7 @@ function makeIpLimiter(max: number, windowMs: number) {
  * `/deny` are intentionally NOT in this list — they require a Better Auth
  * session cookie and read `sessionUser` off the request.
  */
-export const CLI_AUTH_PUBLIC_PATHS: readonly string[] = [
-  '/v1/cli-auth/start',
-  '/v1/cli-auth/*',
-];
+export const CLI_AUTH_PUBLIC_PATHS: readonly string[] = ['/v1/cli-auth/start', '/v1/cli-auth/*'];
 
 export interface CliAuthOptions {
   /** Base URL used to construct verificationUrl. Defaults to env or localhost. */
@@ -172,132 +169,142 @@ export async function registerCliAuthRoutes(
   const pollLimit = makeIpLimiter(APPROVE_LIMIT * 6, APPROVE_WINDOW_MS); // 60/min polls
 
   // ---------------- POST /v1/cli-auth/start ----------------
-  app.post('/v1/cli-auth/start', {
-    schema: {
-      summary: 'Start a CLI device-authorization session',
-      description: 'Unauthenticated. Mints a short-lived `sessionId` + `verifier` pair. The CLI opens `verificationUrl` in the user\'s browser and polls the session until it flips to `approved`.',
-      response: { 201: zodResponse(StartResponse) },
+  app.post(
+    '/v1/cli-auth/start',
+    {
+      schema: {
+        summary: 'Start a CLI device-authorization session',
+        description:
+          "Unauthenticated. Mints a short-lived `sessionId` + `verifier` pair. The CLI opens `verificationUrl` in the user's browser and polls the session until it flips to `approved`.",
+        response: { 201: zodResponse(StartResponse) },
+      },
     },
-  }, async (req, reply) => {
-    if (!startLimit(req.ip)) {
-      reply.header('retry-after', '60');
-      throw new CarbonError({
-        code: 'CARBON_RATE_LIMITED',
-        message: 'Too many CLI auth start requests from this IP',
-        expose: true,
+    async (req, reply) => {
+      if (!startLimit(req.ip)) {
+        reply.header('retry-after', '60');
+        throw new CarbonError({
+          code: 'CARBON_RATE_LIMITED',
+          message: 'Too many CLI auth start requests from this IP',
+          expose: true,
+        });
+      }
+      const id = generateSessionId();
+      const verifier = generateVerifier();
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
+      await ctx.db.insert(schema.cliAuthSessions).values({
+        id,
+        verifier,
+        status: 'pending',
+        expiresAt,
       });
-    }
-    const id = generateSessionId();
-    const verifier = generateVerifier();
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
-    await ctx.db.insert(schema.cliAuthSessions).values({
-      id,
-      verifier,
-      status: 'pending',
-      expiresAt,
-    });
-    reply.status(201);
-    return {
-      sessionId: id,
-      verifier,
-      verificationUrl: `${dashboardUrl}/cli-auth/${id}`,
-      expiresAt: expiresAt.toISOString(),
-    };
-  });
+      reply.status(201);
+      return {
+        sessionId: id,
+        verifier,
+        verificationUrl: `${dashboardUrl}/cli-auth/${id}`,
+        expiresAt: expiresAt.toISOString(),
+      };
+    },
+  );
 
   // ---------------- GET /v1/cli-auth/:sessionId ----------------
   app.get<{
     Params: { sessionId: string };
     Querystring: { verifier?: string };
-  }>('/v1/cli-auth/:sessionId', {
-    schema: {
-      summary: 'Poll a CLI auth session',
-      description: 'Unauthenticated. The CLI polls with its `verifier`; when the session flips to `approved` the minted key is revealed exactly once. Rate-limited per-IP.',
-      querystring: zodQuery(PollQuery),
-      response: { 200: zodResponse(PollResponse) },
+  }>(
+    '/v1/cli-auth/:sessionId',
+    {
+      schema: {
+        summary: 'Poll a CLI auth session',
+        description:
+          'Unauthenticated. The CLI polls with its `verifier`; when the session flips to `approved` the minted key is revealed exactly once. Rate-limited per-IP.',
+        querystring: zodQuery(PollQuery),
+        response: { 200: zodResponse(PollResponse) },
+      },
     },
-  }, async (req, reply) => {
-    if (!pollLimit(req.ip)) {
-      reply.header('retry-after', '60');
-      throw new CarbonError({
-        code: 'CARBON_RATE_LIMITED',
-        message: 'Too many CLI auth poll requests from this IP',
-        expose: true,
-      });
-    }
-    const verifier = (req.query?.verifier ?? '').toString();
-    if (!verifier) {
-      throw new CarbonError({
-        code: 'CARBON_INVALID_INPUT',
-        message: 'verifier query parameter is required',
-        expose: true,
-      });
-    }
-    const [row] = await ctx.db
-      .select()
-      .from(schema.cliAuthSessions)
-      .where(eq(schema.cliAuthSessions.id, req.params.sessionId))
-      .limit(1);
-    if (!row) throw new NotFoundError('cli auth session', req.params.sessionId);
-    if (!verifierMatches(row.verifier, verifier)) {
-      // Do not distinguish "wrong verifier" from "no such session" to a
-      // client that guessed the sessionId — both surface as 404.
-      throw new NotFoundError('cli auth session', req.params.sessionId);
-    }
+    async (req, reply) => {
+      if (!pollLimit(req.ip)) {
+        reply.header('retry-after', '60');
+        throw new CarbonError({
+          code: 'CARBON_RATE_LIMITED',
+          message: 'Too many CLI auth poll requests from this IP',
+          expose: true,
+        });
+      }
+      const verifier = (req.query?.verifier ?? '').toString();
+      if (!verifier) {
+        throw new CarbonError({
+          code: 'CARBON_INVALID_INPUT',
+          message: 'verifier query parameter is required',
+          expose: true,
+        });
+      }
+      const [row] = await ctx.db
+        .select()
+        .from(schema.cliAuthSessions)
+        .where(eq(schema.cliAuthSessions.id, req.params.sessionId))
+        .limit(1);
+      if (!row) throw new NotFoundError('cli auth session', req.params.sessionId);
+      if (!verifierMatches(row.verifier, verifier)) {
+        // Do not distinguish "wrong verifier" from "no such session" to a
+        // client that guessed the sessionId — both surface as 404.
+        throw new NotFoundError('cli auth session', req.params.sessionId);
+      }
 
-    const now = new Date();
-    if (row.status !== 'expired' && row.expiresAt.getTime() <= now.getTime()) {
+      const now = new Date();
+      if (row.status !== 'expired' && row.expiresAt.getTime() <= now.getTime()) {
+        await ctx.db
+          .update(schema.cliAuthSessions)
+          .set({ status: 'expired' })
+          .where(eq(schema.cliAuthSessions.id, row.id));
+        reply.status(410);
+        return { status: 'expired' as const };
+      }
+
+      if (row.status !== 'approved') {
+        return { status: row.status };
+      }
+
+      // Approved. Reveal the secret exactly once — if revealedAt is already
+      // stamped, subsequent polls only return the status.
+      if (row.revealedAt) {
+        return { status: 'approved' as const };
+      }
+      if (!row.approvedApiKeyId) {
+        // Consistency guard: an approved row must carry an api key id.
+        ctx.logger.warn('cli_auth.approved_without_key', { sessionId: row.id });
+        return { status: 'approved' as const };
+      }
+      const [key] = await ctx.db
+        .select({
+          id: schema.apiKeys.id,
+          hash: schema.apiKeys.hash,
+          prefix: schema.apiKeys.prefix,
+        })
+        .from(schema.apiKeys)
+        .where(eq(schema.apiKeys.id, row.approvedApiKeyId))
+        .limit(1);
+      // The presented secret is never persisted in the DB. /approve stashes it
+      // in the transient `secretStore` (Redis when available, in-memory Map
+      // otherwise), and we consume it here exactly once, stamping revealedAt so
+      // subsequent polls only see the status.
+      const secret = await secretStore.take(row.id);
+      if (!secret) {
+        // Server was restarted between approve and reveal, or a race lost the
+        // secret. Force the user to restart the flow.
+        ctx.logger.warn('cli_auth.secret_missing_on_reveal', { sessionId: row.id });
+        reply.status(410);
+        return { status: 'expired' as const };
+      }
       await ctx.db
         .update(schema.cliAuthSessions)
-        .set({ status: 'expired' })
+        .set({ revealedAt: new Date() })
         .where(eq(schema.cliAuthSessions.id, row.id));
-      reply.status(410);
-      return { status: 'expired' as const };
-    }
-
-    if (row.status !== 'approved') {
-      return { status: row.status };
-    }
-
-    // Approved. Reveal the secret exactly once — if revealedAt is already
-    // stamped, subsequent polls only return the status.
-    if (row.revealedAt) {
-      return { status: 'approved' as const };
-    }
-    if (!row.approvedApiKeyId) {
-      // Consistency guard: an approved row must carry an api key id.
-      ctx.logger.warn('cli_auth.approved_without_key', { sessionId: row.id });
-      return { status: 'approved' as const };
-    }
-    const [key] = await ctx.db
-      .select({
-        id: schema.apiKeys.id,
-        hash: schema.apiKeys.hash,
-        prefix: schema.apiKeys.prefix,
-      })
-      .from(schema.apiKeys)
-      .where(eq(schema.apiKeys.id, row.approvedApiKeyId))
-      .limit(1);
-    // The presented secret is never persisted in the DB. /approve stashes it
-    // in the transient `secretStore` (Redis when available, in-memory Map
-    // otherwise), and we consume it here exactly once, stamping revealedAt so
-    // subsequent polls only see the status.
-    const secret = await secretStore.take(row.id);
-    if (!secret) {
-      // Server was restarted between approve and reveal, or a race lost the
-      // secret. Force the user to restart the flow.
-      ctx.logger.warn('cli_auth.secret_missing_on_reveal', { sessionId: row.id });
-      reply.status(410);
-      return { status: 'expired' as const };
-    }
-    await ctx.db
-      .update(schema.cliAuthSessions)
-      .set({ revealedAt: new Date() })
-      .where(eq(schema.cliAuthSessions.id, row.id));
-    void key; // keep the select for future audit/debug parity
-    return { status: 'approved' as const, key: secret };
-  });
+      void key; // keep the select for future audit/debug parity
+      return { status: 'approved' as const, key: secret };
+    },
+  );
 
   // ---------------- POST /v1/cli-auth/:sessionId/approve ----------------
   app.post<{ Params: { sessionId: string } }>(
@@ -305,7 +312,8 @@ export async function registerCliAuthRoutes(
     {
       schema: {
         summary: 'Approve a CLI auth session',
-        description: 'Requires a signed-in Better Auth session. Mints an API key scoped to `orgId` (or the caller\'s only org) and stashes it for the CLI to fetch on its next poll.',
+        description:
+          "Requires a signed-in Better Auth session. Mints an API key scoped to `orgId` (or the caller's only org) and stashes it for the CLI to fetch on its next poll.",
         body: zodBody(ApproveBody),
         response: { 200: zodResponse(ApproveResponse) },
       },
@@ -329,10 +337,7 @@ export async function registerCliAuthRoutes(
           slug: schema.organizations.slug,
         })
         .from(schema.memberships)
-        .innerJoin(
-          schema.organizations,
-          eq(schema.organizations.id, schema.memberships.orgId),
-        )
+        .innerJoin(schema.organizations, eq(schema.organizations.id, schema.memberships.orgId))
         .where(eq(schema.memberships.userId, sessionUser.id));
 
       if (memberships.length === 0) {
@@ -414,10 +419,7 @@ export async function registerCliAuthRoutes(
           approvedAt: new Date(),
         })
         .where(
-          and(
-            eq(schema.cliAuthSessions.id, row.id),
-            eq(schema.cliAuthSessions.status, 'pending'),
-          ),
+          and(eq(schema.cliAuthSessions.id, row.id), eq(schema.cliAuthSessions.status, 'pending')),
         );
 
       const actor = getActor(req);
@@ -444,7 +446,8 @@ export async function registerCliAuthRoutes(
     {
       schema: {
         summary: 'Deny a CLI auth session',
-        description: 'Requires a signed-in session. Denies a pending session; idempotent for already-terminal sessions.',
+        description:
+          'Requires a signed-in session. Denies a pending session; idempotent for already-terminal sessions.',
         response: { 200: zodResponse(DenyResponse) },
       },
     },
@@ -472,10 +475,7 @@ export async function registerCliAuthRoutes(
         .update(schema.cliAuthSessions)
         .set({ status: 'denied', userId: sessionUser.id })
         .where(
-          and(
-            eq(schema.cliAuthSessions.id, row.id),
-            eq(schema.cliAuthSessions.status, 'pending'),
-          ),
+          and(eq(schema.cliAuthSessions.id, row.id), eq(schema.cliAuthSessions.status, 'pending')),
         );
       await secretStore.take(row.id);
       reply.status(200);

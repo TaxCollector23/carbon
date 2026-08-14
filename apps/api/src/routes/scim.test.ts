@@ -24,9 +24,22 @@ interface ApiKey {
   revokedAt: Date | null;
   expiresAt: Date | null;
 }
-interface OrgRow { id: string; isEnterprise: boolean; }
-interface UserRow { id: string; email: string; name: string | null; createdAt: Date; updatedAt: Date; }
-interface Membership { userId: string; orgId: string; role: string; }
+interface OrgRow {
+  id: string;
+  isEnterprise: boolean;
+}
+interface UserRow {
+  id: string;
+  email: string;
+  name: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+interface Membership {
+  userId: string;
+  orgId: string;
+  role: string;
+}
 
 interface Store {
   apiKeys: ApiKey[];
@@ -85,7 +98,10 @@ function makeCtx(store: Store): AppContext {
   };
 }
 
-async function build(store: Store, presetApiKey?: AuthenticatedRequest['apiKey']): Promise<FastifyInstance> {
+async function build(
+  store: Store,
+  presetApiKey?: AuthenticatedRequest['apiKey'],
+): Promise<FastifyInstance> {
   const app = Fastify();
   if (presetApiKey) {
     app.addHook('onRequest', async (req) => {
@@ -110,8 +126,12 @@ describe('SCIM routes', () => {
       memberships: [],
     };
     const app = await build(store, {
-      id: 'k', orgId: 'org_1', prefix: 'aa11bb22cc33', scopes: ['admin'],
-      projectIds: null, expiresAt: null,
+      id: 'k',
+      orgId: 'org_1',
+      prefix: 'aa11bb22cc33',
+      scopes: ['admin'],
+      projectIds: null,
+      expiresAt: null,
     });
     const res = await app.inject({ method: 'GET', url: '/scim/v2/Users' });
     expect(res.statusCode).toBe(403);
@@ -123,16 +143,28 @@ describe('SCIM routes', () => {
   it('X-SCIM-Token authenticates and List Users returns the SCIM ListResponse shape', async () => {
     const secret = 'a'.repeat(32);
     const store: Store = {
-      apiKeys: [{
-        id: 'key_scim', orgId: 'org_1', prefix: 'aa11bb22cc33',
-        hash: hashOf(secret), scopes: ['admin'],
-        projectIds: null, revokedAt: null, expiresAt: null,
-      }],
+      apiKeys: [
+        {
+          id: 'key_scim',
+          orgId: 'org_1',
+          prefix: 'aa11bb22cc33',
+          hash: hashOf(secret),
+          scopes: ['admin'],
+          projectIds: null,
+          revokedAt: null,
+          expiresAt: null,
+        },
+      ],
       orgs: [{ id: 'org_1', isEnterprise: true }],
-      users: [{
-        id: 'usr_1', email: 'alice@acme.io', name: 'Alice',
-        createdAt: new Date(), updatedAt: new Date(),
-      }],
+      users: [
+        {
+          id: 'usr_1',
+          email: 'alice@acme.io',
+          name: 'Alice',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ],
       memberships: [{ userId: 'usr_1', orgId: 'org_1', role: 'member' }],
     };
     const app = await build(store);
@@ -155,8 +187,10 @@ describe('SCIM routes', () => {
 
   it('missing token → 401 SCIM error', async () => {
     const store: Store = {
-      apiKeys: [], orgs: [{ id: 'org_1', isEnterprise: true }],
-      users: [], memberships: [],
+      apiKeys: [],
+      orgs: [{ id: 'org_1', isEnterprise: true }],
+      users: [],
+      memberships: [],
     };
     const app = await build(store);
     const res = await app.inject({ method: 'GET', url: '/scim/v2/Users' });

@@ -1,9 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import type {
-  EndpointDef,
-  ResourceId,
-  TransitionRule,
-} from '@carbon/types';
+import type { EndpointDef, ResourceId, TransitionRule } from '@carbon/types';
 import { enforceForeignKeys } from '@carbon/graph';
 import type { RuntimeContext } from './runtime.js';
 
@@ -12,7 +8,10 @@ import type { RuntimeContext } from './runtime.js';
  * effects are looked up once at register-time, so the request path stays
  * O(1) — no graph traversal per request.
  */
-export async function registerGraphRoutes(app: FastifyInstance, ctx: RuntimeContext): Promise<void> {
+export async function registerGraphRoutes(
+  app: FastifyInstance,
+  ctx: RuntimeContext,
+): Promise<void> {
   const transitionsByEndpoint = new Map<string, TransitionRule[]>();
   for (const t of ctx.graph.transitions) {
     const list = transitionsByEndpoint.get(t.endpoint) ?? [];
@@ -142,7 +141,10 @@ async function handle(
     default: {
       // Custom/action endpoints fall back to their declared transitions, if any.
       // For Phase One we acknowledge the invocation deterministically.
-      return { status: 200, body: { ok: true, endpoint: endpoint.id, transitions: transitions.length } };
+      return {
+        status: 200,
+        body: { ok: true, endpoint: endpoint.id, transitions: transitions.length },
+      };
     }
   }
 }

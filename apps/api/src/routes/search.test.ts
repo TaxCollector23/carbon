@@ -100,18 +100,28 @@ describe('search routes', () => {
       events: [
         { id: 'evt_1', action: 'project.created', actor_id: 'usr_a', created_at: now, score: 0.4 },
       ],
-      projects: [
-        { id: 'prj_1', slug: 'checkout', name: 'Checkout', created_at: now, score: 0.9 },
-      ],
+      projects: [{ id: 'prj_1', slug: 'checkout', name: 'Checkout', created_at: now, score: 0.9 }],
       artifacts: [
-        { id: 'art_1', kind: 'ir', storage_key: 'projects/x/ir/y.json', created_at: now, score: 0.2 },
+        {
+          id: 'art_1',
+          kind: 'ir',
+          storage_key: 'projects/x/ir/y.json',
+          created_at: now,
+          score: 0.2,
+        },
       ],
     };
     const app = await build(canned, 'org_a');
     const res = await app.inject({ method: 'GET', url: '/v1/search?q=checkout&scope=all' });
     expect(res.statusCode).toBe(200);
     const body = res.json() as {
-      results: Array<{ kind: string; id: string; snippet: string; score: number; createdAt: string }>;
+      results: Array<{
+        kind: string;
+        id: string;
+        snippet: string;
+        score: number;
+        createdAt: string;
+      }>;
     };
     expect(body.results.map((r) => r.kind)).toEqual(['project', 'event', 'artifact']);
     expect(body.results[0]?.id).toBe('prj_1');
@@ -127,7 +137,9 @@ describe('search routes', () => {
   it('respects scope=events (single kind, no others fetched)', async () => {
     const now = new Date('2026-01-02T00:00:00Z');
     const canned: Canned = {
-      events: [{ id: 'evt_9', action: 'snapshot.saved', actor_id: null, created_at: now, score: 0.5 }],
+      events: [
+        { id: 'evt_9', action: 'snapshot.saved', actor_id: null, created_at: now, score: 0.5 },
+      ],
       projects: [{ id: 'prj_9', slug: 's', name: 'S', created_at: now, score: 0.5 }],
     };
     const app = await build(canned, 'org_a');

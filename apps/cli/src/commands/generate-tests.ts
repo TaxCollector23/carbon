@@ -2,11 +2,7 @@ import { defineCommand } from 'citty';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { createLogger } from '@carbon/core';
-import {
-  createDefaultParserRegistry,
-  createParserContext,
-  type ParserInput,
-} from '@carbon/parser';
+import { createDefaultParserRegistry, createParserContext, type ParserInput } from '@carbon/parser';
 import type { EndpointDef, IntermediateRepresentation } from '@carbon/types';
 import { ui } from '../ui.js';
 

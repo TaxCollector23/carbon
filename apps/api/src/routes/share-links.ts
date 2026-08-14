@@ -48,7 +48,12 @@ export async function registerShareLinkRoutes(
   deps: ShareLinkDeps,
 ): Promise<void> {
   const CreateBody = z.object({
-    ttlHours: z.coerce.number().int().min(1).max(24 * 30).default(24),
+    ttlHours: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(24 * 30)
+      .default(24),
   });
 
   app.post<{ Params: { id: string }; Body: unknown }>(
@@ -57,14 +62,15 @@ export async function registerShareLinkRoutes(
       preHandler: requireScope('write'),
       schema: {
         summary: 'Create a share link for a project',
-        description: 'Mint a short-lived shareable read-only link for a project. Default TTL is 24h; cap 30 days.',
+        description:
+          'Mint a short-lived shareable read-only link for a project. Default TTL is 24h; cap 30 days.',
         body: zodBody(CreateBody),
         response: {
           201: zodResponseWithExample(ShareLinkResponse, {
             id: 'shl_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
             token: 'k9x2K7-QpU3wR6mF8vN4yZ1aB5cD0eGh',
             expiresAt: '2025-11-15T18:22:41.000Z',
-            url: 'http://localhost:3000/shared/k9x2K7-QpU3wR6mF8vN4yZ1aB5cD0eGh',
+            url: 'http://localhost:3001/shared/k9x2K7-QpU3wR6mF8vN4yZ1aB5cD0eGh',
           }),
         },
       },
@@ -90,7 +96,7 @@ export async function registerShareLinkRoutes(
         metadata: { id, ttlHours: body.ttlHours },
       });
       recordShareLinkCreated();
-      const dashboardUrl = process.env.DASHBOARD_URL ?? 'http://localhost:3000';
+      const dashboardUrl = process.env.DASHBOARD_URL ?? 'http://localhost:3001';
       reply.status(201);
       return {
         id: row!.id,
@@ -112,8 +118,9 @@ export async function registerShareLinkRoutes(
     '/v1/share-links/:token/state',
     {
       schema: {
-        summary: 'Read a share link\'s current state',
-        description: 'Public token-gated readback of a share link. Unauthenticated beyond the token itself; returns the most recent snapshot artifact metadata.',
+        summary: "Read a share link's current state",
+        description:
+          'Public token-gated readback of a share link. Unauthenticated beyond the token itself; returns the most recent snapshot artifact metadata.',
         response: { 200: zodResponse(ShareLinkStateResponse) },
       },
     },
@@ -140,7 +147,10 @@ export async function registerShareLinkRoutes(
         .select()
         .from(schema.artifacts)
         .where(
-          and(eq(schema.artifacts.projectId, link.projectId), eq(schema.artifacts.kind, 'snapshot')),
+          and(
+            eq(schema.artifacts.projectId, link.projectId),
+            eq(schema.artifacts.kind, 'snapshot'),
+          ),
         )
         .orderBy(schema.artifacts.createdAt)
         .limit(1);
@@ -158,7 +168,8 @@ export async function registerShareLinkRoutes(
       preHandler: requireScope('write'),
       schema: {
         summary: 'Revoke a share link',
-        description: 'Mark a share link revoked so subsequent state reads 404. The row is retained for audit rather than deleted.',
+        description:
+          'Mark a share link revoked so subsequent state reads 404. The row is retained for audit rather than deleted.',
       },
     },
     async (req, reply) => {

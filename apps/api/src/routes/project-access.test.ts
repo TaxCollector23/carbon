@@ -130,9 +130,9 @@ describe('project access helpers', () => {
 
   it('requireProjectAccessById returns 404 across orgs', async () => {
     const ctx = makeCtx([{ orgId: 'org_other', slug: 'acme' }]);
-    await expect(
-      requireProjectAccessById(ctx, req('org_1'), 'proj_x'),
-    ).rejects.toMatchObject({ code: 'CARBON_NOT_FOUND' });
+    await expect(requireProjectAccessById(ctx, req('org_1'), 'proj_x')).rejects.toMatchObject({
+      code: 'CARBON_NOT_FOUND',
+    });
   });
 
   it('requireProjectAccessById forbids a session user with no project_members row', async () => {
@@ -195,9 +195,9 @@ describe('project access helpers', () => {
         role: 'member' as const,
       },
     } as unknown as SessionAuthenticatedRequest;
-    await expect(
-      requireProjectInOrg(ctx, sessionReq as never, 'proj_1'),
-    ).rejects.toMatchObject({ code: 'CARBON_FORBIDDEN' });
+    await expect(requireProjectInOrg(ctx, sessionReq as never, 'proj_1')).rejects.toMatchObject({
+      code: 'CARBON_FORBIDDEN',
+    });
   });
 
   it('requireProjectInOrg lets a matching session user through', async () => {

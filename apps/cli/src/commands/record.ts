@@ -24,7 +24,11 @@ export const recordCommand = defineCommand({
   args: {
     target: { type: 'positional', description: 'Upstream base URL' },
     port: { type: 'string', description: 'Local proxy port', default: '8788' },
-    out: { type: 'string', description: 'Where to write the recording', default: '.carbon/recordings' },
+    out: {
+      type: 'string',
+      description: 'Where to write the recording',
+      default: '.carbon/recordings',
+    },
     redact: {
       type: 'string',
       description: 'Comma-separated extra headers to redact (added to the defaults).',
@@ -61,7 +65,8 @@ export const recordCommand = defineCommand({
     ui.step('Target', args.target);
     ui.step('Proxy', handle.url);
     ui.step('Recording', handle.recordingId);
-    if (extraHeaders.length > 0) ui.step('Redact', [...DEFAULT_REDACT_HEADERS, ...extraHeaders].join(', '));
+    if (extraHeaders.length > 0)
+      ui.step('Redact', [...DEFAULT_REDACT_HEADERS, ...extraHeaders].join(', '));
     if (bodyRegex) ui.step('Redact body', bodyRegex.source);
     ui.info('Press Ctrl+C to stop and save.');
 

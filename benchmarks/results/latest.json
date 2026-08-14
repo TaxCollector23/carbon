@@ -1,14 +1,14 @@
 {
   "tool": "carbon",
-  "generatedAt": "2026-08-08T00:35:52.564Z",
+  "generatedAt": "2026-08-14T22:49:39.898Z",
   "node": "v26.7.0",
   "results": {
     "stateful": {
       "tool": "carbon",
       "demo": "stateful-consistency",
-      "generatedAt": "2026-08-08T00:35:49.384Z",
+      "generatedAt": "2026-08-14T22:49:34.597Z",
       "node": "v26.7.0",
-      "url": "http://127.0.0.1:63046",
+      "url": "http://127.0.0.1:56063",
       "passed": true,
       "stepCount": 6,
       "trace": [
@@ -24,95 +24,86 @@
           "responseBody": {
             "name": "Fido",
             "species": "dog",
-            "id": "pet_oh4uwbiszmqh5j6ksbpq"
+            "id": "pet_nnqwdcva777j4gp5x4ba"
           },
-          "elapsedMs": 23.681,
+          "elapsedMs": 23.321,
           "ok": true,
           "assertion": "status=201 and response.id defined and response.name===\"Fido\""
         },
         {
           "step": "read-after-create",
           "method": "GET",
-          "path": "/pets/pet_oh4uwbiszmqh5j6ksbpq",
+          "path": "/pets/pet_nnqwdcva777j4gp5x4ba",
           "requestBody": null,
           "status": 200,
           "responseBody": {
             "name": "Fido",
             "species": "dog",
-            "id": "pet_oh4uwbiszmqh5j6ksbpq"
+            "id": "pet_nnqwdcva777j4gp5x4ba"
           },
-          "elapsedMs": 1.548,
+          "elapsedMs": 1.521,
           "ok": true,
           "assertion": "status=200 and response.name===\"Fido\" (state persisted)"
         },
         {
           "step": "update",
           "method": "PATCH",
-          "path": "/pets/pet_oh4uwbiszmqh5j6ksbpq",
+          "path": "/pets/pet_nnqwdcva777j4gp5x4ba",
           "requestBody": {
             "name": "Fido II",
-            "tricks": [
-              "sit",
-              "roll"
-            ]
+            "tricks": ["sit", "roll"]
           },
           "status": 200,
           "responseBody": {
             "name": "Fido II",
             "species": "dog",
-            "id": "pet_oh4uwbiszmqh5j6ksbpq",
-            "tricks": [
-              "sit",
-              "roll"
-            ]
+            "id": "pet_nnqwdcva777j4gp5x4ba",
+            "tricks": ["sit", "roll"]
           },
-          "elapsedMs": 1.284,
+          "elapsedMs": 1.292,
           "ok": true,
           "assertion": "status=200 and response.name===\"Fido II\" (patch merged)"
         },
         {
           "step": "read-after-update",
           "method": "GET",
-          "path": "/pets/pet_oh4uwbiszmqh5j6ksbpq",
+          "path": "/pets/pet_nnqwdcva777j4gp5x4ba",
           "requestBody": null,
           "status": 200,
           "responseBody": {
             "name": "Fido II",
             "species": "dog",
-            "id": "pet_oh4uwbiszmqh5j6ksbpq",
-            "tricks": [
-              "sit",
-              "roll"
-            ]
+            "id": "pet_nnqwdcva777j4gp5x4ba",
+            "tricks": ["sit", "roll"]
           },
-          "elapsedMs": 0.747,
+          "elapsedMs": 0.764,
           "ok": true,
           "assertion": "patch persisted, previous fields preserved (species===dog)"
         },
         {
           "step": "delete",
           "method": "DELETE",
-          "path": "/pets/pet_oh4uwbiszmqh5j6ksbpq",
+          "path": "/pets/pet_nnqwdcva777j4gp5x4ba",
           "requestBody": null,
           "status": 204,
           "responseBody": null,
-          "elapsedMs": 0.612,
+          "elapsedMs": 0.766,
           "ok": true,
           "assertion": "status=204"
         },
         {
           "step": "read-after-delete",
           "method": "GET",
-          "path": "/pets/pet_oh4uwbiszmqh5j6ksbpq",
+          "path": "/pets/pet_nnqwdcva777j4gp5x4ba",
           "requestBody": null,
           "status": 404,
           "responseBody": {
             "error": {
               "code": "CARBON_NOT_FOUND",
-              "message": "pet pet_oh4uwbiszmqh5j6ksbpq not found"
+              "message": "pet pet_nnqwdcva777j4gp5x4ba not found"
             }
           },
-          "elapsedMs": 0.59,
+          "elapsedMs": 0.592,
           "ok": true,
           "assertion": "status=404 (delete honored)"
         }
@@ -121,7 +112,7 @@
     "snapshot": {
       "tool": "carbon",
       "demo": "snapshot-restore",
-      "generatedAt": "2026-08-08T00:35:49.704Z",
+      "generatedAt": "2026-08-14T22:49:34.928Z",
       "node": "v26.7.0",
       "seed": 12648430,
       "resources": 5,
@@ -130,102 +121,84 @@
       "snapshotBytes": 1942502,
       "iterations": 20,
       "restoreMs": {
-        "min": 7.389,
-        "p50": 8.812,
-        "p95": 12.382,
-        "max": 12.382
+        "min": 7.413,
+        "p50": 7.894,
+        "p95": 13.772,
+        "max": 13.772
       },
       "samples": [
-        7.389,
-        7.419,
-        7.583,
-        8.183,
-        8.275,
-        8.288,
-        8.588,
-        8.726,
-        8.753,
-        8.799,
-        8.812,
-        8.829,
-        8.829,
-        8.921,
-        8.948,
-        9.614,
-        10.345,
-        10.366,
-        10.7,
-        12.382
+        7.413, 7.416, 7.454, 7.5, 7.509, 7.523, 7.71, 7.799, 7.816, 7.858, 7.894, 7.908, 7.945,
+        7.957, 8.304, 8.58, 8.796, 8.845, 8.908, 13.772
       ]
     },
     "memory": {
       "tool": "carbon",
       "demo": "memory",
-      "generatedAt": "2026-08-08T00:35:49.970Z",
+      "generatedAt": "2026-08-14T22:49:35.250Z",
       "node": "v26.7.0",
       "seed": 3737844653,
       "rowsCreated": 100,
-      "elapsedMs": 67.613,
+      "elapsedMs": 65.251,
       "before": {
-        "rss": 82493440,
-        "heapTotal": 24035328,
-        "heapUsed": 16158176,
-        "external": 5485494
+        "rss": 105086976,
+        "heapTotal": 31621120,
+        "heapUsed": 19065472,
+        "external": 5423126
       },
       "after": {
-        "rss": 109903872,
-        "heapTotal": 34783232,
-        "heapUsed": 21887232,
-        "external": 6484925
+        "rss": 129204224,
+        "heapTotal": 38174720,
+        "heapUsed": 22393184,
+        "external": 6460000
       },
       "deltaBytes": {
-        "rss": 27410432,
-        "heapUsed": 5729056,
-        "external": 999431
+        "rss": 24117248,
+        "heapUsed": 3327712,
+        "external": 1036874
       },
       "perRowBytes": {
-        "rss": 274104,
-        "heapUsed": 57291
+        "rss": 241172,
+        "heapUsed": 33277
       }
     },
     "throughput": {
       "tool": "carbon",
       "demo": "throughput",
-      "generatedAt": "2026-08-08T00:35:52.253Z",
+      "generatedAt": "2026-08-14T22:49:37.625Z",
       "node": "v26.7.0",
-      "target": "http://127.0.0.1:63052/pets",
+      "target": "http://127.0.0.1:56069/pets",
       "connections": 10,
       "durationSeconds": 2,
       "requests": {
-        "average": 42784,
-        "mean": 42784,
-        "stddev": 2800,
-        "min": 39995,
-        "max": 45595,
-        "total": 85590,
-        "p0_001": 39999,
-        "p0_01": 39999,
-        "p0_1": 39999,
-        "p1": 39999,
-        "p2_5": 39999,
-        "p10": 39999,
-        "p25": 39999,
-        "p50": 39999,
-        "p75": 45599,
-        "p90": 45599,
-        "p97_5": 45599,
-        "p99": 45599,
-        "p99_9": 45599,
-        "p99_99": 45599,
-        "p99_999": 45599,
-        "sent": 85600
+        "average": 40736,
+        "mean": 40736,
+        "stddev": 2864,
+        "min": 37882,
+        "max": 43603,
+        "total": 81485,
+        "p0_001": 37887,
+        "p0_01": 37887,
+        "p0_1": 37887,
+        "p1": 37887,
+        "p2_5": 37887,
+        "p10": 37887,
+        "p25": 37887,
+        "p50": 37887,
+        "p75": 43615,
+        "p90": 43615,
+        "p97_5": 43615,
+        "p99": 43615,
+        "p99_9": 43615,
+        "p99_99": 43615,
+        "p99_999": 43615,
+        "sent": 81495
       },
       "latency": {
         "average": 0.01,
         "mean": 0.01,
         "stddev": 0.12,
         "min": 1,
-        "max": 12,
+        "max": 11,
         "p0_001": 0,
         "p0_01": 0,
         "p0_1": 0,
@@ -238,46 +211,61 @@
         "p90": 0,
         "p97_5": 0,
         "p99": 0,
-        "p99_9": 0,
+        "p99_9": 1,
         "p99_99": 8,
-        "p99_999": 12,
-        "totalCount": 85590
+        "p99_999": 11,
+        "totalCount": 81485
       },
       "throughput": {
-        "average": 21872640,
-        "mean": 21872640,
-        "stddev": 1433600,
-        "min": 20437445,
-        "max": 23299045,
-        "total": 43736490,
-        "p0_001": 20447231,
-        "p0_01": 20447231,
-        "p0_1": 20447231,
-        "p1": 20447231,
-        "p2_5": 20447231,
-        "p10": 20447231,
-        "p25": 20447231,
-        "p50": 20447231,
-        "p75": 23314431,
-        "p90": 23314431,
-        "p97_5": 23314431,
-        "p99": 23314431,
-        "p99_9": 23314431,
-        "p99_99": 23314431,
-        "p99_999": 23314431
+        "average": 20815872,
+        "mean": 20815872,
+        "stddev": 1458176,
+        "min": 19357702,
+        "max": 22281133,
+        "total": 41638835,
+        "p0_001": 19365887,
+        "p0_01": 19365887,
+        "p0_1": 19365887,
+        "p1": 19365887,
+        "p2_5": 19365887,
+        "p10": 19365887,
+        "p25": 19365887,
+        "p50": 19365887,
+        "p75": 22282239,
+        "p90": 22282239,
+        "p97_5": 22282239,
+        "p99": 22282239,
+        "p99_9": 22282239,
+        "p99_99": 22282239,
+        "p99_999": 22282239
       },
       "errors": 0,
       "timeouts": 0,
       "non2xx": 0,
-      "2xx": 85590,
-      "start": "2026-08-08T00:35:50.246Z",
-      "finish": "2026-08-08T00:35:52.249Z"
+      "2xx": 81485,
+      "start": "2026-08-14T22:49:35.618Z",
+      "finish": "2026-08-14T22:49:37.621Z"
     },
     "coldStart": {
-      "failed": true,
-      "exitCode": 1,
-      "stderr": "Error: Cold-start run 0 failed: CLI exited early with code 1\nCLI stdout:\n\n   CCCCC   AAAAA   RRRRR   BBBBB    OOOOO   N   N\n  C       A     A  R    R  B    B  O     O  NN  N\n  C       AAAAAAA  RRRRR   BBBBB   O     O  N N N\n  C       A     A  R   R   B    B  O     O  N  NN\n   CCCCC  A     A  R    R  BBBBB    OOOOO   N   N\n✔ Runtime ready at http://127.0.0.1:63064\n› Health — http://127.0.0.1:63064/__carbon/health\n› Stop — Ctrl+C\n\ncarbon v0.2.0\n\nGet started: carbon init — scaffold a new project\n\nCommands\n  carbon init             Scaffold a Carbon project in the current directory.\n  carbon login            Use API keys for account-backed workflows.\n  carbon record           Observe live traffic against an upstream API.\n  carbon ingest           Parse OpenAPI, AsyncAPI, GraphQL, protobuf/gRPC, HAR, or Postman into IR.\n  carbon emulate          Boot the local deterministic API runtime.\n  carbon inspect          Explore the running runtime's graph and stats.\n  carbon snapshot         Manage state snapshots for the current project.\n  carbon snapshot save    Save the current runtime state to a named snapshot.\n  carbon snapshot load    Restore a named snapshot into the runtime.\n  carbon snapshot list    List saved snapshots.\n  carbon snapshot delete  Delete a named snapshot.\n  carbon replay           Replay a captured session against the same request order.\n\nDocs: https://carbondev.com/docs\n\nCLI stderr:\n(node:71091) [FSTDEP023] FastifyDeprecation: disableRequestLogging option is deprecated. Use the logController option with disableRequestLogging or isLogDisabled override instead. The disableRequestLogging top-level option will be removed in `fastify@6`.\n(Use `node --trace-warnings ...` to show where the warning was created)\n\nnode:internal/event_target:1136\n  process.nextTick(() => { throw err; });\n                           ^\nError: Cannot find module '/Users/rangan/Desktop/carbon/apps/cli/dist/lib/worker.js'\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1569:15)\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1123:27)\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1147:10)\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1174:12)\n    at Module._load (node:internal/modules/cjs/loader:1346:5)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:261:19)\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\n    at MessagePort.<anonymous> (node:internal/main/worker_thread:223:26)\n    at [nodejs.internal.kHybridDispatch] (node:internal/event_target:856:20)\n    at MessagePort.<anonymous> (node:internal/per_context/messageport:23:28) {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: []\n}\n\nNode.js v26.7.0\n\n    at main (/Users/rangan/Desktop/carbon/benchmarks/scripts/cold-start.ts:63:13)\n",
-      "output": ""
+      "tool": "carbon",
+      "demo": "cold-start",
+      "generatedAt": "2026-08-14T22:49:37.890Z",
+      "node": "v26.7.0",
+      "runs": 1,
+      "method": "child_process.spawn(node apps/cli/dist/index.cjs emulate ...) -> GET /__carbon/health",
+      "fixture": "benchmarks/fixtures/petstore.openapi.json",
+      "coldStartMs": {
+        "min": 164.875,
+        "p50": 164.875,
+        "p95": 164.875,
+        "max": 164.875
+      },
+      "samples": [
+        {
+          "run": 0,
+          "elapsedMs": 164.875
+        }
+      ]
     }
   }
 }

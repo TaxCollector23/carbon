@@ -106,12 +106,7 @@ const RawEnvSchema = z
      * Hard per-query timeout on Postgres. A runaway query without this pins a
      * Node worker forever. Default 15s; range 1s–5min.
      */
-    CARBON_DB_STATEMENT_TIMEOUT_MS: z.coerce
-      .number()
-      .int()
-      .min(1000)
-      .max(300_000)
-      .default(15_000),
+    CARBON_DB_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(1000).max(300_000).default(15_000),
     /**
      * Stripe secret key. Setting this activates the billing routes; when
      * unset every /v1/billing/* endpoint returns 501 and `requireActivePlan`

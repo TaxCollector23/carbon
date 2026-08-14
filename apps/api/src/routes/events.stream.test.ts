@@ -67,7 +67,9 @@ function makeCtx(): AppContext {
   };
 }
 
-async function build(orgId: string): Promise<{ app: FastifyInstance; url: string; ctx: AppContext }> {
+async function build(
+  orgId: string,
+): Promise<{ app: FastifyInstance; url: string; ctx: AppContext }> {
   const app = Fastify();
   app.addHook('onRequest', async (req) => {
     (req as AuthenticatedRequest).apiKey = {

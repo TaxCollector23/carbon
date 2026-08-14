@@ -39,9 +39,8 @@ settings (Settings → Pages → Build and deployment source: **GitHub Actions**
 
 ### Custom domain
 
-`apps/docs/CNAME` contains `docs.carbon.dev`. When the DNS record is added and
-Pages is enabled with a custom domain, the CNAME file is picked up during
-deploy — no workflow change required.
+No custom-domain `CNAME` is checked in right now. Add one only after the DNS
+record exists and Pages is configured for that host.
 
 ### Auth-gated builds
 

@@ -136,10 +136,7 @@ async function deviceAuthFlow(apiUrl: string, noBrowser: boolean): Promise<void>
   ui.step('Saved', '~/.carbon/credentials (mode 0600)');
 }
 
-async function pollForApproval(
-  apiUrl: string,
-  start: StartResponse,
-): Promise<string | null> {
+async function pollForApproval(apiUrl: string, start: StartResponse): Promise<string | null> {
   const pollUrl = `${apiUrl}/v1/cli-auth/${encodeURIComponent(
     start.sessionId,
   )}?verifier=${encodeURIComponent(start.verifier)}`;

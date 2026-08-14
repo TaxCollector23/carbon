@@ -18,6 +18,8 @@ import {
 import { getSectionCopy } from '@/lib/empty-data';
 
 const ORG_STORAGE_KEY = 'carbon.orgId';
+const MARKETING_URL =
+  process.env.NEXT_PUBLIC_MARKETING_URL?.replace(/\/+$/, '') ?? 'https://carbon-web-psi.vercel.app';
 
 export default function SettingsSection() {
   // Try /v1/organizations/current first; fall back to a stored orgId hint
@@ -62,10 +64,13 @@ export default function SettingsSection() {
       {org.loading ? (
         <Skeleton className="h-24" />
       ) : notDeployed || (!org.data && !org.error) ? (
-        <OrgIdPrompt current={manualOrgId} onSet={(id) => {
-          window.localStorage.setItem(ORG_STORAGE_KEY, id);
-          setManualOrgId(id);
-        }} />
+        <OrgIdPrompt
+          current={manualOrgId}
+          onSet={(id) => {
+            window.localStorage.setItem(ORG_STORAGE_KEY, id);
+            setManualOrgId(id);
+          }}
+        />
       ) : org.error ? (
         <ErrorBanner error={org.error} onRetry={org.refetch} />
       ) : org.data ? (
@@ -92,7 +97,7 @@ export default function SettingsSection() {
         <EmptyState
           title={getSectionCopy('settings')!.emptyTitle}
           description={getSectionCopy('settings')!.description}
-          badge={notDeployed ? 'Not available yet' : undefined}
+          badge={notDeployed ? 'Connect org' : undefined}
         />
       )}
     </div>
@@ -117,9 +122,8 @@ function UsageLimitsCard() {
   }, []);
 
   if (quota.loading) return <Skeleton className="h-32" />;
-  if (quota.data === null) return null; // route not deployed — hide the card
-  if (quota.error)
-    return <ErrorBanner error={quota.error} onRetry={quota.refetch} />;
+  if (quota.data === null) return null; // quota service is optional
+  if (quota.error) return <ErrorBanner error={quota.error} onRetry={quota.refetch} />;
   if (!quota.data) return null;
 
   const q = quota.data;
@@ -136,8 +140,8 @@ function UsageLimitsCard() {
           <PlanBadge plan={q.plan} />
           {q.plan === 'developer' ? (
             <a
-              href="/contact"
-              className="border-border rounded-md border px-2.5 py-1 text-xs hover:bg-muted/30"
+              href={`${MARKETING_URL}/contact`}
+              className="border-border hover:bg-muted/30 rounded-md border px-2.5 py-1 text-xs"
             >
               Upgrade
             </a>
@@ -145,7 +149,11 @@ function UsageLimitsCard() {
         </div>
       </div>
       <div className="space-y-3">
-        <QuotaBar label="Concurrent emulators" current={q.current.emulators} max={q.limits.emulatorsMax} />
+        <QuotaBar
+          label="Concurrent emulators"
+          current={q.current.emulators}
+          max={q.limits.emulatorsMax}
+        />
         <QuotaBar
           label="Requests / minute"
           current={q.current.requestsLast1m}
@@ -169,9 +177,7 @@ function PlanBadge({ plan }: { plan: Quota['plan'] }) {
       : plan === 'team'
         ? 'border-border bg-muted/40 text-foreground'
         : 'border-border text-muted-foreground';
-  return (
-    <span className={`rounded-full border px-2 py-0.5 text-xs ${tone}`}>{label}</span>
-  );
+  return <span className={`rounded-full border px-2 py-0.5 text-xs ${tone}`}>{label}</span>;
 }
 
 function QuotaBar({
@@ -192,12 +198,7 @@ function QuotaBar({
   // Green under 50%, amber 50–80%, red over 80% — chosen to match how the
   // rest of the dashboard signals health, not to be a semantic scale for the
   // color-blind (label + numeric value always accompany the bar).
-  const barColor =
-    pct >= 80
-      ? 'bg-red-500'
-      : pct >= 50
-        ? 'bg-amber-500'
-        : 'bg-emerald-500';
+  const barColor = pct >= 80 ? 'bg-red-500' : pct >= 50 ? 'bg-amber-500' : 'bg-emerald-500';
 
   return (
     <div>
@@ -227,20 +228,14 @@ function QuotaBar({
   );
 }
 
-function OrgIdPrompt({
-  current,
-  onSet,
-}: {
-  current: string | null;
-  onSet: (id: string) => void;
-}) {
+function OrgIdPrompt({ current, onSet }: { current: string | null; onSet: (id: string) => void }) {
   const [value, setValue] = useState(current ?? '');
   return (
     <div className="border-border rounded-md border p-4">
       <h3 className="text-sm font-medium">Point the dashboard at an org</h3>
       <p className="text-muted-foreground mt-1 text-xs">
-        The organizations endpoint is not deployed yet, or the session helper isn&apos;t
-        available. Paste the org ID from your API key to load settings.
+        Paste the org ID from your API key to load settings when the current session is not tied to
+        an organization yet.
       </p>
       <form
         className="mt-3 flex gap-2"
@@ -289,7 +284,9 @@ function OrgForm({ org, onSaved }: { org: Organization; onSaved: () => void }) {
         <span className="text-muted-foreground text-xs">Slug</span>
         <Input value={slug} onChange={(e) => setSlug(e.target.value)} required />
       </label>
-      <p className="text-muted-foreground text-xs">ID: <code>{org.id}</code></p>
+      <p className="text-muted-foreground text-xs">
+        ID: <code>{org.id}</code>
+      </p>
       {err ? <p className="text-destructive text-xs">{err}</p> : null}
       <Button type="submit" size="sm" disabled={saving}>
         {saving ? 'Saving…' : 'Save changes'}
@@ -303,7 +300,11 @@ function MembersPanel({
   members,
 }: {
   orgId: string;
-  members: ReturnType<typeof useAsync<{ data: Array<{ userId: string; role: MemberRole; email?: string; name?: string | null }> } | null>>;
+  members: ReturnType<
+    typeof useAsync<{
+      data: Array<{ userId: string; role: MemberRole; email?: string; name?: string | null }>;
+    } | null>
+  >;
 }) {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [rowError, setRowError] = useState<string | null>(null);
@@ -352,9 +353,9 @@ function MembersPanel({
       {rowError ? <ErrorBanner error={rowError} /> : null}
       {notDeployed ? (
         <EmptyState
-          badge="Not available yet"
-          title="Member management is not deployed"
-          description="Once /v1/organizations/:id/members is wired up on this API, invites and role edits will show up here."
+          badge="Configure org"
+          title="Member management is not connected"
+          description="Connect an organization with member endpoints to invite teammates and edit roles here."
         />
       ) : members.loading ? (
         <Skeleton className="h-24" />
@@ -505,7 +506,8 @@ function InviteMemberModal({
 function IntegrationsPanel({ org, onSaved }: { org: Organization; onSaved: () => void }) {
   const settings = (org.settings ?? {}) as Record<string, unknown>;
   const initialSlack = typeof settings.slackWebhookUrl === 'string' ? settings.slackWebhookUrl : '';
-  const initialDiscord = typeof settings.discordWebhookUrl === 'string' ? settings.discordWebhookUrl : '';
+  const initialDiscord =
+    typeof settings.discordWebhookUrl === 'string' ? settings.discordWebhookUrl : '';
 
   const [slack, setSlack] = useState(initialSlack);
   const [discord, setDiscord] = useState(initialDiscord);
@@ -746,7 +748,11 @@ function AddSsoModal({
         </label>
         <label className="block text-sm">
           <span className="text-muted-foreground text-xs">Email domain (optional)</span>
-          <Input value={emailDomain} onChange={(e) => setEmailDomain(e.target.value)} placeholder="example.com" />
+          <Input
+            value={emailDomain}
+            onChange={(e) => setEmailDomain(e.target.value)}
+            placeholder="example.com"
+          />
         </label>
         {type === 'saml' ? (
           <>
@@ -756,7 +762,12 @@ function AddSsoModal({
             </label>
             <label className="block text-sm">
               <span className="text-muted-foreground text-xs">SSO URL</span>
-              <Input type="url" value={ssoUrl} onChange={(e) => setSsoUrl(e.target.value)} required />
+              <Input
+                type="url"
+                value={ssoUrl}
+                onChange={(e) => setSsoUrl(e.target.value)}
+                required
+              />
             </label>
             <label className="block text-sm">
               <span className="text-muted-foreground text-xs">X.509 certificate</span>
@@ -772,7 +783,12 @@ function AddSsoModal({
           <>
             <label className="block text-sm">
               <span className="text-muted-foreground text-xs">Issuer</span>
-              <Input type="url" value={issuer} onChange={(e) => setIssuer(e.target.value)} required />
+              <Input
+                type="url"
+                value={issuer}
+                onChange={(e) => setIssuer(e.target.value)}
+                required
+              />
             </label>
             <label className="block text-sm">
               <span className="text-muted-foreground text-xs">Client ID</span>
@@ -835,7 +851,8 @@ function SlackAppPanel() {
   const installUrl = `${String(apiBase).replace(/\/$/, '')}/v1/slack/install`;
 
   async function removeInstall(id: string) {
-    if (!confirm('Uninstall this Slack workspace? All channel subscriptions will be removed.')) return;
+    if (!confirm('Uninstall this Slack workspace? All channel subscriptions will be removed.'))
+      return;
     setRowError(null);
     try {
       await api.deleteSlackInstallation(id);
@@ -865,14 +882,14 @@ function SlackAppPanel() {
         <div>
           <h4 className="text-sm font-medium">Slack app</h4>
           <p className="text-muted-foreground mt-1 text-xs">
-            Install Carbon into a Slack workspace via OAuth and subscribe any channel to org
-            events. Requires <code>SLACK_CLIENT_ID</code> to be configured on the API.
+            Install Carbon into a Slack workspace via OAuth and subscribe any channel to org events.
+            Requires <code>SLACK_CLIENT_ID</code> to be configured on the API.
           </p>
         </div>
         {!notDeployed ? (
           <a
             href={installUrl}
-            className="border-border rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30"
+            className="border-border hover:bg-muted/30 rounded-md border px-3 py-1.5 text-xs"
           >
             Connect Slack
           </a>
@@ -883,9 +900,9 @@ function SlackAppPanel() {
 
       {notDeployed ? (
         <EmptyState
-          badge="Not available yet"
-          title="Slack integration is not deployed"
-          description="Once /v1/slack/* is wired up on this API, connected workspaces will show here."
+          badge="Optional"
+          title="Slack integration is not connected"
+          description="Configure Slack OAuth on the API to show connected workspaces and event subscriptions here."
         />
       ) : installs.loading ? (
         <Skeleton className="h-16" />
@@ -985,7 +1002,7 @@ function SlackSubscriptionEditor({
           {subs.map((s) => (
             <li
               key={s.id}
-              className="flex items-center justify-between rounded-md bg-muted/30 px-2 py-1.5 text-xs"
+              className="bg-muted/30 flex items-center justify-between rounded-md px-2 py-1.5 text-xs"
             >
               <div>
                 <span className="font-medium">#{s.channelName}</span>{' '}

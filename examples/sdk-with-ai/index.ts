@@ -46,9 +46,7 @@ class MockAiProvider implements AiProvider {
     let payload: unknown;
     if (instruction.includes('identify the underlying resources')) {
       payload = {
-        resources: [
-          { id: 'pet', name: 'Pet', primaryKey: 'id', schema: {} },
-        ],
+        resources: [{ id: 'pet', name: 'Pet', primaryKey: 'id', schema: {} }],
       };
     } else if (instruction.includes('infer ownership')) {
       payload = { relationships: [] };

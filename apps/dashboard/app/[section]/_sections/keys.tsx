@@ -34,7 +34,9 @@ export default function KeysSection() {
   return (
     <>
       <header className="flex items-center justify-between">
-        <p className="text-muted-foreground text-sm">{keys.loading ? 'Loading…' : `${rows.length} active`}</p>
+        <p className="text-muted-foreground text-sm">
+          {keys.loading ? 'Loading…' : `${rows.length} active`}
+        </p>
         <Button size="sm" onClick={() => setOpenCreate(true)} data-testid="new-api-key-button">
           New API key
         </Button>
@@ -187,7 +189,9 @@ function CreateKeyModal({
           />
         </label>
         <label className="block text-sm">
-          <span className="text-muted-foreground text-xs">Org ID (optional if session has org)</span>
+          <span className="text-muted-foreground text-xs">
+            Org ID (optional if session has org)
+          </span>
           <Input value={orgId} onChange={(e) => setOrgId(e.target.value)} placeholder="org_…" />
         </label>
         <fieldset className="space-y-1.5">
@@ -231,8 +235,8 @@ function ShowSecretModal({ fresh, onClose }: { fresh: CreatedApiKey | null; onCl
       {fresh ? (
         <div className="space-y-3">
           <div className="border-destructive/50 bg-destructive/5 text-destructive rounded-md border px-3 py-2 text-xs leading-5">
-            This is the <strong>only time</strong> the full key will be shown. Store it in a
-            secret manager now — after this dialog closes we only keep the prefix.
+            This is the <strong>only time</strong> the full key will be shown. Store it in a secret
+            manager now — after this dialog closes we only keep the prefix.
           </div>
           <div className="border-border flex items-center gap-2 rounded-md border px-3 py-2 font-mono text-xs">
             <span className="min-w-0 flex-1 break-all">{fresh.secret}</span>

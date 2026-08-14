@@ -83,13 +83,8 @@ export const usageCommand = defineCommand({
       process.stdout.write(`  ${pc.dim('(no usage recorded in this window)')}\n\n`);
       return;
     }
-    const kindWidth = Math.max(
-      4,
-      ...body.totals.map((t) => t.kind.length),
-    );
-    process.stdout.write(
-      `  ${pc.dim('KIND'.padEnd(kindWidth))}  ${pc.dim('TOTAL')}\n`,
-    );
+    const kindWidth = Math.max(4, ...body.totals.map((t) => t.kind.length));
+    process.stdout.write(`  ${pc.dim('KIND'.padEnd(kindWidth))}  ${pc.dim('TOTAL')}\n`);
     for (const t of body.totals) {
       process.stdout.write(
         `  ${pc.white(t.kind.padEnd(kindWidth))}  ${pc.cyan(String(t.total))}\n`,

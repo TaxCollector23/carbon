@@ -45,53 +45,57 @@ interface Row {
 }
 
 export async function registerSearchRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
-  app.get('/v1/search', {
-    preHandler: requireScope('read'),
-    schema: {
-      summary: 'Full-text search across org history',
-      description:
-        'Search events, projects, and artifacts belonging to the caller\'s org. ' +
-        'Uses Postgres `plainto_tsquery(\'simple\', q)` against generated ' +
-        '`search_tsv` columns. `scope` narrows the search; the default `all` ' +
-        'merges results across every kind sorted by ts_rank score, descending.',
-      querystring: zodQuery(SearchQuery),
-      response: {
-        200: zodResponseWithExample(SearchResponse, {
-          results: [
-            {
-              kind: 'project',
-              id: 'prj_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
-              snippet: 'checkout-api — Checkout API',
-              score: 0.62,
-              createdAt: '2025-11-14T18:22:41.000Z',
-            },
-            {
-              kind: 'event',
-              id: 'evt_01HXK5N9Q1B7C4D3E2F1G0H9J8',
-              snippet: 'project.created by usr_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
-              score: 0.41,
-              createdAt: '2025-11-14T18:22:41.000Z',
-            },
-          ],
-        }),
+  app.get(
+    '/v1/search',
+    {
+      preHandler: requireScope('read'),
+      schema: {
+        summary: 'Full-text search across org history',
+        description:
+          "Search events, projects, and artifacts belonging to the caller's org. " +
+          "Uses Postgres `plainto_tsquery('simple', q)` against generated " +
+          '`search_tsv` columns. `scope` narrows the search; the default `all` ' +
+          'merges results across every kind sorted by ts_rank score, descending.',
+        querystring: zodQuery(SearchQuery),
+        response: {
+          200: zodResponseWithExample(SearchResponse, {
+            results: [
+              {
+                kind: 'project',
+                id: 'prj_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+                snippet: 'checkout-api — Checkout API',
+                score: 0.62,
+                createdAt: '2025-11-14T18:22:41.000Z',
+              },
+              {
+                kind: 'event',
+                id: 'evt_01HXK5N9Q1B7C4D3E2F1G0H9J8',
+                snippet: 'project.created by usr_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
+                score: 0.41,
+                createdAt: '2025-11-14T18:22:41.000Z',
+              },
+            ],
+          }),
+        },
       },
     },
-  }, async (req) => {
-    const query = SearchQuery.parse(req.query);
-    const orgId = resolveCallerOrg(req, { queryOrg: query.orgId, mode: 'return-empty' });
-    if (!orgId) return { results: [] };
+    async (req) => {
+      const query = SearchQuery.parse(req.query);
+      const orgId = resolveCallerOrg(req, { queryOrg: query.orgId, mode: 'return-empty' });
+      if (!orgId) return { results: [] };
 
-    const scopes: Array<'events' | 'projects' | 'artifacts'> =
-      query.scope === 'all' ? ['events', 'projects', 'artifacts'] : [query.scope];
+      const scopes: Array<'events' | 'projects' | 'artifacts'> =
+        query.scope === 'all' ? ['events', 'projects', 'artifacts'] : [query.scope];
 
-    const results: Row[] = [];
-    for (const scope of scopes) {
-      const rows = await runSearch(ctx, scope, orgId, query.q, query.limit);
-      for (const r of rows) results.push(r);
-    }
-    results.sort((a, b) => b.score - a.score || b.createdAt.localeCompare(a.createdAt));
-    return { results: results.slice(0, query.limit) };
-  });
+      const results: Row[] = [];
+      for (const scope of scopes) {
+        const rows = await runSearch(ctx, scope, orgId, query.q, query.limit);
+        for (const r of rows) results.push(r);
+      }
+      results.sort((a, b) => b.score - a.score || b.createdAt.localeCompare(a.createdAt));
+      return { results: results.slice(0, query.limit) };
+    },
+  );
 }
 
 async function runSearch(
@@ -203,4 +207,3 @@ function toIso(v: Date | string): string {
   // Postgres already gives us an ISO-ish string for timestamptz.
   return String(v);
 }
-

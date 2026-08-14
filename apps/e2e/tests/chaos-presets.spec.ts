@@ -10,11 +10,7 @@ test('create a chaos preset and see it in the list', async ({ page }) => {
   const name = `e2e-preset-${suffix}`;
   await page.locator('[data-testid="chaos-preset-name-input"]').fill(name);
 
-  const rules = JSON.stringify(
-    [{ kind: 'latency', floorMs: 100, jitterMs: 50 }],
-    null,
-    2,
-  );
+  const rules = JSON.stringify([{ kind: 'latency', floorMs: 100, jitterMs: 50 }], null, 2);
   const rulesInput = page.locator('[data-testid="chaos-preset-rules-input"]');
   await rulesInput.fill(rules);
 

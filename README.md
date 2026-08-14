@@ -2,8 +2,8 @@
 
 **Stateful API replicas for development, tests, and CI.**
 
-[![npm](https://img.shields.io/npm/v/carbon-dev.svg)](https://www.npmjs.com/package/carbon-dev)
-[![node](https://img.shields.io/node/v/carbon-dev.svg)](https://www.npmjs.com/package/carbon-dev)
+[![npm](https://img.shields.io/npm/v/carbon-api.svg)](https://www.npmjs.com/package/carbon-api)
+[![node](https://img.shields.io/node/v/carbon-api.svg)](https://www.npmjs.com/package/carbon-api)
 [![license](https://img.shields.io/badge/license-Proprietary-blue.svg)](./LICENSE)
 
 Carbon turns OpenAPI specs, HAR captures, Postman collections, protobuf, gRPC, GraphQL, and AsyncAPI definitions into a stateful emulator: import a description of an API, compile it into a behavior graph, and serve it as a local replica that mutates state the way the real service would. It is built for backend and full-stack teams that want deterministic integration tests without hitting third-party providers or maintaining a shared staging environment.
@@ -11,13 +11,13 @@ Carbon turns OpenAPI specs, HAR captures, Postman collections, protobuf, gRPC, G
 ## Install
 
 ```bash
-npm install -g carbon-dev
+npm install -g carbon-api
 ```
 
 Or run without installing:
 
 ```bash
-npx carbon-dev <command>
+npx carbon-api <command>
 ```
 
 ## Quick start
@@ -54,7 +54,7 @@ Carbon runs a three-stage pipeline. The **parser** normalizes each supported for
 
 ## Documentation
 
-- Guides and reference: <https://github.com/carbon-dev/carbon#readme>
+- Guides and reference: <https://github.com/TaxCollector23/carbon#readme>
 - API reference: `/docs` on the deployed API service
 - CLI reference: `carbon --help`
 
@@ -71,10 +71,10 @@ pnpm install
 pnpm dev
 ```
 
-- `apps/` — `cli` (the `carbon-dev` package), `api` (Fastify control plane), `web` (Next.js site + dashboard), `docs` (Mintlify).
+- `apps/` — `cli` (the `carbon-api` package), `api` (Fastify control plane), `web` (Next.js marketing site), `dashboard` (Next.js app), `docs` (Mintlify).
 - `packages/` — `parser`, `ingestion`, `graph`, `runtime`, `state`, `storage`, `proxy`, `sdk`, `ai`, `workers`, `database`, `types`, `core`, `shared`, `ui`, `config`.
 
-Issues and pull requests: <https://github.com/carbon-dev/carbon>.
+Issues and pull requests: <https://github.com/TaxCollector23/carbon>.
 
 ## License
 

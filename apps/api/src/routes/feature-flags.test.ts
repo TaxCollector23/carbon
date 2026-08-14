@@ -7,10 +7,7 @@ import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import { registerFeatureFlagRoutes } from './feature-flags.js';
-import {
-  _resetFeatureFlagCache,
-  _resetSeededLatch,
-} from '../services/feature-flags.js';
+import { _resetFeatureFlagCache, _resetSeededLatch } from '../services/feature-flags.js';
 
 interface FlagDefRow {
   id: string;
@@ -29,12 +26,25 @@ interface OverrideRow {
 interface Store {
   defs: FlagDefRow[];
   overrides: OverrideRow[];
-  subs: Array<{ orgId: string; plan: 'developer' | 'team' | 'enterprise'; status: string; seats: number; currentPeriodEnd: Date | null }>;
+  subs: Array<{
+    orgId: string;
+    plan: 'developer' | 'team' | 'enterprise';
+    status: string;
+    seats: number;
+    currentPeriodEnd: Date | null;
+  }>;
 }
 
-function collectStrings(x: unknown, out: Set<string> = new Set(), seen = new WeakSet()): Set<string> {
+function collectStrings(
+  x: unknown,
+  out: Set<string> = new Set(),
+  seen = new WeakSet(),
+): Set<string> {
   if (x == null) return out;
-  if (typeof x === 'string') { out.add(x); return out; }
+  if (typeof x === 'string') {
+    out.add(x);
+    return out;
+  }
   if (typeof x !== 'object') return out;
   if (seen.has(x as object)) return out;
   seen.add(x as object);
@@ -54,8 +64,14 @@ function makeDb(store: Store): AppContext['db'] {
       let table: unknown = null;
       let whereStrings: Set<string> | null = null;
       const chain: any = {
-        from: (t: unknown) => { table = t; return chain; },
-        where: (expr: unknown) => { whereStrings = collectStrings(expr); return chain; },
+        from: (t: unknown) => {
+          table = t;
+          return chain;
+        },
+        where: (expr: unknown) => {
+          whereStrings = collectStrings(expr);
+          return chain;
+        },
         limit: async () => {
           const strs = whereStrings ?? new Set<string>();
           if (table === schema.featureFlagOverrides) {
@@ -71,7 +87,12 @@ function makeDb(store: Store): AppContext['db'] {
           if (table === schema.subscriptions) {
             return store.subs
               .filter((s) => strs.has(s.orgId))
-              .map((s) => ({ plan: s.plan, status: s.status, seats: s.seats, currentPeriodEnd: s.currentPeriodEnd }));
+              .map((s) => ({
+                plan: s.plan,
+                status: s.status,
+                seats: s.seats,
+                currentPeriodEnd: s.currentPeriodEnd,
+              }));
           }
           return [];
         },
@@ -97,15 +118,19 @@ function makeDb(store: Store): AppContext['db'] {
           const rows = Array.isArray(v) ? v : [v];
           for (const r of rows) {
             store.defs.push({
-              id: r.id, key: r.key,
+              id: r.id,
+              key: r.key,
               description: r.description ?? null,
               defaultValue: !!r.defaultValue,
             });
           }
         } else if (table === schema.featureFlagOverrides) {
           store.overrides.push({
-            id: v.id, flagKey: v.flagKey, scope: v.scope,
-            scopeId: v.scopeId, value: !!v.value,
+            id: v.id,
+            flagKey: v.flagKey,
+            scope: v.scope,
+            scopeId: v.scopeId,
+            value: !!v.value,
           });
         }
       },
@@ -145,9 +170,13 @@ async function build(
     }
     if (isCarbonError(err)) {
       const status =
-        err.code === 'CARBON_FORBIDDEN' ? 403 :
-        err.code === 'CARBON_NOT_FOUND' ? 404 :
-        err.code === 'CARBON_INVALID_INPUT' ? 400 : 500;
+        err.code === 'CARBON_FORBIDDEN'
+          ? 403
+          : err.code === 'CARBON_NOT_FOUND'
+            ? 404
+            : err.code === 'CARBON_INVALID_INPUT'
+              ? 400
+              : 500;
       reply.status(status).send({ error: { code: err.code, message: err.message } });
       return;
     }

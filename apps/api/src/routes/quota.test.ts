@@ -42,7 +42,9 @@ function makeDb(store: Store): AppContext['db'] {
             ? [
                 {
                   total: String(
-                    store.rows.filter((r) => r.kind === 'ai_call').reduce((s, r) => s + r.amount, 0),
+                    store.rows
+                      .filter((r) => r.kind === 'ai_call')
+                      .reduce((s, r) => s + r.amount, 0),
                   ),
                 },
               ]
@@ -78,7 +80,10 @@ function makeCtx(store: Store): AppContext {
   };
 }
 
-async function build(store: Store, opts: { scopes?: string[]; orgId?: string } = {}): Promise<FastifyInstance> {
+async function build(
+  store: Store,
+  opts: { scopes?: string[]; orgId?: string } = {},
+): Promise<FastifyInstance> {
   const app = Fastify();
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof ZodError) {
@@ -87,10 +92,13 @@ async function build(store: Store, opts: { scopes?: string[]; orgId?: string } =
     }
     if (isCarbonError(err)) {
       const status =
-        err.code === 'CARBON_INVALID_INPUT' ? 400
-          : err.code === 'CARBON_FORBIDDEN' ? 403
-          : err.code === 'CARBON_UNAUTHENTICATED' ? 401
-          : 500;
+        err.code === 'CARBON_INVALID_INPUT'
+          ? 400
+          : err.code === 'CARBON_FORBIDDEN'
+            ? 403
+            : err.code === 'CARBON_UNAUTHENTICATED'
+              ? 401
+              : 500;
       reply.status(status).send({ error: { code: err.code, message: err.message } });
       return;
     }
@@ -124,8 +132,22 @@ describe('quota route', () => {
   it('returns plan limits + current usage for a developer org', async () => {
     const store: Store = {
       rows: [
-        { id: 'u1', orgId: 'org_1', kind: 'ai_call', amount: 2, metadata: {}, occurredAt: new Date() },
-        { id: 'u2', orgId: 'org_1', kind: 'ai_call', amount: 3, metadata: {}, occurredAt: new Date() },
+        {
+          id: 'u1',
+          orgId: 'org_1',
+          kind: 'ai_call',
+          amount: 2,
+          metadata: {},
+          occurredAt: new Date(),
+        },
+        {
+          id: 'u2',
+          orgId: 'org_1',
+          kind: 'ai_call',
+          amount: 3,
+          metadata: {},
+          occurredAt: new Date(),
+        },
       ],
       plan: 'developer',
       emulators: 1,
@@ -136,7 +158,11 @@ describe('quota route', () => {
     const body = res.json() as {
       orgId: string;
       plan: string;
-      limits: { emulatorsMax: number | null; requestsPerMinute: number | null; aiIngestsPerMonth: number | null };
+      limits: {
+        emulatorsMax: number | null;
+        requestsPerMinute: number | null;
+        aiIngestsPerMonth: number | null;
+      };
       current: { emulators: number; requestsLast1m: number | null; aiIngestsThisMonth: number };
     };
     expect(body.orgId).toBe('org_1');
@@ -153,7 +179,10 @@ describe('quota route', () => {
     const store: Store = { rows: [], plan: 'enterprise', emulators: 42 };
     const app = await build(store);
     const res = await app.inject({ method: 'GET', url: '/v1/quota' });
-    const body = res.json() as { plan: string; limits: { emulatorsMax: number | null; aiIngestsPerMonth: number | null } };
+    const body = res.json() as {
+      plan: string;
+      limits: { emulatorsMax: number | null; aiIngestsPerMonth: number | null };
+    };
     expect(body.plan).toBe('enterprise');
     expect(body.limits.emulatorsMax).toBeNull();
     expect(body.limits.aiIngestsPerMonth).toBeNull();

@@ -28,8 +28,7 @@ export interface ResolveCallerOrgOptions {
   message?: string;
 }
 
-const DEFAULT_MESSAGE =
-  'orgId is required — attach an API key or authenticated session';
+const DEFAULT_MESSAGE = 'orgId is required — attach an API key or authenticated session';
 
 /**
  * Single source of truth for "which org is the caller acting as?".

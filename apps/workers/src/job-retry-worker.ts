@@ -1,5 +1,9 @@
 import type { Logger } from '@carbon/core';
-import type { IngestJobPayload, createIngestionQueue, createRedisConnection } from '@carbon/workers';
+import type {
+  IngestJobPayload,
+  createIngestionQueue,
+  createRedisConnection,
+} from '@carbon/workers';
 
 type IngestQueue = ReturnType<typeof createIngestionQueue>;
 type RedisConn = ReturnType<typeof createRedisConnection>;
@@ -78,13 +82,7 @@ export function startJobRetryWorker(opts: JobRetryWorkerOptions): JobRetryWorker
     let cursor = '0';
     try {
       do {
-        const [next, keys] = await opts.redis.scan(
-          cursor,
-          'MATCH',
-          `${PREFIX}:*`,
-          'COUNT',
-          200,
-        );
+        const [next, keys] = await opts.redis.scan(cursor, 'MATCH', `${PREFIX}:*`, 'COUNT', 200);
         cursor = next;
         for (const key of keys) {
           const row = await opts.redis.hgetall(key);

@@ -85,9 +85,7 @@ function makeDb(store: Store): AppContext['db'] {
         // 'API key expired' message. The real SQL guard covers the DB-side
         // case; this exercises the code path that runs when the two clocks
         // disagree.
-        setFilter(
-          (r) => r.prefix === mode.prefix && r.revokedAt === null,
-        );
+        setFilter((r) => r.prefix === mode.prefix && r.revokedAt === null);
       } else if (mode.kind === 'byIdOrg') {
         setFilter((r) => r.id === mode.id && r.orgId === mode.orgId);
       } else if (mode.kind === 'byId') {
@@ -158,7 +156,8 @@ function makeDb(store: Store): AppContext['db'] {
       };
       return chain;
     },
-    transaction: async <T>(fn: (tx: AppContext['db']) => Promise<T>): Promise<T> => fn(db as AppContext['db']),
+    transaction: async <T>(fn: (tx: AppContext['db']) => Promise<T>): Promise<T> =>
+      fn(db as AppContext['db']),
   } as unknown as AppContext['db'];
   return db;
 }
@@ -197,7 +196,8 @@ async function buildAuthApp(store: Store): Promise<FastifyInstance> {
   app.addHook('onRequest', async (req) => {
     const raw = req.headers['x-carbon-key'];
     const presented = Array.isArray(raw) ? raw[0] : raw;
-    const prefix = typeof presented === 'string' ? presented.split('.')[0]?.replace('ck_live_', '') ?? '' : '';
+    const prefix =
+      typeof presented === 'string' ? (presented.split('.')[0]?.replace('ck_live_', '') ?? '') : '';
     (store as unknown as { __mode: SelectMode }).__mode = {
       kind: 'auth',
       prefix,
@@ -317,22 +317,38 @@ describe('api key rotation + short-lived keys', () => {
     const newHeader = `ck_live_ff88ee77dd66.secret-fixture-value-32-chars-ok`;
 
     // Within grace: both authenticate.
-    let res = await app.inject({ method: 'GET', url: '/v1/ping', headers: { 'x-carbon-key': sourceHeader } });
+    let res = await app.inject({
+      method: 'GET',
+      url: '/v1/ping',
+      headers: { 'x-carbon-key': sourceHeader },
+    });
     expect(res.statusCode).toBe(200);
-    res = await app.inject({ method: 'GET', url: '/v1/ping', headers: { 'x-carbon-key': newHeader } });
+    res = await app.inject({
+      method: 'GET',
+      url: '/v1/ping',
+      headers: { 'x-carbon-key': newHeader },
+    });
     expect(res.statusCode).toBe(200);
 
     // Advance past grace by rewriting the source's expiresAt to the past —
     // we don't wall-clock sleep in tests.
     const sourceRow = store.rows.find((r) => r.id === 'key_src')!;
     sourceRow.expiresAt = new Date(Date.now() - 1_000);
-    res = await app.inject({ method: 'GET', url: '/v1/ping', headers: { 'x-carbon-key': sourceHeader } });
+    res = await app.inject({
+      method: 'GET',
+      url: '/v1/ping',
+      headers: { 'x-carbon-key': sourceHeader },
+    });
     expect(res.statusCode).toBe(401);
     const body = res.json() as { error: { message: string; details?: { expiredAt?: string } } };
     expect(body.error.message).toBe('API key expired');
     expect(body.error.details?.expiredAt).toBeTruthy();
 
-    res = await app.inject({ method: 'GET', url: '/v1/ping', headers: { 'x-carbon-key': newHeader } });
+    res = await app.inject({
+      method: 'GET',
+      url: '/v1/ping',
+      headers: { 'x-carbon-key': newHeader },
+    });
     expect(res.statusCode).toBe(200);
   });
 
@@ -354,7 +370,11 @@ describe('api key rotation + short-lived keys', () => {
     const app = await buildAuthApp(store);
     const header = `ck_live_cccc1111dddd.secret-fixture-value-32-chars-ok`;
 
-    let res = await app.inject({ method: 'GET', url: '/v1/ping', headers: { 'x-carbon-key': header } });
+    let res = await app.inject({
+      method: 'GET',
+      url: '/v1/ping',
+      headers: { 'x-carbon-key': header },
+    });
     expect(res.statusCode).toBe(200);
 
     // Move the key's expiration to the past — no wall-clock sleep required.

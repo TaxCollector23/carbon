@@ -96,7 +96,7 @@ export async function registerRecordingRoutes(
     {
       preHandler: requireScope('read'),
       schema: {
-        summary: 'List a project\'s recordings',
+        summary: "List a project's recordings",
         description:
           'Enumerate captured recordings for a project, newest first. Includes per-recording ' +
           'metadata (request count, first/last exchange timestamp, upstream URL) computed by ' +
@@ -143,7 +143,7 @@ export async function registerRecordingRoutes(
     {
       preHandler: requireScope('read'),
       schema: {
-        summary: 'List a recording\'s exchanges',
+        summary: "List a recording's exchanges",
         description:
           'Return every captured request/response pair for a recording, in capture order. ' +
           'Bodies are returned verbatim — the recorder already applied header/body redactions ' +
@@ -152,9 +152,7 @@ export async function registerRecordingRoutes(
       },
     },
     async (req) => {
-      const params = z
-        .object({ slug: ProjectSlug, id: RecordingId })
-        .parse(req.params);
+      const params = z.object({ slug: ProjectSlug, id: RecordingId }).parse(req.params);
       const project = await resolveProjectAccess(ctx, req, params.slug);
       const exchanges = await loadExchanges(ctx, project.storageSlug, params.id);
       if (exchanges === null) throw new NotFoundError('recording', params.id);
@@ -189,9 +187,7 @@ export async function registerRecordingRoutes(
       },
     },
     async (req) => {
-      const params = z
-        .object({ slug: ProjectSlug, id: RecordingId })
-        .parse(req.params);
+      const params = z.object({ slug: ProjectSlug, id: RecordingId }).parse(req.params);
       const body = ReplayBody.parse(req.body);
       const project = await resolveProjectAccess(ctx, req, params.slug);
       const exchanges = await loadExchanges(ctx, project.storageSlug, params.id);
@@ -208,7 +204,9 @@ export async function registerRecordingRoutes(
           const res = await fetch(url, {
             method: exchange.request.method,
             headers: safeHeaders(exchange.request.headers),
-            body: methodAllowsBody(exchange.request.method) ? exchange.request.body ?? undefined : undefined,
+            body: methodAllowsBody(exchange.request.method)
+              ? (exchange.request.body ?? undefined)
+              : undefined,
           });
           const text = await res.text();
           const diff: string[] = [];
@@ -263,7 +261,8 @@ export async function registerRecordingRoutes(
         targetUrl: target,
         status: overall,
         results,
-        createdAt: (inserted?.createdAt as Date | undefined)?.toISOString?.() ?? createdAt.toISOString(),
+        createdAt:
+          (inserted?.createdAt as Date | undefined)?.toISOString?.() ?? createdAt.toISOString(),
       };
     },
   );
@@ -274,14 +273,13 @@ export async function registerRecordingRoutes(
       preHandler: requireScope('read'),
       schema: {
         summary: 'List past replays for a recording',
-        description: 'Return the most recent `recording_replays` rows for a recording, newest first.',
+        description:
+          'Return the most recent `recording_replays` rows for a recording, newest first.',
         response: { 200: zodResponse(ReplayListResponse) },
       },
     },
     async (req) => {
-      const params = z
-        .object({ slug: ProjectSlug, id: RecordingId })
-        .parse(req.params);
+      const params = z.object({ slug: ProjectSlug, id: RecordingId }).parse(req.params);
       await resolveProjectAccess(ctx, req, params.slug);
       try {
         const rows = await ctx.db
@@ -296,8 +294,11 @@ export async function registerRecordingRoutes(
             recordingId: r.recordingId,
             targetUrl: r.targetUrl,
             status: (r.status as 'ok' | 'drift' | 'error') ?? 'ok',
-            results: Array.isArray(r.results) ? (r.results as z.infer<typeof ReplayResultRow>[]) : [],
-            createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
+            results: Array.isArray(r.results)
+              ? (r.results as z.infer<typeof ReplayResultRow>[])
+              : [],
+            createdAt:
+              r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
           })),
         };
       } catch {
@@ -339,11 +340,13 @@ async function loadExchanges(
   id: string,
 ): Promise<RecordedExchange[] | null> {
   for (const ext of ['jsonl', 'json'] as const) {
-    const key = ext === 'jsonl'
-      ? StorageKeys.recording(storageSlug, id)
-      : `projects/${storageSlug}/recordings/${id}.json`;
+    const key =
+      ext === 'jsonl'
+        ? StorageKeys.recording(storageSlug, id)
+        : `projects/${storageSlug}/recordings/${id}.json`;
     const parsed = await readRecordingBody(ctx, key);
-    if (parsed) return Array.isArray(parsed.exchanges) ? (parsed.exchanges as RecordedExchange[]) : [];
+    if (parsed)
+      return Array.isArray(parsed.exchanges) ? (parsed.exchanges as RecordedExchange[]) : [];
   }
   return null;
 }
@@ -437,7 +440,9 @@ function bodyShape(body: string | null): string {
   if (Array.isArray(parsed))
     return `array:${parsed.length === 0 ? 0 : parsed.length > 10 ? '10+' : parsed.length}`;
   if (typeof parsed !== 'object') return typeof parsed;
-  return `object:{${Object.keys(parsed as object).sort().join(',')}}`;
+  return `object:{${Object.keys(parsed as object)
+    .sort()
+    .join(',')}}`;
 }
 
 interface InsertArgs {
@@ -480,7 +485,13 @@ async function maybeInsertReplay(
       })
       .returning({ id: schema.recordingReplays.id, createdAt: schema.recordingReplays.createdAt });
     return row
-      ? { id: row.id, createdAt: row.createdAt instanceof Date ? row.createdAt : new Date(row.createdAt as unknown as string) }
+      ? {
+          id: row.id,
+          createdAt:
+            row.createdAt instanceof Date
+              ? row.createdAt
+              : new Date(row.createdAt as unknown as string),
+        }
       : null;
   } catch {
     // A missing table (older DB) or a mocked-out db surface should not turn

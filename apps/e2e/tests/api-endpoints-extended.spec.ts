@@ -64,9 +64,7 @@ test('every GET endpoint answers with 200 or a 4xx (no 5xx)', async () => {
     if (SKIP_PATH_SUBSTRINGS.some((s) => pathTemplate.includes(s))) continue;
 
     const url = substituteParams(pathTemplate);
-    const withOrg = url.includes('?')
-      ? `${url}&orgId=org_test`
-      : `${url}?orgId=org_test`;
+    const withOrg = url.includes('?') ? `${url}&orgId=org_test` : `${url}?orgId=org_test`;
 
     const target = `${API_URL}${withOrg}`;
     seen.push(target);

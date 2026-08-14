@@ -83,7 +83,7 @@ describe('cli-auth secret store', () => {
               return chain;
             },
             async exec(): Promise<Array<[Error | null, unknown]>> {
-              const value = pendingKey !== null ? map.get(pendingKey) ?? null : null;
+              const value = pendingKey !== null ? (map.get(pendingKey) ?? null) : null;
               if (pendingKey !== null) map.delete(pendingKey);
               return [
                 [null, value],

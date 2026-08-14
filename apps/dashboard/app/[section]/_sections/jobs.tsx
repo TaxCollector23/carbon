@@ -2,14 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@carbon/ui';
-import {
-  EmptyState,
-  ErrorBanner,
-  Skeleton,
-  Table,
-  Td,
-  Th,
-} from '@/components/ui';
+import { EmptyState, ErrorBanner, Skeleton, Table, Td, Th } from '@/components/ui';
 import { useToast } from '@/components/toast';
 import { useAsync } from '@/lib/hooks/use-async';
 import { api } from '@/lib/hooks/api';
@@ -17,13 +10,7 @@ import { ApiError, type Job } from '@/lib/api-client';
 import { getSectionCopy } from '@/lib/empty-data';
 
 type StatusFilter =
-  | 'all'
-  | 'queued'
-  | 'running'
-  | 'succeeded'
-  | 'failed'
-  | 'needs_review'
-  | 'deadLetter';
+  'all' | 'queued' | 'running' | 'succeeded' | 'failed' | 'needs_review' | 'deadLetter';
 
 const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -119,16 +106,21 @@ export default function JobsSection() {
             <span className="text-muted-foreground text-xs">Live · refreshing every 5s</span>
           ) : null}
         </div>
-        <Button size="sm" variant="ghost" onClick={() => void jobs.refetch()} disabled={jobs.loading}>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => void jobs.refetch()}
+          disabled={jobs.loading}
+        >
           Refresh
         </Button>
       </header>
 
       {notDeployed ? (
         <EmptyState
-          badge="Not available"
-          title="Jobs API is not deployed"
-          description="Once /v1/jobs ships on this API the operator queue will appear here."
+          badge="Queue off"
+          title="No job queue is connected"
+          description="Configure Redis and the jobs API to show async ingest and retry activity here."
         />
       ) : jobs.loading ? (
         <Skeleton className="h-24" />
@@ -167,7 +159,7 @@ export default function JobsSection() {
                   </Td>
                   <Td>
                     <span className="text-xs">
-                      {(job.attempts ?? 0)}/{job.maxAttempts ?? '—'}
+                      {job.attempts ?? 0}/{job.maxAttempts ?? '—'}
                     </span>
                   </Td>
                   <Td>

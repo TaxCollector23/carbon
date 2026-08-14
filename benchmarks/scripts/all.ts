@@ -26,12 +26,22 @@ const resultsDir = resolve(benchesDir, 'results');
 const BENCHES: BenchDef[] = [
   { key: 'stateful', script: 'scripts/stateful-consistency.ts', required: true },
   { key: 'snapshot', script: 'scripts/snapshot-restore.ts', required: true },
-  { key: 'memory', script: 'scripts/memory.ts', nodeArgs: ['--max-old-space-size=512'], required: true },
+  {
+    key: 'memory',
+    script: 'scripts/memory.ts',
+    nodeArgs: ['--max-old-space-size=512'],
+    required: true,
+  },
   { key: 'throughput', script: 'scripts/throughput.ts', required: true },
   { key: 'coldStart', script: 'scripts/cold-start.ts', required: false },
 ];
 
-function runBench(def: BenchDef): { ok: boolean; output: unknown; stderr: string; exitCode: number | null } {
+function runBench(def: BenchDef): {
+  ok: boolean;
+  output: unknown;
+  stderr: string;
+  exitCode: number | null;
+} {
   const args = [...(def.nodeArgs ?? []), '--import', 'tsx', resolve(benchesDir, def.script)];
   const res = spawnSync(process.execPath, args, {
     cwd: benchesDir,
@@ -61,7 +71,7 @@ function main() {
     if (def.key === 'coldStart' && !existsSync(cliDist)) {
       results[def.key] = {
         skipped: true,
-        reason: `apps/cli/dist/index.cjs missing — run "pnpm --filter carbon-dev build" first`,
+        reason: `apps/cli/dist/index.cjs missing — run "pnpm --filter carbon-api build" first`,
       };
       // eslint-disable-next-line no-console
       console.error(`[skip] ${def.key}: CLI not built`);

@@ -179,7 +179,11 @@ function makeStripeStub(overrides: Partial<Record<string, unknown>> = {}) {
       constructEvent: (payload: Buffer, signature: string, secret: string) => {
         calls.constructEvent.push({ payload, signature, secret });
         if (overrides.constructEvent) {
-          return (overrides.constructEvent as (...a: unknown[]) => unknown)(payload, signature, secret);
+          return (overrides.constructEvent as (...a: unknown[]) => unknown)(
+            payload,
+            signature,
+            secret,
+          );
         }
         throw new Error('constructEvent not stubbed');
       },
@@ -410,10 +414,14 @@ describe('billing routes', () => {
       return app;
     };
 
-    const blocked = await (await buildProbe('org_inactive')).inject({ method: 'GET', url: '/team-only' });
+    const blocked = await (
+      await buildProbe('org_inactive')
+    ).inject({ method: 'GET', url: '/team-only' });
     expect(blocked.statusCode).toBe(403);
 
-    const allowed = await (await buildProbe('org_active')).inject({ method: 'GET', url: '/team-only' });
+    const allowed = await (
+      await buildProbe('org_active')
+    ).inject({ method: 'GET', url: '/team-only' });
     expect(allowed.statusCode).toBe(200);
   });
 

@@ -38,7 +38,7 @@ async function run(current: string): Promise<void> {
     }
     if (latest && semverGreater(latest, current)) {
       process.stderr.write(
-        `${pc.dim(`↑ carbon-dev ${latest} is available (you have ${current}). Run \`npm i -g carbon-dev\` to upgrade.`)}\n`,
+        `${pc.dim(`↑ carbon-api ${latest} is available (you have ${current}). Run \`npm i -g carbon-api\` to upgrade.`)}\n`,
       );
     }
   } catch {
@@ -50,7 +50,7 @@ async function fetchLatest(): Promise<string | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const res = await fetch('https://registry.npmjs.org/carbon-dev/latest', {
+    const res = await fetch('https://registry.npmjs.org/carbon-api/latest', {
       signal: controller.signal,
       headers: { accept: 'application/json' },
     });
@@ -101,7 +101,7 @@ export function semverGreater(a: string, b: string): boolean {
 }
 
 function parse(v: string): [number, number, number] {
-  const core = (v.replace(/^v/, '').split(/[-+]/)[0] ?? '0.0.0');
+  const core = v.replace(/^v/, '').split(/[-+]/)[0] ?? '0.0.0';
   const [maj = '0', min = '0', pat = '0'] = core.split('.');
   return [Number(maj) || 0, Number(min) || 0, Number(pat) || 0];
 }

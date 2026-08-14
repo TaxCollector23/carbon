@@ -1,11 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { BehaviorGraphBuilder } from '@carbon/graph';
 import { InMemoryStateEngine } from '@carbon/state';
-import type {
-  EndpointId,
-  IntermediateRepresentation,
-  ResourceId,
-} from '@carbon/types';
+import type { EndpointId, IntermediateRepresentation, ResourceId } from '@carbon/types';
 import { createRuntime, type Runtime } from './runtime.js';
 import { errorInjectionPlugin, latencyPlugin, authPlugin } from './plugins/index.js';
 
@@ -74,7 +70,9 @@ function ir(): IntermediateRepresentation {
   };
 }
 
-async function boot(plugins: Parameters<typeof createRuntime>[0]['plugins'] = []): Promise<Runtime> {
+async function boot(
+  plugins: Parameters<typeof createRuntime>[0]['plugins'] = [],
+): Promise<Runtime> {
   const spec = ir();
   const graph = new BehaviorGraphBuilder().build(spec);
   const state = new InMemoryStateEngine();

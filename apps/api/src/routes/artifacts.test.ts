@@ -53,7 +53,11 @@ class StreamingMemoryStorage extends MemoryStorage {
   async getStream(key: string): Promise<StorageStream | null> {
     const bytes = await this.get(key);
     if (!bytes) return null;
-    const id = key.split('/').pop()?.replace(/\.[^.]+$/, '') ?? key;
+    const id =
+      key
+        .split('/')
+        .pop()
+        ?.replace(/\.[^.]+$/, '') ?? key;
     return {
       stream: Readable.from(Buffer.from(bytes)),
       size: bytes.byteLength,
@@ -177,4 +181,3 @@ describe('artifact routes', () => {
     expect(body.data[0]!.upstreamUrl).toBe('https://api.example.com');
   });
 });
-

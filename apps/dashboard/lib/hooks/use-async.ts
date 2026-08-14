@@ -22,7 +22,11 @@ export interface AsyncState<T> {
  * errors behind.
  */
 export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]): AsyncState<T> {
-  const [state, setState] = useState<{ data: T | undefined; error: Error | null; loading: boolean }>({
+  const [state, setState] = useState<{
+    data: T | undefined;
+    error: Error | null;
+    loading: boolean;
+  }>({
     data: undefined,
     error: null,
     loading: true,

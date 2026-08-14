@@ -41,9 +41,8 @@ export class InMemoryStateEngine implements StateEngine {
     private readonly clock: () => number = () => Date.now(),
     options: InMemoryStateEngineOptions = {},
   ) {
-    this.journal = options.journalEnabled === false
-      ? null
-      : new MutationJournal(options.journalCapacity ?? 500);
+    this.journal =
+      options.journalEnabled === false ? null : new MutationJournal(options.journalCapacity ?? 500);
   }
 
   private toJournalRow(row: TableRow): JournalRow {
@@ -95,7 +94,8 @@ export class InMemoryStateEngine implements StateEngine {
     const limit = query.limit ?? 25;
     const startIndex = query.cursor ? filtered.findIndex(([id]) => id === query.cursor) + 1 : 0;
     const slice = filtered.slice(startIndex, startIndex + limit);
-    const nextCursor = startIndex + limit < filtered.length ? slice[slice.length - 1]?.[0] ?? null : null;
+    const nextCursor =
+      startIndex + limit < filtered.length ? (slice[slice.length - 1]?.[0] ?? null) : null;
 
     return {
       items: slice.map(([id, row]) => this.toRecord(resource, id, row)),

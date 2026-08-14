@@ -121,8 +121,7 @@ export const replayCommand = defineCommand({
         });
         const text = await res.text();
 
-        const statusOk =
-          req.expectedStatus === undefined || req.expectedStatus === res.status;
+        const statusOk = req.expectedStatus === undefined || req.expectedStatus === res.status;
         const bodyOk =
           mode === 'loose' ||
           req.expectedBody === undefined ||
@@ -131,9 +130,7 @@ export const replayCommand = defineCommand({
 
         if (statusOk && bodyOk) {
           pass += 1;
-          process.stdout.write(
-            `${pc.green('✓')} ${label} ${pc.dim(`→ ${res.status}`)}\n`,
-          );
+          process.stdout.write(`${pc.green('✓')} ${label} ${pc.dim(`→ ${res.status}`)}\n`);
         } else {
           assertionFail += 1;
           const parts: string[] = [];
@@ -156,9 +153,7 @@ export const replayCommand = defineCommand({
           );
         } else {
           internalFail += 1;
-          process.stdout.write(
-            `${pc.red('✗')} ${label} ${pc.red((err as Error).message)}\n`,
-          );
+          process.stdout.write(`${pc.red('✗')} ${label} ${pc.red((err as Error).message)}\n`);
         }
       }
     }
@@ -176,7 +171,11 @@ export const replayCommand = defineCommand({
       return;
     }
     if (connectivityFail > 0 && assertionFail === 0 && internalFail === 0) {
-      ui.event('replay', { result: 'connectivity_error', target, failed: connectivityFail }, 'error');
+      ui.event(
+        'replay',
+        { result: 'connectivity_error', target, failed: connectivityFail },
+        'error',
+      );
       ui.error(`${summary} — could not reach runtime at ${target}`);
       process.exitCode = EXIT_CONNECTIVITY;
       return;
@@ -189,7 +188,13 @@ export const replayCommand = defineCommand({
     }
     ui.event(
       'replay',
-      { result: 'assertion_failed', target, failed: assertionFail, connectivity: connectivityFail, internal: internalFail },
+      {
+        result: 'assertion_failed',
+        target,
+        failed: assertionFail,
+        connectivity: connectivityFail,
+        internal: internalFail,
+      },
       'error',
     );
     ui.error(`${summary} — ${fail} failed`);
@@ -199,9 +204,19 @@ export const replayCommand = defineCommand({
 
 function isConnectivityError(err: unknown): boolean {
   if (!err || typeof err !== 'object') return false;
-  const e = err as { code?: string; cause?: { code?: string; name?: string }; name?: string; message?: string };
+  const e = err as {
+    code?: string;
+    cause?: { code?: string; name?: string };
+    name?: string;
+    message?: string;
+  };
   const code = e.code ?? e.cause?.code;
-  if (code === 'ECONNREFUSED' || code === 'ETIMEDOUT' || code === 'ENOTFOUND' || code === 'ECONNRESET') {
+  if (
+    code === 'ECONNREFUSED' ||
+    code === 'ETIMEDOUT' ||
+    code === 'ENOTFOUND' ||
+    code === 'ECONNRESET'
+  ) {
     return true;
   }
   const name = e.cause?.name ?? e.name;
@@ -262,11 +277,7 @@ function candidatePaths(arg: string): string[] {
   if (isAbsolute(arg)) return [arg];
   const cwd = process.cwd();
   const withJson = arg.endsWith('.json') ? arg : `${arg}.json`;
-  return [
-    resolve(cwd, arg),
-    resolve(cwd, withJson),
-    join(cwd, '.carbon', 'recordings', withJson),
-  ];
+  return [resolve(cwd, arg), resolve(cwd, withJson), join(cwd, '.carbon', 'recordings', withJson)];
 }
 
 async function resolveRecordingPath(arg: string): Promise<string | null> {

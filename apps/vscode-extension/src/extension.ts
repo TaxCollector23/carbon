@@ -121,7 +121,8 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.ViewColumn.Beside,
         { enableScripts: true, retainContextWhenHidden: true },
       );
-      panel.webview.html = '<html><body style="font-family:sans-serif;padding:1rem">Building graph…</body></html>';
+      panel.webview.html =
+        '<html><body style="font-family:sans-serif;padding:1rem">Building graph…</body></html>';
       try {
         const parsers = createDefaultParserRegistry();
         const logger = createLogger({ level: 'info', pretty: false, name: 'vscode' });

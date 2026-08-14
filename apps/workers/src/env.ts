@@ -36,7 +36,11 @@ const EnvSchema = z.object({
     .optional()
     .transform((v) => (v === undefined ? undefined : v === 'true' || v === '1')),
   /** Retention scan interval in ms. Default 1h. */
-  CARBON_RETENTION_INTERVAL_MS: z.coerce.number().int().min(60_000).default(60 * 60 * 1000),
+  CARBON_RETENTION_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .min(60_000)
+    .default(60 * 60 * 1000),
   /** Drift-check cadence in minutes. Default 60. Requires DATABASE_URL. */
   DRIFT_INTERVAL_MINUTES: z.coerce.number().int().min(1).max(1440).default(60),
   /** Max recorded requests replayed against upstream per project per run. */
