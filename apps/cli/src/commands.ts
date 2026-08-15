@@ -1,5 +1,6 @@
 import type { CommandDef } from 'citty';
 import { capabilitiesCommand } from './commands/capabilities.js';
+import { ciCommand } from './commands/ci.js';
 import { activityCommand } from './commands/activity.js';
 import { auditSecretsCommand } from './commands/audit-secrets.js';
 import { completionCommand } from './commands/completion.js';
@@ -33,6 +34,7 @@ type AnyCommand = CommandDef<any>;
 
 export const cliSubCommands = {
   capabilities: capabilitiesCommand,
+  ci: ciCommand,
   init: initCommand,
   login: loginCommand,
   logout: logoutCommand,
@@ -60,6 +62,7 @@ export const cliSubCommands = {
 
 export const cliCommandCatalog: readonly CliCommandInfo[] = [
   commandInfo('capabilities', capabilitiesCommand),
+  commandInfo('ci', ciCommand),
   commandInfo('init', initCommand),
   commandInfo('login', loginCommand),
   commandInfo('logout', logoutCommand),

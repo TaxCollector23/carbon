@@ -30,6 +30,9 @@ npx carbon-api <command>
 
 ```bash
 carbon capabilities                    # inspect a control plane without credentials
+carbon ci ./openapi.yaml                # validate and compile a contract for CI
+carbon ci ./openapi.yaml --against main.yaml
+                                       # fail CI when normalized drift is detected
 carbon try                            # open the no-auth interactive playground
 carbon init                            # scaffold carbon.config.ts
 carbon ingest ./openapi.yaml           # parse a spec into Carbon's IR

@@ -136,7 +136,7 @@ export const diffCommand = defineCommand({
   },
 });
 
-async function parseSpec(path: string): Promise<IntermediateRepresentation> {
+export async function parseSpec(path: string): Promise<IntermediateRepresentation> {
   const raw = await readFile(path, 'utf8');
   const input: ParserInput = (() => {
     try {

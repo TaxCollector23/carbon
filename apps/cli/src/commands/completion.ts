@@ -16,6 +16,7 @@ import { ui } from '../ui.js';
 
 const TOP_COMMANDS = [
   'capabilities',
+  'ci',
   'init',
   'login',
   'logout',
