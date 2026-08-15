@@ -14,6 +14,12 @@ Carbon turns OpenAPI specs, HAR captures, Postman collections, protobuf, gRPC, G
 npm install -g carbon-api
 ```
 
+The compatibility package also exposes the same `carbon` command:
+
+```bash
+npm i -g carbon-dev
+```
+
 Or run without installing:
 
 ```bash
