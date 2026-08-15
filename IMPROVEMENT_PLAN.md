@@ -19,6 +19,7 @@ The main product gap is not raw capability; it is the first five minutes. A new 
 ### Phase 2 — backend reliability and scale
 
 - [x] Publish a stable API version header (`x-carbon-api-version: v1`) and machine-readable capabilities contract.
+- [x] Add a credential-free `carbon capabilities` discovery command for control-plane tooling.
 - Add contract tests generated from the OpenAPI document for every public SDK/CLI operation; run them against both an in-memory test server and Postgres/Redis integration services.
 - Move long-lived emulator processes behind a worker/child-process boundary with resource quotas, idle eviction, and per-emulator memory/CPU telemetry.
 - Make ingestion jobs resumable by stage with content-addressed source artifacts, deduplication keys, and explicit cancellation. Preserve parser warnings and partial results in the job record.
@@ -29,8 +30,8 @@ The main product gap is not raw capability; it is the first five minutes. A new 
 
 - Add a first-class local project lifecycle: `carbon init`, `carbon ingest`, `carbon emulate`, `carbon test`, `carbon snapshot`, and `carbon ci` with consistent exit codes and JSON events.
 - [x] Make `carbon ingest` optionally persist to the control plane and print stable artifact/job IDs with `--project`, `--async`, `--wait`, and `--timeout`.
-- Add shell completion tests, golden help snapshots, and a CLI compatibility matrix for Node versions and operating systems.
-- Add `carbon diff` for spec/graph drift and `carbon explain` for why an endpoint mutates a resource or returns a generated response.
+- [x] Expand shell completion coverage to the complete command catalog.
+- [x] Add `carbon diff` for normalized spec drift; next add `carbon explain` for why an endpoint mutates a resource or returns a generated response.
 - Publish signed binaries or a reproducible installer alongside npm, with checksum verification and an offline cache for catalog specs.
 
 ### Phase 4 — hosted product and developer ecosystem

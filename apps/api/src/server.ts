@@ -75,6 +75,8 @@ const OPERATIONAL_PUBLIC_PATHS: readonly string[] = [
 
 /** Documentation endpoints — public only when `CARBON_PUBLIC_DOCS` is on. */
 const DOCS_PUBLIC_PATHS: readonly string[] = ['/openapi.json', '/docs', '/docs/*'];
+/** Discovery endpoints are public but still rate-limited per IP. */
+const RATE_LIMITED_PUBLIC_PATHS = new Set(['/v1/capabilities', '/v1/samples']);
 
 /**
  * Paths served without an API key.
@@ -256,7 +258,7 @@ export async function buildServer(
         redis: options.redis,
         max: options.rateLimit.max,
         windowMs: options.rateLimit.windowMs,
-        exemptPaths: publicPaths,
+        exemptPaths: publicPaths.filter((path) => !RATE_LIMITED_PUBLIC_PATHS.has(path)),
       });
     }
     await registerIdempotency(app, ctx, { redis: options.redis });

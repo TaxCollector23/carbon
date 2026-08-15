@@ -15,17 +15,29 @@ import { ui } from '../ui.js';
  */
 
 const TOP_COMMANDS = [
+  'capabilities',
   'init',
   'login',
+  'logout',
+  'whoami',
   'record',
   'ingest',
   'emulate',
   'inspect',
   'snapshot',
+  'try',
   'replay',
+  'serve',
   'doctor',
+  'diff',
   'generate-tests',
+  'usage',
+  'watch',
+  'activity',
+  'quality',
+  'export',
   'completion',
+  'audit-secrets',
 ];
 const SNAPSHOT_SUB = ['save', 'load', 'list', 'delete', 'push', 'pull'];
 

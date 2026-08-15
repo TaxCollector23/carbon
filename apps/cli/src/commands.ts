@@ -1,7 +1,9 @@
 import type { CommandDef } from 'citty';
+import { capabilitiesCommand } from './commands/capabilities.js';
 import { activityCommand } from './commands/activity.js';
 import { auditSecretsCommand } from './commands/audit-secrets.js';
 import { completionCommand } from './commands/completion.js';
+import { diffCommand } from './commands/diff.js';
 import { doctorCommand } from './commands/doctor.js';
 import { emulateCommand } from './commands/emulate.js';
 import { exportCommand } from './commands/export.js';
@@ -29,6 +31,7 @@ export interface CliCommandInfo {
 type AnyCommand = CommandDef<any>;
 
 export const cliSubCommands = {
+  capabilities: capabilitiesCommand,
   init: initCommand,
   login: loginCommand,
   logout: logoutCommand,
@@ -42,6 +45,7 @@ export const cliSubCommands = {
   replay: replayCommand,
   serve: serveCommand,
   doctor: doctorCommand,
+  diff: diffCommand,
   'generate-tests': generateTestsCommand,
   usage: usageCommand,
   watch: watchCommand,
@@ -53,6 +57,7 @@ export const cliSubCommands = {
 } satisfies Record<string, AnyCommand>;
 
 export const cliCommandCatalog: readonly CliCommandInfo[] = [
+  commandInfo('capabilities', capabilitiesCommand),
   commandInfo('init', initCommand),
   commandInfo('login', loginCommand),
   commandInfo('logout', logoutCommand),
@@ -72,6 +77,7 @@ export const cliCommandCatalog: readonly CliCommandInfo[] = [
   commandInfo('replay', replayCommand),
   commandInfo('serve', serveCommand),
   commandInfo('doctor', doctorCommand),
+  commandInfo('diff', diffCommand),
   commandInfo('generate-tests', generateTestsCommand),
   commandInfo('usage', usageCommand),
   commandInfo('watch', watchCommand),

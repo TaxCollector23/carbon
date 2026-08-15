@@ -29,6 +29,7 @@ npx carbon-api <command>
 ## Quick start
 
 ```bash
+carbon capabilities                    # inspect a control plane without credentials
 carbon try                            # open the no-auth interactive playground
 carbon init                            # scaffold carbon.config.ts
 carbon ingest ./openapi.yaml           # parse a spec into Carbon's IR
@@ -36,6 +37,8 @@ carbon ingest ./openapi.yaml --project checkout-api --async --wait
                                        # persist remotely and wait for the job
 carbon emulate --from ./openapi.yaml   # boot the replica on :8787
 carbon inspect                         # view endpoints, resources, and relationships
+carbon diff ./openapi-v1.yaml ./openapi-v2.yaml
+                                       # fail CI when the normalized API contract drifts
 ```
 
 Capture a real API instead of importing a spec:
