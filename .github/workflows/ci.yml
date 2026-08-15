@@ -108,6 +108,7 @@ jobs:
       - name: Dashboard OpenAPI codegen drift check
         run: |
           pnpm --filter @carbon/dashboard codegen:api:from-file
+          pnpm exec prettier --write apps/dashboard/lib/api-types.gen.ts
           git diff --exit-code -- apps/dashboard/lib/api-types.gen.ts
         # Regenerates the typed client from the committed snapshot and fails
         # if the working copy diverges. When the API schema changes, run

@@ -25,8 +25,9 @@ if [ "$CLI_EXIT" -ne 0 ]; then
   exit "$CLI_EXIT"
 fi
 
-# Belt & suspenders — grep for the phrases the CLI uses to report bad links.
-if grep -Eiq '(broken link|not found|404|dead link)' "$TMP"; then
+# Belt & suspenders — grep for failure phrases without catching
+# Mintlify's happy-path "success no broken links found" message.
+if grep -Eiq '(broken link:|broken links detected|[1-9][0-9]* broken links?|not found|404|dead link)' "$TMP"; then
   echo "check-links: broken links detected in docs" >&2
   exit 1
 fi
