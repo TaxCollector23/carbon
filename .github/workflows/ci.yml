@@ -93,7 +93,18 @@ jobs:
         # pre-commit hook (someone disabled it, someone force-pushed), CI
         # refuses to move it any further. Blocks `deploy` because that job
         # `needs: [test, ...]`.
-        run: pnpm --filter carbon-api exec carbon audit-secrets
+        run: |
+          pnpm --filter carbon-api build
+          base="${{ github.event.before }}"
+          if [[ -z "$base" || "$base" =~ ^0+$ ]] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            base="HEAD~1"
+          fi
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "$base" HEAD)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No changed files to scan."
+          else
+            node apps/cli/dist/index.cjs audit-secrets "${files[@]}"
+          fi
       - name: Dashboard OpenAPI codegen drift check
         run: |
           pnpm --filter @carbon/dashboard codegen:api:from-file

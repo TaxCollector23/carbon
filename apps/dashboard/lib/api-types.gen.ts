@@ -1715,9 +1715,9 @@ export interface paths {
             /**
              * @example {
              *       "id": "akid_01HXK5H7Q9C0R3Q1S8V6M4WJZK",
-             *       "secret": "ck_live_abcdef0123456789abcdef0123456789abcdef0123456789ab",
-             *       "presented": "ck_live_abcdef0123456789abcdef0123456789abcdef0123456789ab",
-             *       "prefix": "ck_live_abcdef01",
+             *       "secret": "<redacted-secret>",
+             *       "presented": "ck_live_<prefix>.<secret>",
+             *       "prefix": "abcdef012345",
              *       "scopes": [
              *         "read",
              *         "write"

@@ -13,74 +13,79 @@
   },
   "favicon": "/favicon.svg",
   "topbarLinks": [
-    { "name": "Dashboard", "url": "https://carbon-web-psi.vercel.app/dashboard" },
+    {
+      "name": "Dashboard",
+      "url": "https://carbon-dashboard-lovat.vercel.app/sign-in?next=%2F"
+    },
     { "name": "GitHub", "url": "https://github.com/TaxCollector23/carbon" }
   ],
   "topbarCtaButton": { "name": "Get started", "url": "https://carbon-web-psi.vercel.app/#cli" },
-  "navigation": [
-    {
-      "group": "Get started",
-      "pages": ["index", "quickstart", "installation"]
-    },
-    {
-      "group": "Concepts",
-      "pages": [
-        "concepts/spec-to-runtime",
-        "concepts/state-engine",
-        "concepts/ai-inference",
-        "concepts/chaos",
-        "concepts/architecture",
-        "concepts/behavior-engine",
-        "concepts/parser"
-      ]
-    },
-    {
-      "group": "CLI reference",
-      "pages": [
-        "cli/reference",
-        "cli/overview",
-        "cli/init",
-        "cli/record",
-        "cli/emulate",
-        "cli/snapshot"
-      ]
-    },
-    {
-      "group": "Deployment",
-      "pages": ["deployment/fly-io", "deployment/self-hosted", "deployment/prometheus"]
-    },
-    {
-      "group": "Enterprise",
-      "pages": [
-        "plans",
-        "enterprise/sso",
-        "enterprise/scim",
-        "security/compliance-export",
-        "security/secret-scanning"
-      ]
-    },
-    {
-      "group": "API",
-      "pages": ["api/overview"]
-    },
-    {
-      "group": "SDK",
-      "pages": ["sdk/overview", "sdk/emulate", "sdk/state", "sdk/snapshots", "sdk/generated"]
-    },
-    {
-      "group": "Guides",
-      "pages": ["guides/testing", "guides/ci", "guides/deployment"]
-    },
-    {
-      "group": "Reference",
-      "pages": [
-        "reference/config",
-        "reference/faq",
-        "reference/contributing",
-        "reference/style-guide"
-      ]
-    }
-  ],
+  "navigation": {
+    "groups": [
+      {
+        "group": "Get started",
+        "pages": ["index", "quickstart", "installation"]
+      },
+      {
+        "group": "Concepts",
+        "pages": [
+          "concepts/spec-to-runtime",
+          "concepts/state-engine",
+          "concepts/ai-inference",
+          "concepts/chaos",
+          "concepts/architecture",
+          "concepts/behavior-engine",
+          "concepts/parser"
+        ]
+      },
+      {
+        "group": "CLI reference",
+        "pages": [
+          "cli/reference",
+          "cli/overview",
+          "cli/init",
+          "cli/record",
+          "cli/emulate",
+          "cli/snapshot"
+        ]
+      },
+      {
+        "group": "Deployment",
+        "pages": ["deployment/fly-io", "deployment/self-hosted", "deployment/prometheus"]
+      },
+      {
+        "group": "Enterprise",
+        "pages": [
+          "plans",
+          "enterprise/sso",
+          "enterprise/scim",
+          "security/compliance-export",
+          "security/secret-scanning"
+        ]
+      },
+      {
+        "group": "API",
+        "pages": ["api/overview"]
+      },
+      {
+        "group": "SDK",
+        "pages": ["sdk/overview", "sdk/emulate", "sdk/state", "sdk/snapshots", "sdk/generated"]
+      },
+      {
+        "group": "Guides",
+        "pages": ["guides/testing", "guides/ci", "guides/deployment"]
+      },
+      {
+        "group": "Reference",
+        "pages": [
+          "reference/config",
+          "reference/faq",
+          "reference/contributing",
+          "reference/style-guide"
+        ]
+      }
+    ]
+  },
   "footerSocials": {
     "github": "https://github.com/TaxCollector23/carbon"
   }

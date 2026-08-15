@@ -145,9 +145,9 @@ export async function registerApiKeyRoutes(app: FastifyInstance, ctx: AppContext
             id: 'akid_01HXK5H7Q9C0R3Q1S8V6M4WJZK',
             // Presented exactly once — copy immediately, only a bcrypt hash is
             // retained server-side.
-            secret: 'ck_live_abcdef0123456789abcdef0123456789abcdef0123456789ab',
-            presented: 'ck_live_abcdef0123456789abcdef0123456789abcdef0123456789ab',
-            prefix: 'ck_live_abcdef01',
+            secret: '<redacted-secret>',
+            presented: 'ck_live_<prefix>.<secret>',
+            prefix: 'abcdef012345',
             scopes: ['read', 'write'],
             projectIds: null,
             expiresAt: null,
