@@ -23,10 +23,13 @@ npx carbon-api <command>
 ## Quick start
 
 ```bash
-carbon init                          # scaffold carbon.config.ts
-carbon ingest ./openapi.yaml         # parse a spec into Carbon's IR
-carbon emulate --from ./openapi.yaml # boot the replica on :8787
-carbon inspect                       # view endpoints, resources, and relationships
+carbon try                            # open the no-auth interactive playground
+carbon init                            # scaffold carbon.config.ts
+carbon ingest ./openapi.yaml           # parse a spec into Carbon's IR
+carbon ingest ./openapi.yaml --project checkout-api --async --wait
+                                       # persist remotely and wait for the job
+carbon emulate --from ./openapi.yaml   # boot the replica on :8787
+carbon inspect                         # view endpoints, resources, and relationships
 ```
 
 Capture a real API instead of importing a spec:
@@ -41,6 +44,10 @@ Snapshot and restore replica state for reproducible test runs:
 carbon snapshot save baseline
 carbon snapshot load baseline
 ```
+
+## Try Carbon
+
+Open <https://carbon-web-psi.vercel.app/try> to exercise a stateful Petstore replica in your browser. The playground is deliberately credential-free and local to the browser: create a record, read it back, delete it, and reset the state. From a terminal, `carbon try --sample petstore --open` opens the same onboarding path.
 
 ## Why Carbon
 

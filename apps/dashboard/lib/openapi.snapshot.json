@@ -282,6 +282,81 @@
         }
       }
     },
+    "/v1/capabilities": {
+      "get": {
+        "summary": "Discover server capabilities",
+        "description": "Return supported spec formats, runtime features, request limits, and stable links for client discovery. This endpoint is public.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "service": { "type": "string", "enum": ["carbon-api"] },
+                    "apiVersion": { "type": "string", "enum": ["v1"] },
+                    "capabilities": {
+                      "type": "object",
+                      "properties": {
+                        "specFormats": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "openapi",
+                              "postman",
+                              "har",
+                              "graphql",
+                              "asyncapi",
+                              "protobuf",
+                              "grpc"
+                            ]
+                          }
+                        },
+                        "statefulRuntime": { "type": "boolean" },
+                        "snapshots": { "type": "boolean" },
+                        "asyncIngest": { "type": "boolean" },
+                        "browserPlayground": { "type": "boolean" }
+                      },
+                      "required": [
+                        "specFormats",
+                        "statefulRuntime",
+                        "snapshots",
+                        "asyncIngest",
+                        "browserPlayground"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "limits": {
+                      "type": "object",
+                      "properties": {
+                        "ingestBodyBytes": { "type": "integer" },
+                        "requestTimeoutMs": { "type": "integer" }
+                      },
+                      "required": ["ingestBodyBytes", "requestTimeoutMs"],
+                      "additionalProperties": false
+                    },
+                    "links": {
+                      "type": "object",
+                      "properties": {
+                        "docs": { "type": "string" },
+                        "samples": { "type": "string" },
+                        "tryIt": { "type": "string" }
+                      },
+                      "required": ["docs", "samples", "tryIt"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["service", "apiVersion", "capabilities", "limits", "links"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/projects": {
       "get": {
         "summary": "List projects",

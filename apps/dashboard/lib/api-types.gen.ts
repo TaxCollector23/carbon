@@ -379,6 +379,68 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/capabilities': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Discover server capabilities
+     * @description Return supported spec formats, runtime features, request limits, and stable links for client discovery. This endpoint is public.
+     */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              /** @enum {string} */
+              service: 'carbon-api';
+              /** @enum {string} */
+              apiVersion: 'v1';
+              capabilities: {
+                specFormats: (
+                  'openapi' | 'postman' | 'har' | 'graphql' | 'asyncapi' | 'protobuf' | 'grpc'
+                )[];
+                statefulRuntime: boolean;
+                snapshots: boolean;
+                asyncIngest: boolean;
+                browserPlayground: boolean;
+              };
+              limits: {
+                ingestBodyBytes: number;
+                requestTimeoutMs: number;
+              };
+              links: {
+                docs: string;
+                samples: string;
+                tryIt: string;
+              };
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/projects': {
     parameters: {
       query?: never;

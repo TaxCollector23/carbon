@@ -11,6 +11,7 @@ export function Footer() {
         ['Benchmarks', '/benchmarks'],
         ['Workflow', '/#workflow'],
         ['CLI', '/#cli'],
+        ['Try it', '/try'],
         ['Emulators', '/emulators'],
         ['Pricing', '/#pricing'],
         ['Enterprise', '/enterprise'],

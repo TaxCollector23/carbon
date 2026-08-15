@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, LayoutDashboard, Play } from 'lucide-react';
+import { ArrowRight, LayoutDashboard, Play, Sparkles } from 'lucide-react';
 import { buttonVariants, cn } from '@carbon/ui';
 import { dashboardSignInUrl } from '@/lib/urls';
 import { TerminalDemo } from './terminal';
@@ -37,8 +37,16 @@ export function Hero() {
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
               <Link
-                href="#cli"
+                href="/try"
                 className={cn(buttonVariants({ variant: 'secondary', size: 'lg' }), 'group gap-2')}
+              >
+                <Sparkles className="h-4 w-4" />
+                Try it now
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+              <Link
+                href="#cli"
+                className={cn(buttonVariants({ variant: 'ghost', size: 'lg' }), 'group gap-2')}
               >
                 Install CLI
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />

@@ -48,6 +48,15 @@ export function Nav() {
             Compare
           </Link>
           <Link
+            href="/try"
+            className={cn(
+              buttonVariants({ variant: 'ghost', size: 'sm' }),
+              'hidden sm:inline-flex',
+            )}
+          >
+            Try it
+          </Link>
+          <Link
             href="/emulators"
             className={cn(
               buttonVariants({ variant: 'ghost', size: 'sm' }),

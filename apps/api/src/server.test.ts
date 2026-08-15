@@ -38,10 +38,11 @@ async function build(
 }
 
 describe('server', () => {
-  it('echoes a request id on every response', async () => {
+  it('echoes request tracing metadata on every response', async () => {
     const app = await build();
     const res = await app.inject('/health');
     expect(res.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
+    expect(res.headers['x-carbon-api-version']).toBe('v1');
   });
 
   it('honours a well-formed inbound x-request-id so traces survive the proxy', async () => {
@@ -154,10 +155,34 @@ describe('server', () => {
 
     it('keeps operational and documentation endpoints reachable', async () => {
       const app = await build(undefined, authed);
-      for (const path of ['/health', '/ready', '/metrics', '/openapi.json', '/v1/version']) {
+      for (const path of [
+        '/health',
+        '/ready',
+        '/metrics',
+        '/openapi.json',
+        '/v1/version',
+        '/v1/capabilities',
+        '/v1/samples',
+      ]) {
         const res = await app.inject(path);
         expect(res.statusCode, `${path} should not require a key`).not.toBe(401);
       }
+    });
+
+    it('describes the deployment capabilities without credentials', async () => {
+      const app = await build(undefined, authed);
+      const res = await app.inject('/v1/capabilities');
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toMatchObject({
+        service: 'carbon-api',
+        apiVersion: 'v1',
+        capabilities: {
+          statefulRuntime: true,
+          snapshots: true,
+          browserPlayground: true,
+        },
+        limits: { ingestBodyBytes: 32 * 1024 * 1024 },
+      });
     });
 
     it('still closes the actual API surface', async () => {

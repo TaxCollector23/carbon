@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { ZodError } from 'zod';
 import { createLogger, isCarbonError, type CarbonError, type Logger } from '@carbon/core';
 import { registerHealthRoutes } from './routes/health.js';
+import { registerCapabilitiesRoutes } from './routes/capabilities.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { registerIngestRoutes } from './routes/ingest.js';
 import { registerEmulatorRoutes } from './routes/emulators.js';
@@ -68,6 +69,8 @@ const OPERATIONAL_PUBLIC_PATHS: readonly string[] = [
   '/ready',
   '/metrics',
   '/v1/version',
+  '/v1/capabilities',
+  '/v1/samples',
 ];
 
 /** Documentation endpoints — public only when `CARBON_PUBLIC_DOCS` is on. */
@@ -193,6 +196,7 @@ export async function buildServer(
       'x-ratelimit-remaining',
       'retry-after',
       'idempotent-replay',
+      'x-carbon-api-version',
     ],
   });
   await app.register(helmet, {
@@ -211,6 +215,7 @@ export async function buildServer(
   // quote in a bug report.
   app.addHook('onRequest', async (req, reply) => {
     reply.header('x-request-id', String(req.id));
+    reply.header('x-carbon-api-version', 'v1');
   });
 
   // Docs BEFORE routes: @fastify/swagger snapshots the route table at
@@ -325,6 +330,7 @@ export async function buildServer(
   });
 
   await registerHealthRoutes(app, ctx, { release: options.release, lifecycle });
+  await registerCapabilitiesRoutes(app, ctx, { requestTimeoutMs: requestTimeout });
   await registerProjectRoutes(app, ctx);
   await registerIngestRoutes(app, ctx);
   await registerEmulatorRoutes(app, ctx);
