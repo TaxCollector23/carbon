@@ -31,7 +31,7 @@ The main product gap is not raw capability; it is the first five minutes. A new 
 - Add a first-class local project lifecycle: `carbon init`, `carbon ingest`, `carbon emulate`, `carbon test`, `carbon snapshot`, and `carbon ci` with consistent exit codes and JSON events.
 - [x] Make `carbon ingest` optionally persist to the control plane and print stable artifact/job IDs with `--project`, `--async`, `--wait`, and `--timeout`.
 - [x] Expand shell completion coverage to the complete command catalog.
-- [x] Add `carbon diff` for normalized spec drift; next add `carbon explain` for why an endpoint mutates a resource or returns a generated response.
+- [x] Add `carbon diff` for normalized spec drift and `carbon explain` for why an endpoint mutates a resource or returns a generated response.
 - Publish signed binaries or a reproducible installer alongside npm, with checksum verification and an offline cache for catalog specs.
 
 ### Phase 4 — hosted product and developer ecosystem

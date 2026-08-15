@@ -39,6 +39,8 @@ carbon emulate --from ./openapi.yaml   # boot the replica on :8787
 carbon inspect                         # view endpoints, resources, and relationships
 carbon diff ./openapi-v1.yaml ./openapi-v2.yaml
                                        # fail CI when the normalized API contract drifts
+carbon explain ./openapi.yaml "POST /pets"
+                                       # explain the compiled state transition
 ```
 
 Capture a real API instead of importing a spec:

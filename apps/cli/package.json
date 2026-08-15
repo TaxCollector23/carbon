@@ -48,6 +48,7 @@
     "@carbon/catalog": "workspace:*",
     "@carbon/config": "workspace:*",
     "@carbon/core": "workspace:*",
+    "@carbon/graph": "workspace:*",
     "@carbon/parser": "workspace:*",
     "@carbon/proxy": "workspace:*",
     "@carbon/sdk": "workspace:*",

@@ -199,6 +199,9 @@ importers:
       '@carbon/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@carbon/graph':
+        specifier: workspace:*
+        version: link:../../packages/graph
       '@carbon/parser':
         specifier: workspace:*
         version: link:../../packages/parser

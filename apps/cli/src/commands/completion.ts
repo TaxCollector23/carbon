@@ -36,6 +36,7 @@ const TOP_COMMANDS = [
   'activity',
   'quality',
   'export',
+  'explain',
   'completion',
   'audit-secrets',
 ];
