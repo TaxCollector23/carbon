@@ -15,6 +15,7 @@ import { registerSnapshotRoutes } from './routes/snapshots.js';
 import { registerApiKeyRoutes } from './routes/api-keys.js';
 import { registerArtifactRoutes } from './routes/artifacts.js';
 import { registerRecordingRoutes } from './routes/recordings.js';
+import { registerDriftRoutes } from './routes/drift.js';
 import { registerJobRoutes } from './routes/jobs.js';
 import { registerEventRoutes } from './routes/events.js';
 import { registerOrganizationRoutes } from './routes/organizations.js';
@@ -331,6 +332,7 @@ export async function buildServer(
   await registerApiKeyRoutes(app, ctx);
   await registerArtifactRoutes(app, ctx);
   await registerRecordingRoutes(app, ctx);
+  await registerDriftRoutes(app, ctx);
   await registerJobRoutes(app, ctx);
   await registerEventRoutes(app, ctx);
   // Tear down the shared SSE Redis subscriber on graceful shutdown so its

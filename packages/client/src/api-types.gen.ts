@@ -186,6 +186,40 @@ export interface paths {
             [name: string]: unknown;
           };
           content: {
+            /**
+             * @example {
+             *       "version": "0.1.0",
+             *       "release": "2026.01.14-abcdef1",
+             *       "node": "v22.5.1",
+             *       "startedAt": "2026-01-14T18:22:41.000Z",
+             *       "uptimeSec": 3600,
+             *       "gitSha": "abcdef1234567890abcdef1234567890abcdef12",
+             *       "buildTime": "2026-01-14T18:00:00.000Z",
+             *       "plans": [
+             *         "developer",
+             *         "team",
+             *         "enterprise"
+             *       ],
+             *       "features": {
+             *         "billing": true,
+             *         "sso": true,
+             *         "scim": true
+             *       },
+             *       "capabilities": {
+             *         "asyncJobs": true,
+             *         "redis": true,
+             *         "specFormats": [
+             *           "openapi",
+             *           "postman",
+             *           "har",
+             *           "graphql",
+             *           "asyncapi",
+             *           "protobuf",
+             *           "grpc"
+             *         ]
+             *       }
+             *     }
+             */
             'application/json': {
               version: string;
               release: string;
@@ -200,6 +234,13 @@ export interface paths {
                 billing: boolean;
                 sso: boolean;
                 scim: boolean;
+              };
+              capabilities: {
+                asyncJobs: boolean;
+                redis: boolean;
+                specFormats: (
+                  'openapi' | 'postman' | 'har' | 'graphql' | 'asyncapi' | 'protobuf' | 'grpc'
+                )[];
               };
             };
           };
@@ -259,8 +300,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List /v1/health/deep
-     * @description GET /v1/health/deep
+     * Deep dependency health probe
+     * @description Admin-only. Runs a live probe against every backing dependency (Postgres, Redis, object storage) and reports per-dep status, latency, and error message. Returns 503 if any dependency is `down`.
      */
     get: {
       parameters: {
@@ -276,7 +317,57 @@ export interface paths {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            /**
+             * @example {
+             *       "ok": true,
+             *       "dependencies": {
+             *         "db": {
+             *           "status": "ok",
+             *           "latencyMs": 3.24
+             *         },
+             *         "redis": {
+             *           "status": "ok",
+             *           "latencyMs": 1.08
+             *         },
+             *         "storage": {
+             *           "status": "slow",
+             *           "latencyMs": 312.4
+             *         }
+             *       }
+             *     }
+             */
+            'application/json': {
+              ok: boolean;
+              dependencies: {
+                [key: string]: {
+                  /** @enum {string} */
+                  status: 'ok' | 'slow' | 'down';
+                  latencyMs: number;
+                  message?: string;
+                };
+              };
+            };
+          };
+        };
+        /** @description Default Response */
+        503: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              ok: boolean;
+              dependencies: {
+                [key: string]: {
+                  /** @enum {string} */
+                  status: 'ok' | 'slow' | 'down';
+                  latencyMs: number;
+                  message?: string;
+                };
+              };
+            };
+          };
         };
       };
     };
@@ -319,6 +410,23 @@ export interface paths {
             [name: string]: unknown;
           };
           content: {
+            /**
+             * @example {
+             *       "data": [
+             *         {
+             *           "id": "prj_01HXK5H7Q9C0R3Q1S8V6M4WJZK",
+             *           "orgId": "org_01HXK5H7Q9C0R3Q1S8V6M4WJZK",
+             *           "slug": "checkout-api",
+             *           "name": "Checkout API",
+             *           "createdAt": "2025-11-14T18:22:41.000Z",
+             *           "updatedAt": "2025-11-14T18:22:41.000Z"
+             *         }
+             *       ],
+             *       "nextCursor": null,
+             *       "hasMore": false,
+             *       "total": 1
+             *     }
+             */
             'application/json': {
               data: {
                 id: string;
@@ -352,6 +460,12 @@ export interface paths {
       };
       requestBody: {
         content: {
+          /**
+           * @example {
+           *       "slug": "checkout-api",
+           *       "name": "Checkout API"
+           *     }
+           */
           'application/json': {
             orgId?: string;
             slug: string;
@@ -366,6 +480,15 @@ export interface paths {
             [name: string]: unknown;
           };
           content: {
+            /**
+             * @example {
+             *       "id": "prj_01HXK5H7Q9C0R3Q1S8V6M4WJZK",
+             *       "orgId": "org_01HXK5H7Q9C0R3Q1S8V6M4WJZK",
+             *       "slug": "checkout-api",
+             *       "name": "Checkout API",
+             *       "createdAt": "2025-11-14T18:22:41.000Z"
+             *     }
+             */
             'application/json': {
               id: string;
               orgId: string;
@@ -581,8 +704,8 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Create /v1/projects/:id/share-links
-     * @description POST /v1/projects/:id/share-links
+     * Create a share link for a project
+     * @description Mint a short-lived shareable read-only link for a project. Default TTL is 24h; cap 30 days.
      */
     post: {
       parameters: {
@@ -593,14 +716,36 @@ export interface paths {
         };
         cookie?: never;
       };
-      requestBody?: never;
+      requestBody: {
+        content: {
+          'application/json': {
+            /** @default 24 */
+            ttlHours?: number;
+          };
+        };
+      };
       responses: {
         /** @description Default Response */
-        200: {
+        201: {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            /**
+             * @example {
+             *       "id": "shl_01HXK5H7Q9C0R3Q1S8V6M4WJZK",
+             *       "token": "k9x2K7-QpU3wR6mF8vN4yZ1aB5cD0eGh",
+             *       "expiresAt": "2025-11-15T18:22:41.000Z",
+             *       "url": "http://localhost:3001/shared/k9x2K7-QpU3wR6mF8vN4yZ1aB5cD0eGh"
+             *     }
+             */
+            'application/json': {
+              id: string;
+              token: string;
+              expiresAt?: unknown;
+              url: string;
+            };
+          };
         };
       };
     };
@@ -618,8 +763,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get /v1/share-links/:token/state
-     * @description GET /v1/share-links/:token/state
+     * Read a share link's current state
+     * @description Public token-gated readback of a share link. Unauthenticated beyond the token itself; returns the most recent snapshot artifact metadata.
      */
     get: {
       parameters: {
@@ -637,7 +782,13 @@ export interface paths {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              projectId: string;
+              expiresAt?: unknown;
+              state?: unknown;
+            };
+          };
         };
       };
     };
@@ -660,8 +811,8 @@ export interface paths {
     put?: never;
     post?: never;
     /**
-     * Delete /v1/share-links/:id
-     * @description DELETE /v1/share-links/:id
+     * Revoke a share link
+     * @description Mark a share link revoked so subsequent state reads 404. The row is retained for audit rather than deleted.
      */
     delete: {
       parameters: {
@@ -698,8 +849,8 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Create /v1/ingest
-     * @description POST /v1/ingest
+     * Ingest a spec into a project
+     * @description Turn an OpenAPI / HAR / Postman payload into an IR and behavior graph. Set `async: true` to enqueue the work and return a `jobId` immediately (recommended for large specs); the sync path returns the persisted artifact ids and counts.
      */
     post: {
       parameters: {
@@ -708,14 +859,76 @@ export interface paths {
         path?: never;
         cookie?: never;
       };
-      requestBody?: never;
+      requestBody: {
+        content: {
+          'application/json': {
+            projectSlug: string;
+            source:
+              | {
+                  /** @enum {string} */
+                  kind: 'json';
+                  content?: unknown;
+                  hint?: string;
+                }
+              | {
+                  /** @enum {string} */
+                  kind: 'text';
+                  content: string;
+                  hint?: string;
+                };
+            origin?: string;
+            /** @default false */
+            enrich?: boolean;
+            /** @default false */
+            async?: boolean;
+          };
+        };
+      };
       responses: {
         /** @description Default Response */
-        200: {
+        201: {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              irId: string;
+              graphId: string;
+              api?: unknown;
+              endpoints: number;
+              resources: number;
+              warnings?: unknown[];
+              judge?: unknown;
+            } & {
+              [key: string]: unknown;
+            };
+          };
+        };
+        /** @description Default Response */
+        202: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              jobId: string;
+              status: string;
+            };
+          };
+        };
+        /** @description Default Response */
+        503: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              error: {
+                code: string;
+                message: string;
+              };
+            };
+          };
         };
       };
     };
@@ -735,12 +948,15 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Create /v1/ingest/postman
-     * @description POST /v1/ingest/postman
+     * Ingest a raw Postman collection
+     * @description Shortcut that accepts a raw Postman collection JSON body (any content) and routes it through the Postman adapter. Target project is picked via `?projectSlug=`.
      */
     post: {
       parameters: {
-        query?: never;
+        query: {
+          projectSlug: string;
+          origin?: string;
+        };
         header?: never;
         path?: never;
         cookie?: never;
@@ -748,11 +964,23 @@ export interface paths {
       requestBody?: never;
       responses: {
         /** @description Default Response */
-        200: {
+        201: {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              irId: string;
+              graphId: string;
+              api?: unknown;
+              endpoints: number;
+              resources: number;
+              warnings?: unknown[];
+              judge?: unknown;
+            } & {
+              [key: string]: unknown;
+            };
+          };
         };
       };
     };
@@ -770,8 +998,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List /v1/emulators
-     * @description GET /v1/emulators
+     * List running emulators
+     * @description Return every emulator visible to the caller's org / project ACLs.
      */
     get: {
       parameters: {
@@ -787,14 +1015,27 @@ export interface paths {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              data: ({
+                id: string;
+                projectSlug?: string;
+                url?: string;
+                host?: string;
+                port?: number;
+                startedAt?: string | number;
+              } & {
+                [key: string]: unknown;
+              })[];
+            };
+          };
         };
       };
     };
     put?: never;
     /**
-     * Create /v1/emulators
-     * @description POST /v1/emulators
+     * Start an emulator
+     * @description Boot an emulator serving the specified IR. Host must be in `CARBON_EMULATOR_ALLOWED_HOSTS` (default loopback only) so callers cannot bind to public interfaces on a shared control plane.
      */
     post: {
       parameters: {
@@ -803,14 +1044,35 @@ export interface paths {
         path?: never;
         cookie?: never;
       };
-      requestBody?: never;
+      requestBody: {
+        content: {
+          'application/json': {
+            projectSlug: string;
+            irId: string;
+            port?: number;
+            host?: string;
+            snapshot?: string;
+          };
+        };
+      };
       responses: {
         /** @description Default Response */
-        200: {
+        201: {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              id: string;
+              projectSlug?: string;
+              url?: string;
+              host?: string;
+              port?: number;
+              startedAt?: string | number;
+            } & {
+              [key: string]: unknown;
+            };
+          };
         };
       };
     };
@@ -828,8 +1090,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get /v1/emulators/:id
-     * @description GET /v1/emulators/:id
+     * Get an emulator by id
+     * @description Return the emulator's current binding and metadata.
      */
     get: {
       parameters: {
@@ -847,15 +1109,26 @@ export interface paths {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              id: string;
+              projectSlug?: string;
+              url?: string;
+              host?: string;
+              port?: number;
+              startedAt?: string | number;
+            } & {
+              [key: string]: unknown;
+            };
+          };
         };
       };
     };
     put?: never;
     post?: never;
     /**
-     * Delete /v1/emulators/:id
-     * @description DELETE /v1/emulators/:id
+     * Stop an emulator
+     * @description Shut down and remove a running emulator.
      */
     delete: {
       parameters: {
@@ -892,8 +1165,8 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Create /v1/emulators/:id/reset
-     * @description POST /v1/emulators/:id/reset
+     * Reset an emulator's state
+     * @description Clear the emulator's in-memory state without restarting its HTTP listener.
      */
     post: {
       parameters: {
@@ -931,8 +1204,8 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Create /v1/emulators/:id/snapshot
-     * @description POST /v1/emulators/:id/snapshot
+     * Snapshot an emulator
+     * @description Persist the emulator's current state under `name`. Overwrites any existing snapshot with the same name.
      */
     post: {
       parameters: {
@@ -943,14 +1216,26 @@ export interface paths {
         };
         cookie?: never;
       };
-      requestBody?: never;
+      requestBody: {
+        content: {
+          'application/json': {
+            name: string;
+          };
+        };
+      };
       responses: {
         /** @description Default Response */
-        200: {
+        201: {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              name: string;
+            } & {
+              [key: string]: unknown;
+            };
+          };
         };
       };
     };
@@ -970,8 +1255,8 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Create /v1/emulators/:id/restore
-     * @description POST /v1/emulators/:id/restore
+     * Restore an emulator from a snapshot
+     * @description Replace the emulator's current state with the named snapshot.
      */
     post: {
       parameters: {
@@ -982,7 +1267,13 @@ export interface paths {
         };
         cookie?: never;
       };
-      requestBody?: never;
+      requestBody: {
+        content: {
+          'application/json': {
+            name: string;
+          };
+        };
+      };
       responses: {
         /** @description Default Response */
         200: {
@@ -1009,8 +1300,8 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Create /v1/emulators/:id/apply-preset
-     * @description POST /v1/emulators/:id/apply-preset
+     * Apply a chaos preset to an emulator
+     * @description Compile and apply the referenced chaos preset (must be owned by the caller's org). Overwrites any active chaos configuration.
      */
     post: {
       parameters: {
@@ -1021,14 +1312,28 @@ export interface paths {
         };
         cookie?: never;
       };
-      requestBody?: never;
+      requestBody: {
+        content: {
+          'application/json': {
+            presetId: string;
+          };
+        };
+      };
       responses: {
         /** @description Default Response */
         200: {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              applied: boolean;
+              presetId: string;
+              name: string;
+              errorRuleCount: number;
+              latency?: unknown;
+            };
+          };
         };
       };
     };
@@ -1048,8 +1353,8 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Create /v1/emulators/:id/load-test
-     * @description POST /v1/emulators/:id/load-test
+     * Run a throughput load test
+     * @description Fire load at the emulator for a bounded duration (max 60s) and return latency percentiles. Blocks the API event loop while running, so durations are capped hard.
      */
     post: {
       parameters: {
@@ -1060,14 +1365,43 @@ export interface paths {
         };
         cookie?: never;
       };
-      requestBody?: never;
+      requestBody: {
+        content: {
+          'application/json': {
+            /** @default 50 */
+            concurrency?: number;
+            /** @default 5000 */
+            durationMs?: number;
+            /** @default / */
+            path?: string;
+            /**
+             * @default GET
+             * @enum {string}
+             */
+            method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD';
+          };
+        };
+      };
       responses: {
         /** @description Default Response */
         200: {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              emulatorId: string;
+              target: string;
+              concurrency: number;
+              durationMs: number;
+              rps: number;
+              p50: number;
+              p95: number;
+              p99: number;
+              errorRate: number;
+              totalRequests: number;
+            };
+          };
         };
       };
     };
@@ -1107,6 +1441,24 @@ export interface paths {
             [name: string]: unknown;
           };
           content: {
+            /**
+             * @example {
+             *       "data": [
+             *         {
+             *           "name": "seed-cart-full",
+             *           "size": 4212,
+             *           "modifiedAt": 1731601361000
+             *         },
+             *         {
+             *           "name": "post-checkout",
+             *           "size": 5893,
+             *           "modifiedAt": 1731597811000
+             *         }
+             *       ],
+             *       "limit": 100,
+             *       "truncated": false
+             *     }
+             */
             'application/json': {
               data: {
                 name: string;
@@ -1380,6 +1732,21 @@ export interface paths {
             [name: string]: unknown;
           };
           content: {
+            /**
+             * @example {
+             *       "id": "akid_01HXK5H7Q9C0R3Q1S8V6M4WJZK",
+             *       "secret": "<redacted-secret>",
+             *       "presented": "ck_live_<prefix>.<secret>",
+             *       "prefix": "abcdef012345",
+             *       "scopes": [
+             *         "read",
+             *         "write"
+             *       ],
+             *       "projectIds": null,
+             *       "expiresAt": null,
+             *       "rotatedFromId": null
+             *     }
+             */
             'application/json': {
               id: string;
               secret?: string;
@@ -1510,8 +1877,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get /v1/projects/:slug/ir/:id
-     * @description GET /v1/projects/:slug/ir/:id
+     * Fetch an IR artifact
+     * @description Stream a stored IR artifact as `application/json`. Content-addressed and immutably cacheable; emits weak ETags for If-None-Match short-circuit. Response body is the raw IR JSON (schema not published).
      */
     get: {
       parameters: {
@@ -1550,8 +1917,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get /v1/projects/:slug/graphs/:id
-     * @description GET /v1/projects/:slug/graphs/:id
+     * Fetch a behavior-graph artifact
+     * @description Stream a stored behavior graph as `application/json`. Immutable and ETag-cacheable. Response body is the raw graph JSON (schema not published).
      */
     get: {
       parameters: {
@@ -1590,12 +1957,14 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get /v1/projects/:slug/artifacts
-     * @description GET /v1/projects/:slug/artifacts
+     * List a project's artifacts
+     * @description Enumerate IR + graph artifacts for a project, newest first. Bounded scan — pass `limit` (max 500); `truncated: true` means more artifacts exist beyond the limit.
      */
     get: {
       parameters: {
-        query?: never;
+        query?: {
+          limit?: number;
+        };
         header?: never;
         path: {
           slug: string;
@@ -1609,7 +1978,19 @@ export interface paths {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              data: {
+                /** @enum {string} */
+                kind: 'ir' | 'graph';
+                id: string;
+                size: number;
+                modifiedAt: number;
+              }[];
+              limit: number;
+              truncated: boolean;
+            };
+          };
         };
       };
     };
@@ -1635,8 +2016,8 @@ export interface paths {
     options?: never;
     head?: never;
     /**
-     * Update /v1/artifacts/:id
-     * @description PATCH /v1/artifacts/:id
+     * Set an artifact's tags
+     * @description Replace the tag list on an artifact. Caller must have write access to the underlying project.
      */
     patch: {
       parameters: {
@@ -1647,14 +2028,25 @@ export interface paths {
         };
         cookie?: never;
       };
-      requestBody?: never;
+      requestBody: {
+        content: {
+          'application/json': {
+            tags: string[];
+          };
+        };
+      };
       responses: {
         /** @description Default Response */
         200: {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              id: string;
+              tags: string[];
+            };
+          };
         };
       };
     };
@@ -1668,8 +2060,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get /v1/artifacts/:id/comments
-     * @description GET /v1/artifacts/:id/comments
+     * List artifact comments
+     * @description Return every comment on an artifact, newest first, up to 500 rows.
      */
     get: {
       parameters: {
@@ -1687,16 +2079,372 @@ export interface paths {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              data: ({
+                id: string;
+                artifactId: string;
+                authorId: string | null;
+                body: string;
+                createdAt?: string;
+              } & {
+                [key: string]: unknown;
+              })[];
+            };
+          };
         };
       };
     };
     put?: never;
     /**
-     * Create /v1/artifacts/:id/comments
-     * @description POST /v1/artifacts/:id/comments
+     * Post a comment on an artifact
+     * @description Append a comment to an artifact. `authorId` is derived from the session user (null for API-key callers).
      */
     post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            body: string;
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        201: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              id: string;
+              artifactId: string;
+              authorId: string | null;
+              body: string;
+              createdAt?: string;
+            } & {
+              [key: string]: unknown;
+            };
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/projects/{slug}/recordings': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List a project's recordings
+     * @description Enumerate captured recordings for a project, newest first. Includes per-recording metadata (request count, first/last exchange timestamp, upstream URL) computed by parsing each stored body. Bounded scan — pass `limit` (max 200).
+     */
+    get: {
+      parameters: {
+        query?: {
+          limit?: number;
+        };
+        header?: never;
+        path: {
+          slug: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              data: {
+                id: string;
+                size: number;
+                modifiedAt: number;
+                requestCount: number;
+                firstAt: number | null;
+                lastAt: number | null;
+                upstreamUrl: string | null;
+              }[];
+              limit: number;
+              truncated: boolean;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/projects/{slug}/recordings/{id}/exchanges': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List a recording's exchanges
+     * @description Return every captured request/response pair for a recording, in capture order. Bodies are returned verbatim — the recorder already applied header/body redactions at capture time.
+     */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          slug: string;
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              id: string;
+              exchanges: {
+                id: string;
+                method: string;
+                url: string;
+                requestBody: string | null;
+                status: number;
+                responseBody: string | null;
+                at: number;
+                latencyMs: number;
+              }[];
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/projects/{slug}/recordings/{id}/replay': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Replay a recording against a target
+     * @description Replay each captured request against `targetUrl`, comparing status and (shallow) body shape. A row is written to `recording_replays` so the dashboard can show the run history without re-executing the calls.
+     */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          slug: string;
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            /** Format: uri */
+            targetUrl: string;
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              id: string;
+              recordingId: string;
+              targetUrl: string;
+              /** @enum {string} */
+              status: 'ok' | 'drift' | 'error';
+              results: {
+                exchangeId: string;
+                method: string;
+                url: string;
+                status: number | null;
+                expectedStatus: number;
+                diff: string[];
+                latencyMs: number;
+                error?: string;
+              }[];
+              createdAt: string;
+            };
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/projects/{slug}/recordings/{id}/replays': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List past replays for a recording
+     * @description Return the most recent `recording_replays` rows for a recording, newest first.
+     */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          slug: string;
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              data: {
+                id: string;
+                recordingId: string;
+                targetUrl: string;
+                /** @enum {string} */
+                status: 'ok' | 'drift' | 'error';
+                results: {
+                  exchangeId: string;
+                  method: string;
+                  url: string;
+                  status: number | null;
+                  expectedStatus: number;
+                  diff: string[];
+                  latencyMs: number;
+                  error?: string;
+                }[];
+                createdAt: string;
+              }[];
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/projects/{id}/drift': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List drift-check history for a project
+     * @description Return drift checks recorded for the project in descending time order. Rows are paginated by keyset on `createdAt`.
+     */
+    get: {
+      parameters: {
+        query?: {
+          limit?: number;
+          cursor?: string;
+        };
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              data: ({
+                id: string;
+                projectId: string;
+                /** @enum {string} */
+                status: 'pending' | 'running' | 'ok' | 'drift' | 'error';
+              } & {
+                [key: string]: unknown;
+              })[];
+              nextCursor: string | null;
+              hasMore: boolean;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/projects/{id}/drift/config': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get drift-check config
+     * @description Return the drift config (upstream URL, cadence, enabled flag) stored on the project's latest recording artifact. Returns an all-null config when no recording exists yet.
+     */
+    get: {
       parameters: {
         query?: never;
         header?: never;
@@ -1712,7 +2460,103 @@ export interface paths {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              upstreamUrl: string | null;
+              intervalMinutes: number | null;
+              enabled: boolean;
+              configuredAt: string | null;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update drift-check config
+     * @description Merge fields into the project's drift config. Persists onto the latest recording artifact's `meta`. Returns 404 when the project has no recording to attach config to.
+     */
+    patch: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            /** Format: uri */
+            upstreamUrl?: string | null;
+            intervalMinutes?: number | null;
+            enabled?: boolean;
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              upstreamUrl: string | null;
+              intervalMinutes: number | null;
+              enabled: boolean;
+              configuredAt: string | null;
+            };
+          };
+        };
+      };
+    };
+    trace?: never;
+  };
+  '/v1/projects/{id}/drift/run': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Enqueue a one-off drift check
+     * @description Insert a `pending` row into `drift_checks` for the drift worker to pick up on its next tick. When the worker is not running the row simply stays pending — it is not lost.
+     */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        202: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              id: string;
+              projectId: string;
+              /** @enum {string} */
+              status: 'pending' | 'running' | 'ok' | 'drift' | 'error';
+            } & {
+              [key: string]: unknown;
+            };
+          };
         };
       };
     };
@@ -1730,8 +2574,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get /v1/jobs/:id
-     * @description GET /v1/jobs/:id
+     * Get async job status
+     * @description Look up the status of an async job (e.g. background ingestion). Callers only see jobs on their own org; unknown or cross-org ids return 404.
      */
     get: {
       parameters: {
@@ -1749,12 +2593,147 @@ export interface paths {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              id: string;
+              kind: string;
+              status: string;
+              progress?: number | null;
+              result?: unknown;
+              error?: string | null;
+              createdAt?: string | number;
+              updatedAt?: string | number;
+              attempts?: number;
+              maxAttempts?: number;
+              nextAttemptAt?: number | null;
+              deadLetter?: boolean;
+            } & {
+              [key: string]: unknown;
+            };
+          };
         };
       };
     };
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/jobs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List recent async jobs
+     * @description Enumerate the operator queue. Scoped to the caller's org. Supports `status` filter (including `deadLetter`) and offset pagination via `cursor`.
+     */
+    get: {
+      parameters: {
+        query?: {
+          limit?: number;
+          cursor?: string;
+          status?: 'queued' | 'running' | 'succeeded' | 'failed' | 'needs_review' | 'deadLetter';
+        };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              data: ({
+                id: string;
+                kind: string;
+                status: string;
+                progress?: number | null;
+                result?: unknown;
+                error?: string | null;
+                createdAt?: string | number;
+                updatedAt?: string | number;
+                attempts?: number;
+                maxAttempts?: number;
+                nextAttemptAt?: number | null;
+                deadLetter?: boolean;
+              } & {
+                [key: string]: unknown;
+              })[];
+              nextCursor: string | null;
+              hasMore: boolean;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/jobs/{id}/retry': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Retry a failed async job
+     * @description Re-queue a `failed` (non-dead-letter) job. Idempotent on `succeeded`/`running`. Returns 409 CARBON_STATE_VIOLATION when the job is dead-lettered.
+     */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              id: string;
+              kind: string;
+              status: string;
+              progress?: number | null;
+              result?: unknown;
+              error?: string | null;
+              createdAt?: string | number;
+              updatedAt?: string | number;
+              attempts?: number;
+              maxAttempts?: number;
+              nextAttemptAt?: number | null;
+              deadLetter?: boolean;
+            } & {
+              [key: string]: unknown;
+            };
+          };
+        };
+      };
+    };
     delete?: never;
     options?: never;
     head?: never;
@@ -1793,6 +2772,27 @@ export interface paths {
             [name: string]: unknown;
           };
           content: {
+            /**
+             * @example {
+             *       "data": [
+             *         {
+             *           "id": "evt_01HXK5N9Q1B7C4D3E2F1G0H9J8",
+             *           "orgId": "org_01HXK5H7Q9C0R3Q1S8V6M4WJZK",
+             *           "projectId": "prj_01HXK5H7Q9C0R3Q1S8V6M4WJZK",
+             *           "actorType": "user",
+             *           "actorId": "usr_01HXK5H7Q9C0R3Q1S8V6M4WJZK",
+             *           "action": "project.created",
+             *           "metadata": {
+             *             "slug": "checkout-api",
+             *             "name": "Checkout API"
+             *           },
+             *           "createdAt": "2025-11-14T18:22:41.000Z"
+             *         }
+             *       ],
+             *       "nextCursor": null,
+             *       "hasMore": false
+             *     }
+             */
             'application/json': {
               data: {
                 id: string;
@@ -1809,6 +2809,47 @@ export interface paths {
               hasMore: boolean;
             };
           };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/events/stream': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Server-Sent Events stream of audit events
+     * @description Long-lived text/event-stream connection. Emits `hello` on open, `ping` heartbeats every ~15s, and `new-event` frames as events land for the caller's org.
+     */
+    get: {
+      parameters: {
+        query?: {
+          orgId?: string;
+          projectId?: string;
+          action?: string;
+        };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content?: never;
         };
       };
     };
@@ -1936,6 +2977,18 @@ export interface paths {
             [name: string]: unknown;
           };
           content: {
+            /**
+             * @example {
+             *       "id": "org_01HXK5H7Q9C0R3Q1S8V6M4WJZK",
+             *       "name": "Acme Corp",
+             *       "slug": "acme-corp",
+             *       "retentionDays": 90,
+             *       "settings": {
+             *         "slackWebhook": "https://hooks.slack.com/services/T000/B000/xxx"
+             *       },
+             *       "createdAt": "2025-09-01T12:00:00.000Z"
+             *     }
+             */
             'application/json': {
               id: string;
               name: string;
@@ -2098,6 +3151,26 @@ export interface paths {
             [name: string]: unknown;
           };
           content: {
+            /**
+             * @example {
+             *       "data": [
+             *         {
+             *           "userId": "usr_01HXK5H7Q9C0R3Q1S8V6M4WJZK",
+             *           "role": "owner",
+             *           "createdAt": "2025-09-01T12:00:00.000Z",
+             *           "email": "alex@acme.example",
+             *           "name": "Alex Kim"
+             *         },
+             *         {
+             *           "userId": "usr_01HXK6P8T3H5C9D4F7G0J2K1L4",
+             *           "role": "member",
+             *           "createdAt": "2025-10-11T09:14:22.000Z",
+             *           "email": "jordan@acme.example",
+             *           "name": "Jordan Rivera"
+             *         }
+             *       ]
+             *     }
+             */
             'application/json': {
               data: {
                 userId: string;
@@ -2178,8 +3251,8 @@ export interface paths {
     put?: never;
     post?: never;
     /**
-     * Delete /v1/organizations/:id/members/:userId
-     * @description DELETE /v1/organizations/:id/members/:userId
+     * Remove an organization member
+     * @description Owner/admin only. Removing the last remaining owner is rejected with 409.
      */
     delete: {
       parameters: {
@@ -2205,8 +3278,8 @@ export interface paths {
     options?: never;
     head?: never;
     /**
-     * Update /v1/organizations/:id/members/:userId
-     * @description PATCH /v1/organizations/:id/members/:userId
+     * Change a member's role
+     * @description Owner/admin only. Demoting the last remaining owner is rejected with 409 so the org cannot be stranded without an admin path back in.
      */
     patch: {
       parameters: {
@@ -2218,14 +3291,27 @@ export interface paths {
         };
         cookie?: never;
       };
-      requestBody?: never;
+      requestBody: {
+        content: {
+          'application/json': {
+            /** @enum {string} */
+            role: 'owner' | 'admin' | 'member';
+          };
+        };
+      };
       responses: {
         /** @description Default Response */
         200: {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              userId: string;
+              /** @enum {string} */
+              role: 'owner' | 'admin' | 'member';
+            };
+          };
         };
       };
     };
@@ -2291,8 +3377,8 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Create /v1/billing/checkout
-     * @description POST /v1/billing/checkout
+     * Create a Stripe Checkout session
+     * @description Start a Stripe Checkout flow for the caller's org. Returns the hosted-Checkout URL. 501 if billing is disabled (no STRIPE_SECRET_KEY). Enterprise plans are sales-only and return 400.
      */
     post: {
       parameters: {
@@ -2301,14 +3387,30 @@ export interface paths {
         path?: never;
         cookie?: never;
       };
-      requestBody?: never;
+      requestBody: {
+        content: {
+          'application/json': {
+            /** @enum {string} */
+            plan: 'team' | 'enterprise';
+            seats: number;
+            /** Format: uri */
+            successUrl: string;
+            /** Format: uri */
+            cancelUrl: string;
+          };
+        };
+      };
       responses: {
         /** @description Default Response */
         200: {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              url: string | null;
+            };
+          };
         };
       };
     };
@@ -2328,8 +3430,8 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Create /v1/billing/portal
-     * @description POST /v1/billing/portal
+     * Create a Stripe Billing Portal session
+     * @description Return a signed URL to the Stripe Billing Portal for the caller's org. 501 if billing is disabled; 404 if the org has no customer on file.
      */
     post: {
       parameters: {
@@ -2338,14 +3440,25 @@ export interface paths {
         path?: never;
         cookie?: never;
       };
-      requestBody?: never;
+      requestBody: {
+        content: {
+          'application/json': {
+            /** Format: uri */
+            returnUrl: string;
+          };
+        };
+      };
       responses: {
         /** @description Default Response */
         200: {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              url: string | null;
+            };
+          };
         };
       };
     };
@@ -2363,8 +3476,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List /v1/billing/subscription
-     * @description GET /v1/billing/subscription
+     * Get the caller's current subscription
+     * @description Return the resolved plan tier, status, seat count, and current period end for the caller's org.
      */
     get: {
       parameters: {
@@ -2380,7 +3493,29 @@ export interface paths {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            /**
+             * @example {
+             *       "plan": {
+             *         "plan": "team",
+             *         "status": "active",
+             *         "seats": 5,
+             *         "currentPeriodEnd": "2026-01-14T18:22:41.000Z"
+             *       }
+             *     }
+             */
+            'application/json': {
+              plan: {
+                /** @enum {string} */
+                plan: 'developer' | 'team' | 'enterprise';
+                status?: string;
+                seats?: number;
+                currentPeriodEnd?: string | null;
+              } & {
+                [key: string]: unknown;
+              };
+            };
+          };
         };
       };
     };
@@ -2437,12 +3572,16 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List /scim/v2/Users
-     * @description GET /scim/v2/Users
+     * SCIM: list users
+     * @description Enterprise-only. Authenticate with `x-carbon-key` (admin) or `X-SCIM-Token`. Supports the standard `userName eq "..."` filter plus `startIndex`/`count` paging.
      */
     get: {
       parameters: {
-        query?: never;
+        query?: {
+          filter?: string;
+          startIndex?: number;
+          count?: number;
+        };
         header?: never;
         path?: never;
         cookie?: never;
@@ -2454,14 +3593,40 @@ export interface paths {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              schemas: string[];
+              totalResults: number;
+              startIndex: number;
+              itemsPerPage: number;
+              Resources: {
+                schemas: string[];
+                id: string;
+                userName: string;
+                active: boolean;
+                emails: {
+                  value: string;
+                  primary: boolean;
+                }[];
+                name?: {
+                  formatted?: string | null;
+                };
+                meta: {
+                  /** @enum {string} */
+                  resourceType: 'User';
+                  created: string;
+                  lastModified: string;
+                };
+              }[];
+            };
+          };
         };
       };
     };
     put?: never;
     /**
-     * Create /scim/v2/Users
-     * @description POST /scim/v2/Users
+     * SCIM: create user
+     * @description Enterprise-only. Provisions a user (if missing) and attaches a membership. Existing users are re-attached idempotently. SCIM provisioning does not set a password — an invitation token is created for the invitee to finish sign-up.
      */
     post: {
       parameters: {
@@ -2470,14 +3635,54 @@ export interface paths {
         path?: never;
         cookie?: never;
       };
-      requestBody?: never;
+      requestBody: {
+        content: {
+          'application/json': {
+            schemas?: string[];
+            /** Format: email */
+            userName: string;
+            /** @default true */
+            active?: boolean;
+            name?: {
+              formatted?: string;
+              givenName?: string;
+              familyName?: string;
+            };
+            emails?: {
+              /** Format: email */
+              value: string;
+              primary?: boolean;
+            }[];
+          };
+        };
+      };
       responses: {
         /** @description Default Response */
-        200: {
+        201: {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              schemas: string[];
+              id: string;
+              userName: string;
+              active: boolean;
+              emails: {
+                value: string;
+                primary: boolean;
+              }[];
+              name?: {
+                formatted?: string | null;
+              };
+              meta: {
+                /** @enum {string} */
+                resourceType: 'User';
+                created: string;
+                lastModified: string;
+              };
+            };
+          };
         };
       };
     };
@@ -2495,8 +3700,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get /scim/v2/Users/:id
-     * @description GET /scim/v2/Users/:id
+     * SCIM: get user by id
+     * @description Enterprise-only. Returns the SCIM Core User representation, or a SCIM error envelope on 404.
      */
     get: {
       parameters: {
@@ -2514,15 +3719,35 @@ export interface paths {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              schemas: string[];
+              id: string;
+              userName: string;
+              active: boolean;
+              emails: {
+                value: string;
+                primary: boolean;
+              }[];
+              name?: {
+                formatted?: string | null;
+              };
+              meta: {
+                /** @enum {string} */
+                resourceType: 'User';
+                created: string;
+                lastModified: string;
+              };
+            };
+          };
         };
       };
     };
     put?: never;
     post?: never;
     /**
-     * Delete /scim/v2/Users/:id
-     * @description DELETE /scim/v2/Users/:id
+     * SCIM: delete user
+     * @description Enterprise-only. Removes the membership for the target user in the caller's org. The underlying user row is retained.
      */
     delete: {
       parameters: {
@@ -2547,8 +3772,8 @@ export interface paths {
     options?: never;
     head?: never;
     /**
-     * Update /scim/v2/Users/:id
-     * @description PATCH /scim/v2/Users/:id
+     * SCIM: patch user
+     * @description Enterprise-only. Applies a SCIM PatchOp. Setting `active: false` removes the membership; other operations are accepted as no-ops so IdPs do not retry.
      */
     patch: {
       parameters: {
@@ -2559,14 +3784,45 @@ export interface paths {
         };
         cookie?: never;
       };
-      requestBody?: never;
+      requestBody: {
+        content: {
+          'application/json': {
+            schemas?: string[];
+            Operations: {
+              op: string;
+              path?: string;
+              value?: unknown;
+            }[];
+          };
+        };
+      };
       responses: {
         /** @description Default Response */
         200: {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              schemas: string[];
+              id: string;
+              userName: string;
+              active: boolean;
+              emails: {
+                value: string;
+                primary: boolean;
+              }[];
+              name?: {
+                formatted?: string | null;
+              };
+              meta: {
+                /** @enum {string} */
+                resourceType: 'User';
+                created: string;
+                lastModified: string;
+              };
+            };
+          };
         };
       };
     };
@@ -2580,8 +3836,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List /scim/v2/Groups
-     * @description GET /scim/v2/Groups
+     * SCIM: list groups (by role)
+     * @description Enterprise-only. Returns one SCIM Group per membership role in the caller's org (`owner`/`admin`/`member`) with members listed.
      */
     get: {
       parameters: {
@@ -2597,7 +3853,27 @@ export interface paths {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              schemas: string[];
+              totalResults: number;
+              startIndex: number;
+              itemsPerPage: number;
+              Resources: {
+                schemas: string[];
+                id: string;
+                displayName: string;
+                members: {
+                  value: string;
+                  display: string;
+                }[];
+                meta: {
+                  /** @enum {string} */
+                  resourceType: 'Group';
+                };
+              }[];
+            };
+          };
         };
       };
     };
@@ -2617,8 +3893,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List /v1/chaos-presets
-     * @description GET /v1/chaos-presets
+     * List chaos presets
+     * @description Return every chaos preset visible to the caller's org, sorted by name.
      */
     get: {
       parameters: {
@@ -2634,14 +3910,61 @@ export interface paths {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            /**
+             * @example {
+             *       "data": [
+             *         {
+             *           "id": "chaos_01HXK5H7Q9C0R3Q1S8V6M4WJZK",
+             *           "orgId": "org_01HXK5H7Q9C0R3Q1S8V6M4WJZK",
+             *           "name": "flaky-checkout",
+             *           "description": "10% 500s and 200ms latency on POST /orders",
+             *           "rules": [
+             *             {
+             *               "kind": "error",
+             *               "match": {
+             *                 "method": "POST",
+             *                 "path": "/orders"
+             *               },
+             *               "probability": 0.1,
+             *               "status": 500
+             *             },
+             *             {
+             *               "kind": "latency",
+             *               "match": {
+             *                 "path": "/orders"
+             *               },
+             *               "floorMs": 200,
+             *               "jitterMs": 50
+             *             }
+             *           ],
+             *           "builtIn": false,
+             *           "createdAt": "2025-11-14T18:22:41.000Z"
+             *         }
+             *       ]
+             *     }
+             */
+            'application/json': {
+              data: ({
+                id: string;
+                orgId: string;
+                name: string;
+                description?: string | null;
+                rules: unknown[];
+                builtIn?: boolean;
+                createdAt?: string;
+              } & {
+                [key: string]: unknown;
+              })[];
+            };
+          };
         };
       };
     };
     put?: never;
     /**
-     * Create /v1/chaos-presets
-     * @description POST /v1/chaos-presets
+     * Create a chaos preset
+     * @description Register a named chaos preset scoped to the caller's org. Names are unique per org; duplicates return 409.
      */
     post: {
       parameters: {
@@ -2650,14 +3973,46 @@ export interface paths {
         path?: never;
         cookie?: never;
       };
-      requestBody?: never;
+      requestBody: {
+        content: {
+          'application/json': {
+            name: string;
+            description?: string;
+            rules: {
+              /** @enum {string} */
+              kind: 'error' | 'latency';
+              match?: {
+                method?: string;
+                path?: string;
+              };
+              probability?: number;
+              status?: number;
+              body?: unknown;
+              floorMs?: number;
+              jitterMs?: number;
+            }[];
+          };
+        };
+      };
       responses: {
         /** @description Default Response */
-        200: {
+        201: {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              id: string;
+              orgId: string;
+              name: string;
+              description?: string | null;
+              rules: unknown[];
+              builtIn?: boolean;
+              createdAt?: string;
+            } & {
+              [key: string]: unknown;
+            };
+          };
         };
       };
     };
@@ -2678,8 +4033,8 @@ export interface paths {
     put?: never;
     post?: never;
     /**
-     * Delete /v1/chaos-presets/:id
-     * @description DELETE /v1/chaos-presets/:id
+     * Delete a chaos preset
+     * @description Delete a chaos preset owned by the caller's org. Built-in presets and cross-org ids return 404.
      */
     delete: {
       parameters: {
@@ -2716,8 +4071,8 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Create /v1/projects/:id/contract-check
-     * @description POST /v1/projects/:id/contract-check
+     * Run contract checks against a live URL
+     * @description Send each sample request in the body to the target URL and report status, latency, and (optionally) schema mismatches. Optional wsChecks open a WebSocket, send a first message, and validate incoming frames against a schema. Counts as one contract_check usage event per sample or ws-check.
      */
     post: {
       parameters: {
@@ -2728,14 +4083,161 @@ export interface paths {
         };
         cookie?: never;
       };
-      requestBody?: never;
+      requestBody: {
+        content: {
+          /**
+           * @example {
+           *       "url": "https://staging.api.acme.example",
+           *       "timeoutMs": 5000,
+           *       "sampleRequests": [
+           *         {
+           *           "method": "GET",
+           *           "path": "/health"
+           *         },
+           *         {
+           *           "method": "POST",
+           *           "path": "/orders",
+           *           "body": {
+           *             "sku": "sku_widget",
+           *             "qty": 1
+           *           },
+           *           "expectedSchema": {
+           *             "type": "object",
+           *             "required": [
+           *               "id",
+           *               "status"
+           *             ],
+           *             "properties": {
+           *               "id": {
+           *                 "type": "string"
+           *               },
+           *               "status": {
+           *                 "type": "string",
+           *                 "enum": [
+           *                   "pending",
+           *                   "confirmed"
+           *                 ]
+           *               }
+           *             }
+           *           }
+           *         }
+           *       ],
+           *       "wsChecks": [
+           *         {
+           *           "url": "wss://staging.api.acme.example/ws",
+           *           "sendMessage": {
+           *             "type": "subscribe",
+           *             "channel": "orders"
+           *           },
+           *           "expectFrames": 1,
+           *           "expectSchema": {
+           *             "type": "object",
+           *             "required": [
+           *               "type"
+           *             ],
+           *             "properties": {
+           *               "type": {
+           *                 "type": "string"
+           *               }
+           *             }
+           *           },
+           *           "timeoutMs": 3000
+           *         }
+           *       ]
+           *     }
+           */
+          'application/json': {
+            /** Format: uri */
+            url: string;
+            /** @default 5000 */
+            timeoutMs?: number;
+            /**
+             * @default [
+             *       {
+             *         "method": "GET",
+             *         "path": "/"
+             *       }
+             *     ]
+             */
+            sampleRequests?: {
+              /**
+               * @default GET
+               * @enum {string}
+               */
+              method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD';
+              path: string;
+              body?: unknown;
+              headers?: {
+                [key: string]: string;
+              };
+              expectedSchema?: unknown;
+            }[];
+            wsChecks?: {
+              /** Format: uri */
+              url: string;
+              protocols?: string[];
+              sendMessage?:
+                | string
+                | {
+                    [key: string]: unknown;
+                  };
+              expectFrames: number;
+              expectSchema?: unknown;
+              /** @default 5000 */
+              timeoutMs?: number;
+            }[];
+          };
+        };
+      };
       responses: {
         /** @description Default Response */
         200: {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              projectId: string;
+              target: string;
+              summary: {
+                total: number;
+                passed: number;
+                failed: number;
+              };
+              results: {
+                method: string;
+                path: string;
+                status: number | null;
+                durationMs: number;
+                ok: boolean;
+                error?: string;
+                mismatches?: {
+                  path: string;
+                  expected: string;
+                  got: string;
+                }[];
+              }[];
+              ws?: {
+                url: string;
+                ok: boolean;
+                framesReceived: number;
+                framesExpected: number;
+                durationMs: number;
+                error?: string;
+                frames: {
+                  index: number;
+                  ok: boolean;
+                  raw: string;
+                  parsed?: unknown;
+                  mismatches?: {
+                    path: string;
+                    expected: string;
+                    got: string;
+                  }[];
+                }[];
+              }[];
+            };
+          };
         };
       };
     };
@@ -2753,12 +4255,14 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List /v1/assertions
-     * @description GET /v1/assertions
+     * List assertion rules
+     * @description Return every assertion rule, optionally scoped by `projectId`.
      */
     get: {
       parameters: {
-        query?: never;
+        query?: {
+          projectId?: string;
+        };
         header?: never;
         path?: never;
         cookie?: never;
@@ -2770,14 +4274,32 @@ export interface paths {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              data: ({
+                id: string;
+                projectId: string;
+                name: string;
+                endpoint?: string | null;
+                /** @enum {string} */
+                kind: 'latency' | 'field' | 'status';
+                config: {
+                  [key: string]: unknown;
+                };
+                enabled: boolean;
+                createdAt?: string;
+              } & {
+                [key: string]: unknown;
+              })[];
+            };
+          };
         };
       };
     };
     put?: never;
     /**
-     * Create /v1/assertions
-     * @description POST /v1/assertions
+     * Create an assertion rule
+     * @description Create a declarative response assertion targeting `projectId`. Caller must have write access to the project.
      */
     post: {
       parameters: {
@@ -2814,8 +4336,8 @@ export interface paths {
     put?: never;
     post?: never;
     /**
-     * Delete /v1/assertions/:id
-     * @description DELETE /v1/assertions/:id
+     * Delete an assertion rule
+     * @description Delete an assertion by id. 404 if the id is unknown.
      */
     delete: {
       parameters: {
@@ -2840,8 +4362,8 @@ export interface paths {
     options?: never;
     head?: never;
     /**
-     * Update /v1/assertions/:id
-     * @description PATCH /v1/assertions/:id
+     * Update an assertion rule
+     * @description Partially update an assertion. Omitted fields are left untouched. Returns the current row when the body is empty.
      */
     patch: {
       parameters: {
@@ -2852,7 +4374,22 @@ export interface paths {
         };
         cookie?: never;
       };
-      requestBody?: never;
+      requestBody: {
+        content: {
+          'application/json': {
+            name?: string;
+            endpoint?: string | null;
+            /** @enum {string} */
+            kind?: 'latency' | 'field' | 'status';
+            /** @default {} */
+            config?: {
+              [key: string]: unknown;
+            };
+            /** @default true */
+            enabled?: boolean;
+          };
+        };
+      };
       responses: {
         /** @description Default Response */
         200: {
@@ -2873,8 +4410,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get /v1/projects/:id/graph
-     * @description GET /v1/projects/:id/graph
+     * Get a project's current behavior graph
+     * @description Rebuild and return the behavior graph derived from the project's most recent IR blob. Shape is stable enough for the dashboard's graph explorer to render directly.
      */
     get: {
       parameters: {
@@ -2892,7 +4429,26 @@ export interface paths {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              projectId: string;
+              irId?: string;
+              nodes: {
+                id: string;
+                name: string;
+                readers: number;
+                writers: number;
+              }[];
+              edges: {
+                from: string;
+                to: string;
+                kind: string;
+              }[];
+              transitions: number;
+              constraints: number;
+              graphKey: string;
+            };
+          };
         };
       };
     };
@@ -2914,8 +4470,8 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Create /v1/cli-auth/start
-     * @description POST /v1/cli-auth/start
+     * Start a CLI device-authorization session
+     * @description Unauthenticated. Mints a short-lived `sessionId` + `verifier` pair. The CLI opens `verificationUrl` in the user's browser and polls the session until it flips to `approved`.
      */
     post: {
       parameters: {
@@ -2927,11 +4483,18 @@ export interface paths {
       requestBody?: never;
       responses: {
         /** @description Default Response */
-        200: {
+        201: {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              sessionId: string;
+              verifier: string;
+              verificationUrl: string;
+              expiresAt: string;
+            };
+          };
         };
       };
     };
@@ -2949,12 +4512,14 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get /v1/cli-auth/:sessionId
-     * @description GET /v1/cli-auth/:sessionId
+     * Poll a CLI auth session
+     * @description Unauthenticated. The CLI polls with its `verifier`; when the session flips to `approved` the minted key is revealed exactly once. Rate-limited per-IP.
      */
     get: {
       parameters: {
-        query?: never;
+        query: {
+          verifier: string;
+        };
         header?: never;
         path: {
           sessionId: string;
@@ -2968,7 +4533,15 @@ export interface paths {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              /** @enum {string} */
+              status: 'pending' | 'approved' | 'denied' | 'expired';
+              key?: string;
+            } & {
+              [key: string]: unknown;
+            };
+          };
         };
       };
     };
@@ -2990,8 +4563,8 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Create /v1/cli-auth/:sessionId/approve
-     * @description POST /v1/cli-auth/:sessionId/approve
+     * Approve a CLI auth session
+     * @description Requires a signed-in Better Auth session. Mints an API key scoped to `orgId` (or the caller's only org) and stashes it for the CLI to fetch on its next poll.
      */
     post: {
       parameters: {
@@ -3002,14 +4575,33 @@ export interface paths {
         };
         cookie?: never;
       };
-      requestBody?: never;
+      requestBody: {
+        content: {
+          'application/json': {
+            orgId?: string;
+          };
+        };
+      };
       responses: {
         /** @description Default Response */
         200: {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              /** @enum {string} */
+              status?: 'approved';
+              orgId?: string;
+              error?: {
+                code: string;
+                message: string;
+                availableOrgs?: unknown[];
+              };
+            } & {
+              [key: string]: unknown;
+            };
+          };
         };
       };
     };
@@ -3029,8 +4621,8 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Create /v1/cli-auth/:sessionId/deny
-     * @description POST /v1/cli-auth/:sessionId/deny
+     * Deny a CLI auth session
+     * @description Requires a signed-in session. Denies a pending session; idempotent for already-terminal sessions.
      */
     post: {
       parameters: {
@@ -3048,7 +4640,11 @@ export interface paths {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              status: string;
+            };
+          };
         };
       };
     };
@@ -3122,12 +4718,15 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get /v1/projects/:id/ai-quality
-     * @description GET /v1/projects/:id/ai-quality
+     * List AI-quality reports for a project
+     * @description Return historical AI-quality reports for a project in descending time order. Supports keyset pagination via `cursor` (ISO 8601 timestamp).
      */
     get: {
       parameters: {
-        query?: never;
+        query?: {
+          limit?: number;
+          cursor?: string;
+        };
         header?: never;
         path: {
           id: string;
@@ -3141,7 +4740,22 @@ export interface paths {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              data: ({
+                id: string;
+                projectId: string;
+                irKey?: string | null;
+                score?: number | null;
+                verdicts?: unknown;
+                createdAt?: string;
+              } & {
+                [key: string]: unknown;
+              })[];
+              nextCursor: string | null;
+              hasMore: boolean;
+            };
+          };
         };
       };
     };
@@ -3161,8 +4775,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get /v1/projects/:id/ai-quality/latest
-     * @description GET /v1/projects/:id/ai-quality/latest
+     * Get the latest AI-quality report for a project
+     * @description Return the most recent AI-quality report row for the given project. 404 if no reports exist yet.
      */
     get: {
       parameters: {
@@ -3180,7 +4794,37 @@ export interface paths {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            /**
+             * @example {
+             *       "id": "aiq_01HXK5N9Q1B7C4D3E2F1G0H9J8",
+             *       "projectId": "prj_01HXK5H7Q9C0R3Q1S8V6M4WJZK",
+             *       "irKey": "projects/checkout-api/ir/01HXK5N9Q1.json",
+             *       "score": 0.87,
+             *       "verdicts": {
+             *         "coverage": {
+             *           "score": 0.92,
+             *           "notes": "All 34 operations covered."
+             *         },
+             *         "consistency": {
+             *           "score": 0.82,
+             *           "notes": "2 response shapes drift between GET and POST."
+             *         }
+             *       },
+             *       "createdAt": "2025-11-14T18:22:41.000Z"
+             *     }
+             */
+            'application/json': {
+              id: string;
+              projectId: string;
+              irKey?: string | null;
+              score?: number | null;
+              verdicts?: unknown;
+              createdAt?: string;
+            } & {
+              [key: string]: unknown;
+            };
+          };
         };
       };
     };
@@ -3200,12 +4844,17 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List /v1/usage
-     * @description GET /v1/usage
+     * Aggregate usage totals for the caller's org
+     * @description Return metered usage totals grouped by kind for a time window. Defaults to the last 30 days; narrow with `since`/`until` (ISO 8601). Admin scope required.
      */
     get: {
       parameters: {
-        query?: never;
+        query?: {
+          kind?: string;
+          since?: string;
+          until?: string;
+          orgId?: string;
+        };
         header?: never;
         path?: never;
         cookie?: never;
@@ -3217,7 +4866,42 @@ export interface paths {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            /**
+             * @example {
+             *       "orgId": "org_01HXK5H7Q9C0R3Q1S8V6M4WJZK",
+             *       "since": "2025-10-15T18:22:41.000Z",
+             *       "until": "2025-11-14T18:22:41.000Z",
+             *       "totals": [
+             *         {
+             *           "kind": "ingest",
+             *           "total": 128
+             *         },
+             *         {
+             *           "kind": "emulator_request",
+             *           "total": 44210
+             *         },
+             *         {
+             *           "kind": "snapshot_saved",
+             *           "total": 17
+             *         },
+             *         {
+             *           "kind": "contract_check",
+             *           "total": 6
+             *         }
+             *       ]
+             *     }
+             */
+            'application/json': {
+              orgId: string;
+              since: string;
+              until: string;
+              totals: {
+                kind: string;
+                total: number;
+              }[];
+            };
+          };
         };
       };
     };
@@ -3237,8 +4921,85 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List /v1/usage/events
-     * @description GET /v1/usage/events
+     * List raw usage events
+     * @description Return raw usage events for the caller's org in descending time order. Keyset pagination via `cursor` (ISO 8601). Optionally filter by `kind`.
+     */
+    get: {
+      parameters: {
+        query?: {
+          limit?: number;
+          cursor?: string;
+          kind?: string;
+          orgId?: string;
+        };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            /**
+             * @example {
+             *       "data": [
+             *         {
+             *           "id": "ue_01HXK5N9Q1B7C4D3E2F1G0H9J8",
+             *           "orgId": "org_01HXK5H7Q9C0R3Q1S8V6M4WJZK",
+             *           "kind": "emulator_request",
+             *           "amount": 1,
+             *           "metadata": {
+             *             "projectSlug": "checkout-api",
+             *             "method": "POST",
+             *             "path": "/orders"
+             *           },
+             *           "occurredAt": "2025-11-14T18:20:12.400Z"
+             *         }
+             *       ],
+             *       "nextCursor": null,
+             *       "hasMore": false
+             *     }
+             */
+            'application/json': {
+              data: ({
+                id: string;
+                orgId: string;
+                kind: string;
+                amount: number;
+                metadata?: unknown;
+                occurredAt?: string;
+              } & {
+                [key: string]: unknown;
+              })[];
+              nextCursor: string | null;
+              hasMore: boolean;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/quota': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Per-org plan limits and current usage
+     * @description Return the caller org's plan tier, per-plan ceilings, and current usage counters. Powers the dashboard Settings page's "Usage & limits" card. `null` limits mean unlimited.
      */
     get: {
       parameters: {
@@ -3254,7 +5015,39 @@ export interface paths {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            /**
+             * @example {
+             *       "orgId": "org_01HXK5H7Q9C0R3Q1S8V6M4WJZK",
+             *       "plan": "developer",
+             *       "limits": {
+             *         "emulatorsMax": 1,
+             *         "requestsPerMinute": 60,
+             *         "aiIngestsPerMonth": 10
+             *       },
+             *       "current": {
+             *         "emulators": 0,
+             *         "requestsLast1m": null,
+             *         "aiIngestsThisMonth": 3
+             *       }
+             *     }
+             */
+            'application/json': {
+              orgId: string;
+              /** @enum {string} */
+              plan: 'developer' | 'team' | 'enterprise';
+              limits: {
+                emulatorsMax: number | null;
+                requestsPerMinute: number | null;
+                aiIngestsPerMonth: number | null;
+              };
+              current: {
+                emulators: number;
+                requestsLast1m: number | null;
+                aiIngestsThisMonth: number;
+              };
+            };
+          };
         };
       };
     };
@@ -3274,8 +5067,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List /v1/sso/providers
-     * @description GET /v1/sso/providers
+     * List SSO providers
+     * @description Return every SAML/OIDC provider configured for the caller's org. Client secrets are stripped from the response.
      */
     get: {
       parameters: {
@@ -3291,14 +5084,28 @@ export interface paths {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              data: {
+                id: string;
+                /** @enum {string} */
+                type: 'saml' | 'oidc';
+                name: string;
+                emailDomain?: string;
+                config: {
+                  [key: string]: unknown;
+                };
+                createdAt: string;
+              }[];
+            };
+          };
         };
       };
     };
     put?: never;
     /**
-     * Create /v1/sso/providers
-     * @description POST /v1/sso/providers
+     * Configure an SSO provider
+     * @description Add a SAML or OIDC provider to the org. Enterprise-only — non-enterprise orgs get 403. OIDC client secrets are stored but never returned.
      */
     post: {
       parameters: {
@@ -3307,14 +5114,50 @@ export interface paths {
         path?: never;
         cookie?: never;
       };
-      requestBody?: never;
+      requestBody: {
+        content: {
+          'application/json':
+            | {
+                /** @enum {string} */
+                type: 'saml';
+                name: string;
+                entityId: string;
+                /** Format: uri */
+                ssoUrl: string;
+                certificate: string;
+                emailDomain?: string;
+              }
+            | {
+                /** @enum {string} */
+                type: 'oidc';
+                name: string;
+                /** Format: uri */
+                issuer: string;
+                clientId: string;
+                clientSecret: string;
+                emailDomain?: string;
+              };
+        };
+      };
       responses: {
         /** @description Default Response */
-        200: {
+        201: {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            'application/json': {
+              id: string;
+              /** @enum {string} */
+              type: 'saml' | 'oidc';
+              name: string;
+              emailDomain?: string;
+              config: {
+                [key: string]: unknown;
+              };
+              createdAt: string;
+            };
+          };
         };
       };
     };
@@ -3335,8 +5178,8 @@ export interface paths {
     put?: never;
     post?: never;
     /**
-     * Delete /v1/sso/providers/:id
-     * @description DELETE /v1/sso/providers/:id
+     * Remove an SSO provider
+     * @description Delete the provider by id from the org. 404 if the id is not configured.
      */
     delete: {
       parameters: {
@@ -3373,10 +5216,156 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Create /v1/export
-     * @description POST /v1/export
+     * Export org data
+     * @description Admin-only compliance export. Emits a bundle across the requested include categories (`events`, `projects`, `snapshots`, `api_keys`, `members`, `ai_quality`, `usage`, `audit`). Returns JSON by default; pass `format: "zip"` for a downloadable archive (binary content-type `application/zip`; not covered by the response schema).
      */
     post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          /**
+           * @example {
+           *       "include": [
+           *         "projects",
+           *         "events",
+           *         "members",
+           *         "usage"
+           *       ],
+           *       "since": "2025-10-01T00:00:00.000Z",
+           *       "until": "2025-11-01T00:00:00.000Z",
+           *       "format": "zip"
+           *     }
+           */
+          'application/json': {
+            include?: (
+              | 'events'
+              | 'projects'
+              | 'snapshots'
+              | 'api_keys'
+              | 'members'
+              | 'ai_quality'
+              | 'usage'
+              | 'audit'
+            )[];
+            /** Format: date-time */
+            since?: string;
+            /** Format: date-time */
+            until?: string;
+            /**
+             * @default json
+             * @enum {string}
+             */
+            format?: 'json' | 'zip';
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content?: never;
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/search': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Full-text search across org history
+     * @description Search events, projects, and artifacts belonging to the caller's org. Uses Postgres `plainto_tsquery('simple', q)` against generated `search_tsv` columns. `scope` narrows the search; the default `all` merges results across every kind sorted by ts_rank score, descending.
+     */
+    get: {
+      parameters: {
+        query: {
+          q: string;
+          scope?: 'events' | 'projects' | 'artifacts' | 'all';
+          limit?: number;
+          cursor?: string;
+          orgId?: string;
+        };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            /**
+             * @example {
+             *       "results": [
+             *         {
+             *           "kind": "project",
+             *           "id": "prj_01HXK5H7Q9C0R3Q1S8V6M4WJZK",
+             *           "snippet": "checkout-api — Checkout API",
+             *           "score": 0.62,
+             *           "createdAt": "2025-11-14T18:22:41.000Z"
+             *         },
+             *         {
+             *           "kind": "event",
+             *           "id": "evt_01HXK5N9Q1B7C4D3E2F1G0H9J8",
+             *           "snippet": "project.created by usr_01HXK5H7Q9C0R3Q1S8V6M4WJZK",
+             *           "score": 0.41,
+             *           "createdAt": "2025-11-14T18:22:41.000Z"
+             *         }
+             *       ]
+             *     }
+             */
+            'application/json': {
+              results: {
+                /** @enum {string} */
+                kind: 'event' | 'project' | 'artifact';
+                id: string;
+                snippet: string;
+                score: number;
+                createdAt: string;
+              }[];
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/feature-flags': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List feature flags
+     * @description Return every flag definition plus the overrides that apply to the caller (org, user, plan). The `effective` field is pre-computed against the caller's scope so a UI row is one fetch.
+     */
+    get: {
       parameters: {
         query?: never;
         header?: never;
@@ -3390,7 +5379,281 @@ export interface paths {
           headers: {
             [name: string]: unknown;
           };
-          content?: never;
+          content: {
+            /**
+             * @example {
+             *       "data": [
+             *         {
+             *           "key": "ai_quality_judge",
+             *           "description": "Run the LLM judge on every ingest to produce an AI-quality score.",
+             *           "defaultValue": false,
+             *           "effective": true,
+             *           "overrides": [
+             *             {
+             *               "scope": "org",
+             *               "scopeId": "org_01HXK5H7Q9C0R3Q1S8V6M4WJZK",
+             *               "value": true
+             *             }
+             *           ]
+             *         },
+             *         {
+             *           "key": "sse_events_stream",
+             *           "description": "Enable /v1/events/stream Server-Sent Events endpoint.",
+             *           "defaultValue": true,
+             *           "effective": true,
+             *           "overrides": []
+             *         }
+             *       ]
+             *     }
+             */
+            'application/json': {
+              data: {
+                key: string;
+                description: string | null;
+                defaultValue: boolean;
+                effective: boolean;
+                overrides: {
+                  /** @enum {string} */
+                  scope: 'org' | 'user' | 'plan';
+                  scopeId: string;
+                  value: boolean;
+                }[];
+              }[];
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/feature-flags/{key}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Set a feature flag override
+     * @description Admin-only. Upsert an override for the given flag key at the specified scope (`org`, `user`, or `plan`). `scopeId` is the org id, user id, or plan tier respectively.
+     */
+    patch: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          key: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            /** @enum {string} */
+            scope: 'org' | 'user' | 'plan';
+            scopeId: string;
+            value: boolean;
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              /** @enum {string} */
+              scope: 'org' | 'user' | 'plan';
+              scopeId: string;
+              value: boolean;
+            };
+          };
+        };
+      };
+    };
+    trace?: never;
+  };
+  '/v1/leads': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Submit an Enterprise / sales lead
+     * @description Unauthenticated. Backs the marketing site's /contact form. Rate-limited per IP (5/hour).
+     */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            name: string;
+            /** Format: email */
+            email: string;
+            company: string;
+            seats?: number;
+            useCase?: string;
+            source?: string;
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        201: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              id: string;
+              createdAt: string;
+            };
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/samples': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List curated samples
+     * @description Return every sample that can be instantiated into a fresh project via `POST /v1/samples/instantiate`. Content is static per deploy.
+     */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              data: {
+                id: string;
+                name: string;
+                description: string;
+                tag: string;
+                annotations: {
+                  highlight: string;
+                  tryThis: string[];
+                };
+              }[];
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/samples/instantiate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Instantiate a curated sample into a fresh project
+     * @description Admin-scope one-click: create a new project, ingest the bundled OpenAPI spec for the named sample, and return the fresh project slug plus the ingest summary. Slug shape is `<slugPrefix|sample-{id}>-<random>`. Unknown `sampleId` → 404.
+     */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            sampleId: string;
+            slugPrefix?: string;
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        201: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              projectSlug: string;
+              projectId: string;
+              orgId: string;
+              sample: {
+                id: string;
+                name: string;
+                description: string;
+                tag: string;
+                annotations: {
+                  highlight: string;
+                  tryThis: string[];
+                };
+              };
+              sampleAnnotations: {
+                highlight: string;
+                tryThis: string[];
+              };
+              ingestResult: {
+                irId: string;
+                graphId: string;
+                endpoints: number;
+                resources: number;
+              } & {
+                [key: string]: unknown;
+              };
+            };
+          };
         };
       };
     };

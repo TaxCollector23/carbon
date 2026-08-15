@@ -10,6 +10,9 @@ test('drift page renders the config card and history for a project', async ({ pa
   });
   await ctx.dispose();
 
+  await page.addInitScript((selectedSlug) => {
+    window.localStorage.setItem('carbon.selectedProjectSlug', selectedSlug);
+  }, slug);
   await page.goto('/drift');
 
   const picker = page.locator('label:has-text("Project") select');

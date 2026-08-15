@@ -22,7 +22,7 @@ export default async function globalTeardown(): Promise<void> {
   const port = process.env.CARBON_E2E_PG_PORT || '5432';
 
   try {
-    execFileSync('dropdb', ['-h', host, '-p', port, '-U', user, '--if-exists', db], {
+    execFileSync('dropdb', ['--force', '-h', host, '-p', port, '-U', user, '--if-exists', db], {
       stdio: 'inherit',
     });
   } catch (err) {

@@ -87,7 +87,7 @@ export default function ActivitySection() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" data-testid="activity-timeline">
       <div className="text-muted-foreground text-xs">
         {stream.unsupported
           ? 'Polling every 5s (live stream unavailable).'

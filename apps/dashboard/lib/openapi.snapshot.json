@@ -131,6 +131,30 @@
                       },
                       "required": ["billing", "sso", "scim"],
                       "additionalProperties": false
+                    },
+                    "capabilities": {
+                      "type": "object",
+                      "properties": {
+                        "asyncJobs": { "type": "boolean" },
+                        "redis": { "type": "boolean" },
+                        "specFormats": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "openapi",
+                              "postman",
+                              "har",
+                              "graphql",
+                              "asyncapi",
+                              "protobuf",
+                              "grpc"
+                            ]
+                          }
+                        }
+                      },
+                      "required": ["asyncJobs", "redis", "specFormats"],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -142,7 +166,8 @@
                     "gitSha",
                     "buildTime",
                     "plans",
-                    "features"
+                    "features",
+                    "capabilities"
                   ],
                   "additionalProperties": false
                 },
@@ -155,7 +180,20 @@
                   "gitSha": "abcdef1234567890abcdef1234567890abcdef12",
                   "buildTime": "2026-01-14T18:00:00.000Z",
                   "plans": ["developer", "team", "enterprise"],
-                  "features": { "billing": true, "sso": true, "scim": true }
+                  "features": { "billing": true, "sso": true, "scim": true },
+                  "capabilities": {
+                    "asyncJobs": true,
+                    "redis": true,
+                    "specFormats": [
+                      "openapi",
+                      "postman",
+                      "har",
+                      "graphql",
+                      "asyncapi",
+                      "protobuf",
+                      "grpc"
+                    ]
+                  }
                 }
               }
             }
@@ -1942,6 +1980,188 @@
                   },
                   "required": ["data"],
                   "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{id}/drift": {
+      "get": {
+        "summary": "List drift-check history for a project",
+        "tags": ["Projects"],
+        "description": "Return drift checks recorded for the project in descending time order. Rows are paginated by keyset on `createdAt`.",
+        "parameters": [
+          {
+            "schema": { "type": "integer", "minimum": 1, "maximum": 200, "default": 50 },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": { "type": "string", "format": "date-time" },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          { "schema": { "type": "string" }, "in": "path", "name": "id", "required": true }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "projectId": { "type": "string" },
+                          "status": {
+                            "type": "string",
+                            "enum": ["pending", "running", "ok", "drift", "error"]
+                          }
+                        },
+                        "required": ["id", "projectId", "status"],
+                        "additionalProperties": true
+                      }
+                    },
+                    "nextCursor": { "type": "string", "nullable": true },
+                    "hasMore": { "type": "boolean" }
+                  },
+                  "required": ["data", "nextCursor", "hasMore"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{id}/drift/config": {
+      "get": {
+        "summary": "Get drift-check config",
+        "tags": ["Projects"],
+        "description": "Return the drift config (upstream URL, cadence, enabled flag) stored on the project's latest recording artifact. Returns an all-null config when no recording exists yet.",
+        "parameters": [
+          { "schema": { "type": "string" }, "in": "path", "name": "id", "required": true }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "upstreamUrl": { "type": "string", "nullable": true },
+                    "intervalMinutes": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1440,
+                      "nullable": true
+                    },
+                    "enabled": { "type": "boolean" },
+                    "configuredAt": { "type": "string", "nullable": true }
+                  },
+                  "required": ["upstreamUrl", "intervalMinutes", "enabled", "configuredAt"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update drift-check config",
+        "tags": ["Projects"],
+        "description": "Merge fields into the project's drift config. Persists onto the latest recording artifact's `meta`. Returns 404 when the project has no recording to attach config to.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "upstreamUrl": {
+                    "type": "string",
+                    "format": "uri",
+                    "maxLength": 2048,
+                    "nullable": true
+                  },
+                  "intervalMinutes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1440,
+                    "nullable": true
+                  },
+                  "enabled": { "type": "boolean" }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          { "schema": { "type": "string" }, "in": "path", "name": "id", "required": true }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "upstreamUrl": { "type": "string", "nullable": true },
+                    "intervalMinutes": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1440,
+                      "nullable": true
+                    },
+                    "enabled": { "type": "boolean" },
+                    "configuredAt": { "type": "string", "nullable": true }
+                  },
+                  "required": ["upstreamUrl", "intervalMinutes", "enabled", "configuredAt"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{id}/drift/run": {
+      "post": {
+        "summary": "Enqueue a one-off drift check",
+        "tags": ["Projects"],
+        "description": "Insert a `pending` row into `drift_checks` for the drift worker to pick up on its next tick. When the worker is not running the row simply stays pending — it is not lost.",
+        "parameters": [
+          { "schema": { "type": "string" }, "in": "path", "name": "id", "required": true }
+        ],
+        "responses": {
+          "202": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "projectId": { "type": "string" },
+                    "status": {
+                      "type": "string",
+                      "enum": ["pending", "running", "ok", "drift", "error"]
+                    }
+                  },
+                  "required": ["id", "projectId", "status"],
+                  "additionalProperties": true
                 }
               }
             }

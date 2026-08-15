@@ -214,7 +214,7 @@ export async function registerApiKeyRoutes(app: FastifyInstance, ctx: AppContext
         },
       });
       reply.status(201);
-      return key;
+      return { ...key, secret: key.presented };
     },
   );
 

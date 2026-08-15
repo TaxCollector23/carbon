@@ -27,7 +27,24 @@ const VersionResponse = z.object({
     sso: z.boolean(),
     scim: z.boolean(),
   }),
+  capabilities: z.object({
+    asyncJobs: z.boolean(),
+    redis: z.boolean(),
+    specFormats: z.array(
+      z.enum(['openapi', 'postman', 'har', 'graphql', 'asyncapi', 'protobuf', 'grpc']),
+    ),
+  }),
 });
+
+const SUPPORTED_SPEC_FORMATS = [
+  'openapi',
+  'postman',
+  'har',
+  'graphql',
+  'asyncapi',
+  'protobuf',
+  'grpc',
+] as const;
 
 /**
  * `/health` is a lightweight liveness probe — the process is up.
@@ -147,6 +164,11 @@ export async function registerHealthRoutes(
             buildTime: '2026-01-14T18:00:00.000Z',
             plans: ['developer', 'team', 'enterprise'],
             features: { billing: true, sso: true, scim: true },
+            capabilities: {
+              asyncJobs: true,
+              redis: true,
+              specFormats: ['openapi', 'postman', 'har', 'graphql', 'asyncapi', 'protobuf', 'grpc'],
+            },
           }),
         },
       },
@@ -173,6 +195,11 @@ export async function registerHealthRoutes(
         billing: Boolean(process.env.STRIPE_SECRET_KEY),
         sso: Boolean(process.env.BETTER_AUTH_SSO),
         scim: true,
+      },
+      capabilities: {
+        asyncJobs: Boolean(ctx.ingestionQueue || ctx.jobs),
+        redis: Boolean(ctx.redis),
+        specFormats: SUPPORTED_SPEC_FORMATS,
       },
     }),
   );

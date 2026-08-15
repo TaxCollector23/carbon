@@ -12,6 +12,7 @@ import {
   type CarbonConfig,
   type Credentials,
 } from '../lib/credentials.js';
+import { getPrinter, isJson } from '../lib/printer.js';
 import { ui } from '../ui.js';
 
 type Status = 'ok' | 'warn' | 'fail';
@@ -64,7 +65,8 @@ export const doctorCommand = defineCommand({
       checks.push(await checkApiReachability(apiUrl));
     }
 
-    printTable(checks);
+    if (isJson()) printJson(checks);
+    else printTable(checks);
     const failed = checks.filter((c) => c.status === 'fail').length;
     if (failed > 0) process.exitCode = 1;
   },
@@ -285,4 +287,19 @@ function printTable(checks: readonly Check[]): void {
     process.stdout.write(`  ${badge}  ${name}  ${pc.dim(c.detail)}\n`);
   }
   process.stdout.write('\n');
+}
+
+function printJson(checks: readonly Check[]): void {
+  const failed = checks.filter((c) => c.status === 'fail').length;
+  const warnings = checks.filter((c) => c.status === 'warn').length;
+  getPrinter().emit({
+    event: 'doctor.result',
+    level: failed > 0 ? 'error' : warnings > 0 ? 'warn' : 'success',
+    data: {
+      ok: failed === 0,
+      failed,
+      warnings,
+      checks,
+    },
+  });
 }

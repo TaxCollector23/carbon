@@ -17,7 +17,10 @@ test('create an API key and see the one-time secret', async ({ page }) => {
     .locator('input')
     .fill('org_test');
 
-  await page.getByRole('button', { name: /^create key$/i }).click();
+  await page
+    .getByRole('dialog', { name: /new api key/i })
+    .getByRole('button', { name: /^create key$/i })
+    .click();
 
   // The one-time-secret modal appears with the raw key.
   await expect(page.getByRole('heading', { name: /copy your key now/i })).toBeVisible({

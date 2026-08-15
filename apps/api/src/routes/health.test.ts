@@ -244,6 +244,11 @@ describe('health routes', () => {
       expect(body.buildTime).toBe('2026-01-01T00:00:00Z');
       expect(body.plans).toEqual(['developer', 'team', 'enterprise']);
       expect(body.features).toEqual({ billing: false, sso: false, scim: true });
+      expect(body.capabilities).toEqual({
+        asyncJobs: false,
+        redis: false,
+        specFormats: ['openapi', 'postman', 'har', 'graphql', 'asyncapi', 'protobuf', 'grpc'],
+      });
     } finally {
       restoreEnv('CARBON_GIT_SHA', prev.sha);
       restoreEnv('CARBON_BUILD_TIME', prev.buildTime);
@@ -264,6 +269,24 @@ describe('health routes', () => {
     } finally {
       restoreEnv('STRIPE_SECRET_KEY', prev);
     }
+  });
+
+  it('/v1/version reports async job and redis capabilities when configured', async () => {
+    const app = Fastify();
+    const { db } = countingDb();
+    const ctx = {
+      ...makeCtx(db),
+      redis: { ping: async () => 'PONG' },
+      ingestionQueue: { getJobCounts: async () => ({ waiting: 0, active: 0 }) },
+    } as unknown as AppContext;
+    await registerHealthRoutes(app, ctx);
+
+    const body = (await app.inject('/v1/version')).json();
+    expect(body.capabilities.asyncJobs).toBe(true);
+    expect(body.capabilities.redis).toBe(true);
+    expect(body.capabilities.specFormats).toContain('asyncapi');
+    expect(body.capabilities.specFormats).toContain('protobuf');
+    expect(body.capabilities.specFormats).toContain('grpc');
   });
 });
 

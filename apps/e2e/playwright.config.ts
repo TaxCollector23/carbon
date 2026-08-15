@@ -63,6 +63,15 @@ export default defineConfig({
   globalTeardown: path.join(here, 'scripts', 'global-teardown.ts'),
   use: {
     baseURL: DASHBOARD_URL,
+    storageState: {
+      cookies: [],
+      origins: [
+        {
+          origin: DASHBOARD_URL,
+          localStorage: [{ name: 'carbon.orgId', value: 'org_test' }],
+        },
+      ],
+    },
     trace: 'retain-on-failure',
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',

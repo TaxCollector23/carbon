@@ -24,8 +24,14 @@ describe.skipIf(!shouldRunIntegration())('api-keys (integration)', () => {
       payload: { name: 'ephemeral', scopes: ['read'] },
     });
     expect(create.statusCode).toBe(201);
-    const minted = create.json() as { id: string; presented: string; prefix: string };
+    const minted = create.json() as {
+      id: string;
+      presented: string;
+      secret: string;
+      prefix: string;
+    };
     expect(minted.presented).toMatch(/^ck_live_/);
+    expect(minted.secret).toBe(minted.presented);
 
     const list = await h.app.inject({
       method: 'GET',

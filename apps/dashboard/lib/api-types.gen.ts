@@ -204,6 +204,19 @@ export interface paths {
              *         "billing": true,
              *         "sso": true,
              *         "scim": true
+             *       },
+             *       "capabilities": {
+             *         "asyncJobs": true,
+             *         "redis": true,
+             *         "specFormats": [
+             *           "openapi",
+             *           "postman",
+             *           "har",
+             *           "graphql",
+             *           "asyncapi",
+             *           "protobuf",
+             *           "grpc"
+             *         ]
              *       }
              *     }
              */
@@ -221,6 +234,13 @@ export interface paths {
                 billing: boolean;
                 sso: boolean;
                 scim: boolean;
+              };
+              capabilities: {
+                asyncJobs: boolean;
+                redis: boolean;
+                specFormats: (
+                  'openapi' | 'postman' | 'har' | 'graphql' | 'asyncapi' | 'protobuf' | 'grpc'
+                )[];
               };
             };
           };
@@ -2352,6 +2372,194 @@ export interface paths {
     };
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/projects/{id}/drift': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List drift-check history for a project
+     * @description Return drift checks recorded for the project in descending time order. Rows are paginated by keyset on `createdAt`.
+     */
+    get: {
+      parameters: {
+        query?: {
+          limit?: number;
+          cursor?: string;
+        };
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              data: ({
+                id: string;
+                projectId: string;
+                /** @enum {string} */
+                status: 'pending' | 'running' | 'ok' | 'drift' | 'error';
+              } & {
+                [key: string]: unknown;
+              })[];
+              nextCursor: string | null;
+              hasMore: boolean;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/projects/{id}/drift/config': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get drift-check config
+     * @description Return the drift config (upstream URL, cadence, enabled flag) stored on the project's latest recording artifact. Returns an all-null config when no recording exists yet.
+     */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              upstreamUrl: string | null;
+              intervalMinutes: number | null;
+              enabled: boolean;
+              configuredAt: string | null;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update drift-check config
+     * @description Merge fields into the project's drift config. Persists onto the latest recording artifact's `meta`. Returns 404 when the project has no recording to attach config to.
+     */
+    patch: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            /** Format: uri */
+            upstreamUrl?: string | null;
+            intervalMinutes?: number | null;
+            enabled?: boolean;
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              upstreamUrl: string | null;
+              intervalMinutes: number | null;
+              enabled: boolean;
+              configuredAt: string | null;
+            };
+          };
+        };
+      };
+    };
+    trace?: never;
+  };
+  '/v1/projects/{id}/drift/run': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Enqueue a one-off drift check
+     * @description Insert a `pending` row into `drift_checks` for the drift worker to pick up on its next tick. When the worker is not running the row simply stays pending — it is not lost.
+     */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        202: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              id: string;
+              projectId: string;
+              /** @enum {string} */
+              status: 'pending' | 'running' | 'ok' | 'drift' | 'error';
+            } & {
+              [key: string]: unknown;
+            };
+          };
+        };
+      };
+    };
     delete?: never;
     options?: never;
     head?: never;

@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { doctorCommand } from './doctor.js';
+import { setPrinterMode } from '../lib/printer.js';
 
 describe('doctor command', () => {
   let home: string;
@@ -12,6 +13,7 @@ describe('doctor command', () => {
   beforeEach(async () => {
     home = await mkdtemp(join(tmpdir(), 'carbon-cli-doctor-'));
     vi.stubEnv('HOME', home);
+    setPrinterMode('human');
     output = '';
     process.exitCode = undefined;
     writeSpy = vi
@@ -24,6 +26,7 @@ describe('doctor command', () => {
 
   afterEach(async () => {
     writeSpy.mockRestore();
+    setPrinterMode('human');
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     process.exitCode = undefined;
@@ -54,5 +57,25 @@ describe('doctor command', () => {
     expect(output).toContain('invalid URL: not a url');
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(process.exitCode).toBe(1);
+  });
+
+  it('emits a structured summary in JSON mode', async () => {
+    setPrinterMode('json');
+
+    await doctorCommand.run!({ args: { 'skip-network': true } } as never);
+
+    const lines = output
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({
+      event: 'doctor.result',
+      data: { ok: true, failed: 0 },
+    });
+    expect(
+      lines[0].data.checks.some((check: { name: string }) => check.name === 'Node.js >= 22.13'),
+    ).toBe(true);
+    expect(output).not.toContain('carbon doctor');
   });
 });

@@ -38,6 +38,9 @@ test('compare button opens the snapshot diff modal', async ({ page }) => {
   test.skip(rA.status() >= 400 || rB.status() >= 400, 'snapshot save endpoint unavailable');
   await ctx.dispose();
 
+  await page.addInitScript((selectedSlug) => {
+    window.localStorage.setItem('carbon.selectedProjectSlug', selectedSlug);
+  }, slug);
   await page.goto('/snapshots');
 
   const compare = page.getByTestId('compare-snapshot-one').first();
