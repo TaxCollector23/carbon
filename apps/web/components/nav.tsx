@@ -77,6 +77,15 @@ export function Nav() {
             Emulators
           </Link>
           <Link
+            href="/changelog"
+            className={cn(
+              buttonVariants({ variant: 'ghost', size: 'sm' }),
+              'hidden lg:inline-flex',
+            )}
+          >
+            Changelog
+          </Link>
+          <Link
             href="/#download"
             className={cn(
               buttonVariants({ variant: 'ghost', size: 'sm' }),

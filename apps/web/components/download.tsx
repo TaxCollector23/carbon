@@ -8,8 +8,10 @@ import {
 } from 'lucide-react';
 import { buttonVariants, cn } from '@carbon/ui';
 import { Section, SectionHeading } from './section';
+import { CopyCommand } from './copy-command';
 
 const RELEASES_URL = 'https://github.com/TaxCollector23/carbon/releases/latest';
+const INSTALL_URL = 'https://carbon-web-psi.vercel.app/install.sh';
 const MACOS_DMG_URL =
   'https://github.com/TaxCollector23/carbon/releases/download/v0.3.0/Carbon-Desktop-0.2.0-macos-arm64.dmg';
 const MACOS_ZIP_URL =
@@ -87,8 +89,9 @@ export function Download() {
         <Card
           icon={Terminal}
           title="Command line"
-          tagline="One command to install, no runtime dependencies."
+          tagline="One command to install on macOS or Linux — no runtime dependencies."
         >
+          <CopyCommand command={`curl -fsSL ${INSTALL_URL} | sh`} />
           <code className="bg-muted/40 text-foreground rounded-md px-3 py-2 font-mono text-sm">
             npm i -g carbon-api
           </code>

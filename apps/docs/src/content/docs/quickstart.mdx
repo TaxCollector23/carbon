@@ -27,11 +27,28 @@ HAR, or Postman input.
 
 ## 1. Install
 
-The CLI publishes to npm as **`carbon-api`** and installs a `carbon`
-executable (with `carbon-api` and `carbon-dev` as aliases).
+The fastest path is the one-line installer — it fetches the latest standalone
+binary for your OS and architecture, verifies its SHA-256, and installs it to
+`~/.local/bin` (no sudo, no Node):
+
+```bash
+curl -fsSL https://carbon-web-psi.vercel.app/install.sh | sh
+```
+
+Pin a specific release with `CARBON_VERSION=v0.3.0` or pass it as a flag:
+
+```bash
+sh -c "$(curl -fsSL https://carbon-web-psi.vercel.app/install.sh)" -- --version v0.3.0
+```
+
+The CLI also publishes to npm as **`carbon-api`** (installs a `carbon`
+executable, with `carbon-api` and `carbon-dev` as aliases), and to Homebrew
+as `carbon-dev/carbon/carbon`:
 
 ```bash
 npm install -g carbon-api
+# or
+brew install carbon-dev/carbon/carbon
 ```
 
 Or without a global install:
