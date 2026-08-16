@@ -29,6 +29,7 @@
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsup",
+    "dist:bin": "bash scripts/build-binaries.sh",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

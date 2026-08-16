@@ -1,0 +1,89 @@
+name: Release CLI
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: 24
+
+jobs:
+  release:
+    name: Build, sign, and publish CLI binaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.6.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.14'
+
+      # Bun resolves the workspace packages through pnpm's node_modules, so the
+      # pnpm install must run before the single-executable build.
+      - run: pnpm install --frozen-lockfile=false
+
+      - name: Build standalone binaries + checksums
+        run: pnpm --filter carbon-api dist:bin
+
+      # ---- macOS signing + notarization (activates when certs are provided) --
+      # Requires secrets: MACOS_CERTIFICATE_P12 (base64), MACOS_CERTIFICATE_PASSWORD,
+      # APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID.
+      # Replace the rcodesign/notarytool commands with your signing provider if
+      # you use a different one (e.g. gon). Left as a no-op gate until secrets exist.
+      - name: Sign macOS binaries
+        if: env.MACOS_CERTIFICATE_P12 != ''
+        run: |
+          echo "macOS signing requires rcodesign + notarytool credentials; wire this step to your signing identity."
+          # brew install mitchellh/gh/rcodesign
+          # rcodesign sign --p12-file <(echo "$MACOS_CERTIFICATE_P12" | base64 -d) \
+          #   --p12-password "$MACOS_CERTIFICATE_PASSWORD" apps/cli/dist/bin/carbon-darwin-arm64
+          # zip each binary and `xcrun notarytool submit` + `xcrun stapler staple`
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      # ---- Windows Authenticode signing (activates when a cert is provided) --
+      - name: Sign Windows binary
+        if: env.WINDOWS_CERTIFICATE != ''
+        run: |
+          echo "Windows signing requires a code-signing certificate; wire this step to signtool / Azure Trusted Signing."
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            apps/cli/dist/bin/carbon-*
+            apps/cli/dist/bin/SHA256SUMS.txt
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Open Homebrew formula bump PR
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          # The formula in packaging/homebrew/carbon.rb reads its version and
+          # checksums from the release. This is a lightweight placeholder that
+          # prints the bump instructions; replace with your tap's automation.
+          echo "Bump packaging/homebrew/carbon.rb to version ${version} and update the SHA256SUMS entries."
