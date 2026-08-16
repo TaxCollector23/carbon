@@ -51,8 +51,12 @@ no bundler — and talks to Rust through Tauri's global `window.__TAURI__.core`.
 
 ## Notes
 
-- `pnpm --filter @carbon/desktop build` produces a macOS `.app` (+ zip it for
-  distribution); DMG bundling still needs the `bundle_dmg` toolchain wired up.
+- `pnpm --filter @carbon/desktop build` produces a macOS `.app`; zip it for
+  distribution. `pnpm --filter @carbon/desktop build:dmg` additionally builds
+  an installable DMG via `scripts/make-dmg.sh`, which uses `hdiutil` only — no
+  Finder AppleScript — so it also works in headless/CI environments where
+  Tauri's built-in `create-dmg` step fails with "Not authorized to send Apple
+  events to Finder".
 - Cross-compiling for another OS: pass a Bun target to the sidecar script
   (`./scripts/prepare-sidecar.sh bun-linux-x64`) and build the app on that
   platform. The release workflow builds the desktop bundle per-OS.

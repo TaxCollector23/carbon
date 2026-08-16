@@ -10,7 +10,9 @@ import { buttonVariants, cn } from '@carbon/ui';
 import { Section, SectionHeading } from './section';
 
 const RELEASES_URL = 'https://github.com/TaxCollector23/carbon/releases/latest';
-const MACOS_APP_URL =
+const MACOS_DMG_URL =
+  'https://github.com/TaxCollector23/carbon/releases/download/v0.3.0/Carbon-Desktop-0.2.0-macos-arm64.dmg';
+const MACOS_ZIP_URL =
   'https://github.com/TaxCollector23/carbon/releases/download/v0.3.0/Carbon-Desktop-0.2.0-macos-arm64.zip';
 
 function Card({
@@ -50,7 +52,7 @@ export function Download() {
           tagline="Run emulators and watch live state from a native window. The CLI ships inside the app — no Node or npm required. macOS (Apple silicon) today; Windows and Linux from source."
         >
           <Link
-            href={MACOS_APP_URL}
+            href={MACOS_DMG_URL}
             className={cn(buttonVariants(), 'group justify-between')}
             target="_blank"
             rel="noreferrer"
@@ -60,6 +62,14 @@ export function Download() {
               Download for macOS
             </span>
             <ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+          </Link>
+          <Link
+            href={MACOS_ZIP_URL}
+            className={cn(buttonVariants({ variant: 'ghost' }), 'text-sm')}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Download .zip instead
           </Link>
           <Link
             href={RELEASES_URL}

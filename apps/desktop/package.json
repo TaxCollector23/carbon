@@ -7,6 +7,7 @@
     "dev": "tauri dev",
     "prepare:sidecar": "bash scripts/prepare-sidecar.sh",
     "build": "pnpm prepare:sidecar && tauri build",
+    "build:dmg": "pnpm build && bash scripts/make-dmg.sh \"src-tauri/target/release/bundle/macos/Carbon Desktop.app\" \"dist/Carbon-Desktop.dmg\"",
     "check": "cargo check --manifest-path src-tauri/Cargo.toml"
   },
   "devDependencies": {
