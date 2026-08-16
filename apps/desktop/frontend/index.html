@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Carbon Desktop</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">Carbon <span>Desktop</span></div>
+      <div id="status" class="status idle">Idle</div>
+    </header>
+
+    <main>
+      <section class="controls">
+        <label>
+          Spec path or URL
+          <input id="spec" type="text" placeholder="/path/to/openapi.yaml or https://…" />
+        </label>
+        <label>
+          Port
+          <input id="port" type="number" value="8787" min="1024" max="65535" />
+        </label>
+        <div class="actions">
+          <button id="start" class="primary">Start emulator</button>
+          <button id="stop" disabled>Stop</button>
+        </div>
+        <p class="hint">
+          Requires the <code>carbon</code> CLI on PATH — <code>npm i -g carbon-api</code>.
+          The CLI process is managed by this window and stopped when you click Stop or quit.
+        </p>
+      </section>
+
+      <section class="panels">
+        <div class="panel">
+          <h2>Inspect</h2>
+          <pre id="inspect" class="code">Start an emulator to see its endpoints, resources, and relationships.</pre>
+        </div>
+        <div class="panel">
+          <h2>State history</h2>
+          <pre id="history" class="code">Create or update records to see the mutation journal.</pre>
+        </div>
+      </section>
+    </main>
+
+    <script src="main.js"></script>
+  </body>
+</html>

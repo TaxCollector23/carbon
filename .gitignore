@@ -43,3 +43,17 @@ coverage/
 .claude/settings.local.json
 .neon
 .vercel
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Rust
+target/
+
+# Tauri-generated schema caches
+apps/desktop/src-tauri/gen/
+
