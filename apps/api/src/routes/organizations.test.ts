@@ -19,10 +19,11 @@ import { registerOrganizationRoutes } from './organizations.js';
 interface FakeDb {
   results: unknown[];
   ops: Array<{
-    kind: 'insert' | 'update' | 'delete';
-    table: unknown;
+    kind: 'insert' | 'update' | 'delete' | 'execute' | 'transaction';
+    table?: unknown;
     value?: unknown;
     patch?: unknown;
+    query?: unknown;
   }>;
   db: AppContext['db'];
 }
@@ -77,11 +78,21 @@ function makeFake(): FakeDb {
     },
   });
 
+  const execute = async (query: unknown) => {
+    ops.push({ kind: 'execute', query });
+    return [];
+  };
+
   const db = {
     select: (_cols?: unknown) => selectChain(),
     insert,
     update,
     delete: del,
+    execute,
+    transaction: async <T>(fn: (tx: AppContext['db']) => Promise<T>): Promise<T> => {
+      ops.push({ kind: 'transaction' });
+      return fn(db as AppContext['db']);
+    },
   } as unknown as AppContext['db'];
 
   return { results, ops, db };
@@ -251,6 +262,8 @@ describe('organization routes', () => {
       payload: { role: 'admin' },
     });
     expect(res.statusCode).toBe(409);
+    expect(fake.ops.some((o) => o.kind === 'transaction')).toBe(true);
+    expect(fake.ops.some((o) => o.kind === 'execute')).toBe(true);
     expect(fake.ops.find((o) => o.kind === 'update')).toBeUndefined();
   });
 
@@ -269,6 +282,10 @@ describe('organization routes', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ userId: 'user_1', role: 'admin' });
+    expect(fake.ops.some((o) => o.kind === 'transaction')).toBe(true);
+    expect(fake.ops.some((o) => o.kind === 'execute')).toBe(true);
+    const updateOp = fake.ops.find((o) => o.kind === 'update');
+    expect(updateOp?.patch).toEqual({ role: 'admin' });
   });
 
   it('DELETE member — cannot remove the last owner', async () => {
@@ -283,6 +300,8 @@ describe('organization routes', () => {
       headers: { 'x-test-user': 'user_2,carol@acme.io,org_1,owner' },
     });
     expect(res.statusCode).toBe(409);
+    expect(fake.ops.some((o) => o.kind === 'transaction')).toBe(true);
+    expect(fake.ops.some((o) => o.kind === 'execute')).toBe(true);
     expect(fake.ops.find((o) => o.kind === 'delete')).toBeUndefined();
   });
 

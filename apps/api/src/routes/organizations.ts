@@ -162,11 +162,11 @@ function requireAdminOrOwner(caller: CallerContext): void {
 }
 
 async function countOtherOwners(
-  ctx: AppContext,
+  db: AppContext['db'],
   orgId: string,
   exceptUserId: string,
 ): Promise<number> {
-  const rows = await ctx.db
+  const rows = await db
     .select({ n: sql<number>`count(*)::int` })
     .from(schema.memberships)
     .where(
@@ -177,6 +177,30 @@ async function countOtherOwners(
       ),
     );
   return Number(rows[0]?.n ?? 0);
+}
+
+async function withOrgMembershipMutationLock<T>(
+  ctx: AppContext,
+  orgId: string,
+  fn: (db: AppContext['db']) => Promise<T>,
+): Promise<T> {
+  const db = ctx.db as unknown as {
+    transaction?: (fn: (tx: AppContext['db']) => Promise<T>) => Promise<T>;
+  };
+  if (typeof db.transaction !== 'function') return fn(ctx.db);
+
+  return db.transaction(async (tx) => {
+    await lockOrgMemberships(tx, orgId);
+    return fn(tx);
+  });
+}
+
+async function lockOrgMemberships(db: AppContext['db'], orgId: string): Promise<void> {
+  const executable = db as unknown as { execute?: (query: unknown) => Promise<unknown> };
+  if (typeof executable.execute !== 'function') return;
+  await executable.execute(
+    sql`select pg_advisory_xact_lock(hashtext('carbon:org-memberships'), hashtext(${orgId}))`,
+  );
 }
 
 async function loadOrgOr404(ctx: AppContext, id: string) {
@@ -475,48 +499,52 @@ export async function registerOrganizationRoutes(
     },
     async (req) => {
       const body = PatchMemberBody.parse(req.body ?? {});
-      const caller = await callerContext(ctx, req, req.params.id);
-      requireAdminOrOwner(caller);
+      return withOrgMembershipMutationLock(ctx, req.params.id, async (db) => {
+        const txCtx: AppContext = { ...ctx, db };
+        const caller = await callerContext(txCtx, req, req.params.id);
+        requireAdminOrOwner(caller);
 
-      const [target] = await ctx.db
-        .select({ role: schema.memberships.role })
-        .from(schema.memberships)
-        .where(
-          and(
-            eq(schema.memberships.orgId, req.params.id),
-            eq(schema.memberships.userId, req.params.userId),
-          ),
-        )
-        .limit(1);
-      if (!target) throw new NotFoundError('membership', req.params.userId);
+        const [target] = await db
+          .select({ role: schema.memberships.role })
+          .from(schema.memberships)
+          .where(
+            and(
+              eq(schema.memberships.orgId, req.params.id),
+              eq(schema.memberships.userId, req.params.userId),
+            ),
+          )
+          .limit(1);
+        if (!target) throw new NotFoundError('membership', req.params.userId);
 
-      // Demoting the last remaining owner would strand the org with no admin
-      // path back in. Reject before writing.
-      if (target.role === 'owner' && body.role !== 'owner') {
-        const others = await countOtherOwners(ctx, req.params.id, req.params.userId);
-        if (others === 0) {
-          throw new CarbonError({
-            code: 'CARBON_CONFLICT',
-            message: 'Cannot demote the last owner of the organization',
-            expose: true,
-          });
+        // Demoting the last remaining owner would strand the org with no admin
+        // path back in. The advisory transaction lock serializes this check
+        // with concurrent owner demotions/removals on the same org.
+        if (target.role === 'owner' && body.role !== 'owner') {
+          const others = await countOtherOwners(db, req.params.id, req.params.userId);
+          if (others === 0) {
+            throw new CarbonError({
+              code: 'CARBON_CONFLICT',
+              message: 'Cannot demote the last owner of the organization',
+              expose: true,
+            });
+          }
         }
-      }
 
-      const [updated] = await ctx.db
-        .update(schema.memberships)
-        .set({ role: body.role })
-        .where(
-          and(
-            eq(schema.memberships.orgId, req.params.id),
-            eq(schema.memberships.userId, req.params.userId),
-          ),
-        )
-        .returning({
-          userId: schema.memberships.userId,
-          role: schema.memberships.role,
-        });
-      return updated;
+        const [updated] = await db
+          .update(schema.memberships)
+          .set({ role: body.role })
+          .where(
+            and(
+              eq(schema.memberships.orgId, req.params.id),
+              eq(schema.memberships.userId, req.params.userId),
+            ),
+          )
+          .returning({
+            userId: schema.memberships.userId,
+            role: schema.memberships.role,
+          });
+        return updated;
+      });
     },
   );
 
@@ -530,40 +558,43 @@ export async function registerOrganizationRoutes(
       },
     },
     async (req, reply) => {
-      const caller = await callerContext(ctx, req, req.params.id);
-      requireAdminOrOwner(caller);
+      await withOrgMembershipMutationLock(ctx, req.params.id, async (db) => {
+        const txCtx: AppContext = { ...ctx, db };
+        const caller = await callerContext(txCtx, req, req.params.id);
+        requireAdminOrOwner(caller);
 
-      const [target] = await ctx.db
-        .select({ role: schema.memberships.role })
-        .from(schema.memberships)
-        .where(
-          and(
-            eq(schema.memberships.orgId, req.params.id),
-            eq(schema.memberships.userId, req.params.userId),
-          ),
-        )
-        .limit(1);
-      if (!target) throw new NotFoundError('membership', req.params.userId);
+        const [target] = await db
+          .select({ role: schema.memberships.role })
+          .from(schema.memberships)
+          .where(
+            and(
+              eq(schema.memberships.orgId, req.params.id),
+              eq(schema.memberships.userId, req.params.userId),
+            ),
+          )
+          .limit(1);
+        if (!target) throw new NotFoundError('membership', req.params.userId);
 
-      if (target.role === 'owner') {
-        const others = await countOtherOwners(ctx, req.params.id, req.params.userId);
-        if (others === 0) {
-          throw new CarbonError({
-            code: 'CARBON_CONFLICT',
-            message: 'Cannot remove the last owner of the organization',
-            expose: true,
-          });
+        if (target.role === 'owner') {
+          const others = await countOtherOwners(db, req.params.id, req.params.userId);
+          if (others === 0) {
+            throw new CarbonError({
+              code: 'CARBON_CONFLICT',
+              message: 'Cannot remove the last owner of the organization',
+              expose: true,
+            });
+          }
         }
-      }
 
-      await ctx.db
-        .delete(schema.memberships)
-        .where(
-          and(
-            eq(schema.memberships.orgId, req.params.id),
-            eq(schema.memberships.userId, req.params.userId),
-          ),
-        );
+        await db
+          .delete(schema.memberships)
+          .where(
+            and(
+              eq(schema.memberships.orgId, req.params.id),
+              eq(schema.memberships.userId, req.params.userId),
+            ),
+          );
+      });
       reply.status(204);
     },
   );
