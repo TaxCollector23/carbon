@@ -70,6 +70,11 @@ async function main(): Promise<void> {
         /* best-effort */
       }
       redis = undefined;
+      if (env.NODE_ENV === 'production') {
+        throw new Error(
+          `Redis did not become ready within ${bootDeadlineMs}ms; refusing to boot production without Redis-backed rate limiting, idempotency, and async jobs`,
+        );
+      }
     } else {
       // Post-boot transient errors: log the first at warn, everything after
       // at debug to avoid the log flood the audit called out.
@@ -170,7 +175,7 @@ async function main(): Promise<void> {
       : null;
   if (env.EMBED_WORKERS && !redis) {
     logger.warn('api.embedded_workers_skipped', {
-      reason: 'REDIS_URL not set — set it to enable webhook delivery',
+      reason: 'Redis is not available — set REDIS_URL and verify connectivity to enable workers',
     });
   }
 

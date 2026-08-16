@@ -1,4 +1,5 @@
 import { z, ZodError } from 'zod';
+import { isRedisConnectionUrl, normalizeRedisUrl } from '@carbon/workers/redis-url';
 
 const DEV_ALLOWED_ORIGINS = 'http://localhost:3001,http://localhost:1223';
 const DEV_REDIS_URL = 'redis://127.0.0.1:6379';
@@ -242,19 +243,10 @@ function optionalUrl(defaultValue?: string) {
 }
 
 function optionalRedisUrl() {
-  return z.preprocess(
-    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
-    z.string().url().refine(isRedisUrl, 'REDIS_URL must use redis:// or rediss://').optional(),
-  );
-}
-
-function isRedisUrl(value: string): boolean {
-  try {
-    const protocol = new URL(value).protocol;
-    return protocol === 'redis:' || protocol === 'rediss:';
-  } catch {
-    return false;
-  }
+  return z.preprocess((value) => {
+    if (typeof value !== 'string') return value;
+    return value.trim() === '' ? undefined : normalizeRedisUrl(value);
+  }, z.string().url().refine(isRedisConnectionUrl, 'REDIS_URL must use redis:// or rediss://').optional());
 }
 
 function optionalBoolean() {

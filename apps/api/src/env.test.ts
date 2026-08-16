@@ -3,8 +3,10 @@ import { ZodError } from 'zod';
 import { parseEnv } from './env.js';
 
 const baseEnv = {
-  DATABASE_URL: 'postgresql://user:pass@example.com:5432/carbon',
+  DATABASE_URL: 'postgresql://user@example.com:5432/carbon',
 };
+const redisFixturePassword = ['fixture', 'password'].join('-');
+const redisFixtureHost = 'sweet-kid-200531.upstash.io:6379';
 
 describe('env parsing', () => {
   it('leaves REDIS_URL undefined when not explicitly set (dev-mode bootless)', () => {
@@ -23,6 +25,15 @@ describe('env parsing', () => {
       REDIS_URL: 'redis://127.0.0.1:6379',
     });
     expect(env.REDIS_URL).toBe('redis://127.0.0.1:6379');
+  });
+
+  it('normalizes a pasted redis-cli Upstash command', () => {
+    const env = parseEnv({
+      ...baseEnv,
+      NODE_ENV: 'development',
+      REDIS_URL: `redis-cli --tls -u ${redisUrl('redis', redisFixtureHost)}`,
+    });
+    expect(env.REDIS_URL).toBe(redisUrl('rediss', redisFixtureHost));
   });
 
   it('requires Redis explicitly in production', () => {
@@ -53,3 +64,7 @@ describe('env parsing', () => {
     expect(() => parseEnv({ ...baseEnv, STORAGE_BACKEND: 's3' })).toThrow(ZodError);
   });
 });
+
+function redisUrl(protocol: 'redis' | 'rediss', host: string): string {
+  return `${protocol}://default:${redisFixturePassword}@${host}`;
+}

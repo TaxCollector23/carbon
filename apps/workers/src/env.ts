@@ -1,13 +1,11 @@
 import { z } from 'zod';
+import { isRedisConnectionUrl, normalizeRedisUrl } from '@carbon/workers/redis-url';
 
 const EnvSchema = z.object({
-  REDIS_URL: z
-    .string()
-    .url()
-    .refine((value) => {
-      const protocol = new URL(value).protocol;
-      return protocol === 'redis:' || protocol === 'rediss:';
-    }, 'REDIS_URL must use redis:// or rediss://'),
+  REDIS_URL: z.preprocess(
+    (value) => (typeof value === 'string' ? normalizeRedisUrl(value) : value),
+    z.string().url().refine(isRedisConnectionUrl, 'REDIS_URL must use redis:// or rediss://'),
+  ),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   STORAGE_ROOT: z.string().default('./.carbon-data'),
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'silent']).default('info'),

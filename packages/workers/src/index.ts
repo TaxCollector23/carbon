@@ -1,6 +1,9 @@
 import { Queue, Worker, type Job, type Processor } from 'bullmq';
 import { Redis, type RedisOptions } from 'ioredis';
 import type { Logger } from '@carbon/core';
+import { normalizeRedisUrl } from './redis-url.js';
+
+export { isRedisConnectionUrl, normalizeRedisUrl } from './redis-url.js';
 
 /**
  * Thin, typed wrapper around BullMQ. Each queue is declared once and returns
@@ -44,10 +47,11 @@ export function createRedisConnection(
 ): Redis {
   const maxRetriesPerRequest = opts.maxRetriesPerRequest ?? null;
   if (typeof redis === 'string') {
-    return new Redis(redis, {
+    const url = normalizeRedisUrl(redis);
+    return new Redis(url, {
       maxRetriesPerRequest,
       lazyConnect: opts.lazyConnect,
-      ...redisUrlOptions(redis),
+      ...redisUrlOptions(url),
     });
   }
   return new Redis({
