@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, gt, isNull, or, sql as dsql } from 'drizzle-orm';
 import { CarbonError, makeId, NotFoundError } from '@carbon/core';
 import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
@@ -93,50 +93,52 @@ export async function rotateApiKey(
 ): Promise<RotateApiKeyResult> {
   const now = (input.now ?? (() => new Date()))();
 
-  const [source] = await ctx.db
-    .select()
-    .from(schema.apiKeys)
-    .where(and(eq(schema.apiKeys.id, input.sourceId), eq(schema.apiKeys.orgId, input.orgId)))
-    .limit(1);
-  if (!source) throw new NotFoundError('api key', input.sourceId);
-  if (source.revokedAt) {
-    throw new CarbonError({
-      code: 'CARBON_INVALID_INPUT',
-      message: 'Cannot rotate a revoked key',
-      expose: true,
-    });
-  }
-  if (source.expiresAt && source.expiresAt.getTime() <= now.getTime()) {
-    throw new CarbonError({
-      code: 'CARBON_INVALID_INPUT',
-      message: 'Cannot rotate an expired key',
-      expose: true,
-    });
-  }
-
-  const scopes = input.scopes ?? (source.scopes as ('read' | 'write' | 'admin')[]);
-  const projectIds = input.projectIds === undefined ? source.projectIds : input.projectIds;
-
-  const sourceExpiresAt = new Date(now.getTime() + input.graceSeconds * 1000);
-  // Never extend an already-shorter expiration. Rotating a short-lived key
-  // must not accidentally grant it more lifetime.
-  const effectiveSourceExpiresAt =
-    source.expiresAt && source.expiresAt.getTime() < sourceExpiresAt.getTime()
-      ? source.expiresAt
-      : sourceExpiresAt;
-
   const doWork = async (tx: AppContext['db']): Promise<RotateApiKeyResult> => {
-    const minted = await mintApiKey({ ...ctx, db: tx } as AppContext, {
-      orgId: source.orgId,
-      name: `${source.name} (rotated)`,
-      scopes,
-      projectIds,
-      rotatedFromId: source.id,
-    });
+    const [source] = await tx
+      .select()
+      .from(schema.apiKeys)
+      .where(and(eq(schema.apiKeys.id, input.sourceId), eq(schema.apiKeys.orgId, input.orgId)))
+      .limit(1);
+    if (!source) throw new NotFoundError('api key', input.sourceId);
+    if (source.revokedAt) {
+      throw new CarbonError({
+        code: 'CARBON_INVALID_INPUT',
+        message: 'Cannot rotate a revoked key',
+        expose: true,
+      });
+    }
+    if (source.expiresAt && source.expiresAt.getTime() <= now.getTime()) {
+      throw new CarbonError({
+        code: 'CARBON_INVALID_INPUT',
+        message: 'Cannot rotate an expired key',
+        expose: true,
+      });
+    }
+
+    const scopes = input.scopes ?? (source.scopes as ('read' | 'write' | 'admin')[]);
+    const projectIds = input.projectIds === undefined ? source.projectIds : input.projectIds;
+
+    const sourceExpiresAt = new Date(now.getTime() + input.graceSeconds * 1000);
+    // Never extend an already-shorter expiration. Rotating a short-lived key
+    // must not accidentally grant it more lifetime.
+    const effectiveSourceExpiresAt =
+      source.expiresAt && source.expiresAt.getTime() < sourceExpiresAt.getTime()
+        ? source.expiresAt
+        : sourceExpiresAt;
+
     const updated = await tx
       .update(schema.apiKeys)
       .set({ expiresAt: effectiveSourceExpiresAt })
-      .where(and(eq(schema.apiKeys.id, source.id), isNull(schema.apiKeys.revokedAt)))
+      .where(
+        and(
+          eq(schema.apiKeys.id, source.id),
+          eq(schema.apiKeys.orgId, input.orgId),
+          isNull(schema.apiKeys.revokedAt),
+          source.expiresAt
+            ? eq(schema.apiKeys.expiresAt, source.expiresAt)
+            : isNull(schema.apiKeys.expiresAt),
+        ),
+      )
       .returning({ id: schema.apiKeys.id, expiresAt: schema.apiKeys.expiresAt });
     const [row] = updated;
     if (!row) {
@@ -147,6 +149,36 @@ export async function rotateApiKey(
         expose: true,
       });
     }
+
+    const [successor] = await tx
+      .select({ id: schema.apiKeys.id })
+      .from(schema.apiKeys)
+      .where(
+        and(
+          eq(schema.apiKeys.orgId, input.orgId),
+          eq(schema.apiKeys.rotatedFromId, source.id),
+          isNull(schema.apiKeys.revokedAt),
+          or(isNull(schema.apiKeys.expiresAt), gt(schema.apiKeys.expiresAt, dsql`now()`)),
+        ),
+      )
+      .limit(1);
+    if (successor) {
+      throw new CarbonError({
+        code: 'CARBON_CONFLICT',
+        message: 'API key already has an active successor; rotate the successor instead',
+        details: { sourceId: source.id, successorId: successor.id },
+        expose: true,
+      });
+    }
+
+    const minted = await mintApiKey({ ...ctx, db: tx } as AppContext, {
+      orgId: source.orgId,
+      name: `${source.name} (rotated)`,
+      scopes,
+      projectIds,
+      rotatedFromId: source.id,
+    });
+
     return {
       minted,
       source: {

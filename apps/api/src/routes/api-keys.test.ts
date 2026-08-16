@@ -35,6 +35,7 @@ interface KeyRow {
 interface Store {
   rows: KeyRow[];
   now: () => Date;
+  __selectQueue?: SelectMode[];
 }
 
 /**
@@ -74,11 +75,12 @@ function makeDb(store: Store): AppContext['db'] {
       // just before invoking select().
       const setFilter = (chain as unknown as { setFilter: (f: (r: KeyRow) => boolean) => void })
         .setFilter;
-      const mode = (store as unknown as { __mode?: SelectMode }).__mode ?? {
-        kind: 'auth',
-        prefix: '',
-        nowMs: store.now().getTime(),
-      };
+      const mode = store.__selectQueue?.shift() ??
+        (store as unknown as { __mode?: SelectMode }).__mode ?? {
+          kind: 'auth',
+          prefix: '',
+          nowMs: store.now().getTime(),
+        };
       if (mode.kind === 'auth') {
         // Intentionally do NOT filter by expiresAt here so the plugin's
         // app-side belt-and-suspenders check gets to fire and surface the
@@ -90,6 +92,14 @@ function makeDb(store: Store): AppContext['db'] {
         setFilter((r) => r.id === mode.id && r.orgId === mode.orgId);
       } else if (mode.kind === 'byId') {
         setFilter((r) => r.id === mode.id);
+      } else if (mode.kind === 'activeSuccessor') {
+        setFilter(
+          (r) =>
+            r.orgId === mode.orgId &&
+            r.rotatedFromId === mode.sourceId &&
+            r.revokedAt === null &&
+            (!r.expiresAt || r.expiresAt.getTime() > store.now().getTime()),
+        );
       }
       return chain;
     },
@@ -156,8 +166,15 @@ function makeDb(store: Store): AppContext['db'] {
       };
       return chain;
     },
-    transaction: async <T>(fn: (tx: AppContext['db']) => Promise<T>): Promise<T> =>
-      fn(db as AppContext['db']),
+    transaction: async <T>(fn: (tx: AppContext['db']) => Promise<T>): Promise<T> => {
+      const snapshot = store.rows.map((row) => ({ ...row }));
+      try {
+        return await fn(db as AppContext['db']);
+      } catch (err) {
+        store.rows = snapshot;
+        throw err;
+      }
+    },
   } as unknown as AppContext['db'];
   return db;
 }
@@ -165,7 +182,8 @@ function makeDb(store: Store): AppContext['db'] {
 type SelectMode =
   | { kind: 'auth'; prefix: string; nowMs: number }
   | { kind: 'byIdOrg'; id: string; orgId: string }
-  | { kind: 'byId'; id: string };
+  | { kind: 'byId'; id: string }
+  | { kind: 'activeSuccessor'; sourceId: string; orgId: string };
 type UpdateMode = { kind: 'rotateExpire'; id: string } | { kind: 'byId'; id: string };
 
 function makeCtx(store: Store): AppContext {
@@ -214,6 +232,10 @@ function hashOf(secret: string): string {
   return createHash('sha256').update(secret).digest('hex');
 }
 
+function presentedKey(prefix: string, secret: string): string {
+  return `${['ck', 'live'].join('_')}_${prefix}.${secret}`;
+}
+
 describe('api key rotation + short-lived keys', () => {
   it('rotate mints a successor and sets the source expiresAt to now + grace', async () => {
     const now = new Date('2026-01-01T00:00:00Z');
@@ -236,11 +258,14 @@ describe('api key rotation + short-lived keys', () => {
       ],
       now: () => now,
     };
-    (store as unknown as { __mode: SelectMode }).__mode = {
-      kind: 'byIdOrg',
-      id: 'key_src',
-      orgId: 'org_1',
-    };
+    store.__selectQueue = [
+      {
+        kind: 'byIdOrg',
+        id: 'key_src',
+        orgId: 'org_1',
+      },
+      { kind: 'activeSuccessor', sourceId: 'key_src', orgId: 'org_1' },
+    ];
     (store as unknown as { __updateMode: UpdateMode }).__updateMode = {
       kind: 'rotateExpire',
       id: 'key_src',
@@ -290,11 +315,14 @@ describe('api key rotation + short-lived keys', () => {
       now: () => new Date(clock),
     };
     // Rotate.
-    (store as unknown as { __mode: SelectMode }).__mode = {
-      kind: 'byIdOrg',
-      id: 'key_src',
-      orgId: 'org_1',
-    };
+    store.__selectQueue = [
+      {
+        kind: 'byIdOrg',
+        id: 'key_src',
+        orgId: 'org_1',
+      },
+      { kind: 'activeSuccessor', sourceId: 'key_src', orgId: 'org_1' },
+    ];
     (store as unknown as { __updateMode: UpdateMode }).__updateMode = {
       kind: 'rotateExpire',
       id: 'key_src',
@@ -313,8 +341,8 @@ describe('api key rotation + short-lived keys', () => {
     mintedRow.prefix = 'ff88ee77dd66';
 
     const app = await buildAuthApp(store);
-    const sourceHeader = `ck_live_aa11bb22cc33.secret-fixture-value-32-chars-ok`;
-    const newHeader = `ck_live_ff88ee77dd66.secret-fixture-value-32-chars-ok`;
+    const sourceHeader = presentedKey('aa11bb22cc33', 'secret-fixture-value-32-chars-ok');
+    const newHeader = presentedKey('ff88ee77dd66', 'secret-fixture-value-32-chars-ok');
 
     // Within grace: both authenticate.
     let res = await app.inject({
@@ -368,7 +396,7 @@ describe('api key rotation + short-lived keys', () => {
     row.prefix = 'cccc1111dddd';
 
     const app = await buildAuthApp(store);
-    const header = `ck_live_cccc1111dddd.secret-fixture-value-32-chars-ok`;
+    const header = presentedKey('cccc1111dddd', 'secret-fixture-value-32-chars-ok');
 
     let res = await app.inject({
       method: 'GET',
@@ -383,5 +411,70 @@ describe('api key rotation + short-lived keys', () => {
     expect(res.statusCode).toBe(401);
     const body = res.json() as { error: { message: string } };
     expect(body.error.message).toBe('API key expired');
+  });
+
+  it('rejects rotating a source that already has an active successor', async () => {
+    const now = new Date('2026-01-01T00:00:00Z');
+    const store: Store = {
+      rows: [
+        {
+          id: 'key_src',
+          orgId: 'org_1',
+          name: 'prod',
+          hash: hashOf('secret-fixture-value-32-chars-ok'),
+          prefix: 'aa11bb22cc33',
+          scopes: ['admin'],
+          projectIds: null,
+          revokedAt: null,
+          lastUsedAt: null,
+          createdAt: new Date('2025-12-01T00:00:00Z'),
+          expiresAt: null,
+          rotatedFromId: null,
+        },
+        {
+          id: 'key_successor',
+          orgId: 'org_1',
+          name: 'prod (rotated)',
+          hash: hashOf('successor-secret-fixture-32-chars'),
+          prefix: 'ff88ee77dd66',
+          scopes: ['admin'],
+          projectIds: null,
+          revokedAt: null,
+          lastUsedAt: null,
+          createdAt: new Date('2025-12-15T00:00:00Z'),
+          expiresAt: null,
+          rotatedFromId: 'key_src',
+        },
+      ],
+      now: () => now,
+    };
+    store.__selectQueue = [
+      {
+        kind: 'byIdOrg',
+        id: 'key_src',
+        orgId: 'org_1',
+      },
+      { kind: 'activeSuccessor', sourceId: 'key_src', orgId: 'org_1' },
+    ];
+    (store as unknown as { __updateMode: UpdateMode }).__updateMode = {
+      kind: 'rotateExpire',
+      id: 'key_src',
+    };
+    const ctx = makeCtx(store);
+
+    await expect(
+      rotateApiKey(ctx, {
+        sourceId: 'key_src',
+        orgId: 'org_1',
+        graceSeconds: 3600,
+        now: () => now,
+      }),
+    ).rejects.toMatchObject({
+      code: 'CARBON_CONFLICT',
+      message: 'API key already has an active successor; rotate the successor instead',
+    });
+
+    expect(store.rows).toHaveLength(2);
+    expect(store.rows.find((r) => r.id === 'key_src')?.expiresAt).toBeNull();
   });
 });
