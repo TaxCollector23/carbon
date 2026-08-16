@@ -68,6 +68,8 @@ const SCIM_LIST_SCHEMA = 'urn:ietf:params:scim:api:messages:2.0:ListResponse';
 const SCIM_PATCH_SCHEMA = 'urn:ietf:params:scim:api:messages:2.0:PatchOp';
 const SCIM_ERROR_SCHEMA = 'urn:ietf:params:scim:api:messages:2.0:Error';
 export const SCIM_PUBLIC_PATHS: readonly string[] = ['/scim/v2/*'];
+const SCIM_KEY_HEADERS = ['x-scim-token', 'x-carbon-key', 'x-carbon-api-key'] as const;
+const KEY_PATTERN = /^ck_live_([a-f0-9]{12})\.([A-Za-z0-9_-]{32,128})$/;
 
 interface ScimUser {
   readonly schemas: string[];
@@ -120,12 +122,11 @@ export async function registerScimRoutes(app: FastifyInstance, ctx: AppContext):
     if (!req.url.startsWith('/scim/')) return;
     const auth = req as AuthenticatedRequest;
     if (auth.apiKey) return; // Already authenticated via x-carbon-key.
-    const raw = req.headers['x-scim-token'];
-    const presented = Array.isArray(raw) ? raw[0] : raw;
+    const presented = extractPresentedScimKey(req);
     if (!presented) return; // Let the guard below fail with a SCIM error.
     // Format matches ck_live_<prefix>.<secret>; we reuse the same api-key path
     // for verification via a direct DB lookup.
-    const match = /^ck_live_([a-f0-9]{12})\.([A-Za-z0-9_-]{32,128})$/.exec(presented);
+    const match = KEY_PATTERN.exec(presented);
     if (!match) return;
     const [, prefix, secret] = match;
     if (!prefix || !secret) return;
@@ -505,6 +506,30 @@ async function loadUser(
     .where(and(eq(schema.memberships.orgId, orgId), eq(schema.memberships.userId, userId)))
     .limit(1);
   return rows[0];
+}
+
+function extractPresentedScimKey(req: FastifyRequest): string | undefined {
+  const credentials: string[] = [];
+  for (const headerName of SCIM_KEY_HEADERS) {
+    const raw = req.headers[headerName];
+    if (Array.isArray(raw)) {
+      if (raw.length !== 1) return undefined;
+      const value = raw[0]?.trim();
+      if (value) credentials.push(value);
+    } else if (typeof raw === 'string' && raw.trim() !== '') {
+      credentials.push(raw.trim());
+    }
+  }
+
+  const rawAuth = req.headers.authorization;
+  const auth = Array.isArray(rawAuth) ? rawAuth[0] : rawAuth;
+  if (Array.isArray(rawAuth) && rawAuth.length !== 1) return undefined;
+  if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
+    const token = auth.slice(7).trim();
+    if (KEY_PATTERN.test(token)) credentials.push(token);
+  }
+
+  return credentials.length === 1 ? credentials[0] : undefined;
 }
 
 type RemoveMembershipResult = 'removed' | 'not_found' | 'last_owner';

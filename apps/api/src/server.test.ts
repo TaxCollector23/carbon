@@ -9,6 +9,10 @@ import type { AppContext } from './context.js';
 
 const TEST_SCIM_PREFIX = 'aa11bb22cc33';
 
+function presentedTestKey(secret: string): string {
+  return `${['ck', 'live', TEST_SCIM_PREFIX].join('_')}.${secret}`;
+}
+
 function makeCtx(): AppContext {
   return {
     logger: NoopLogger,
@@ -252,17 +256,19 @@ describe('server', () => {
     it('lets SCIM authenticate with X-SCIM-Token instead of x-carbon-key', async () => {
       const secret = 'b'.repeat(32);
       const app = await build(undefined, authed, makeScimCtx(secret));
-      const res = await app.inject({
-        method: 'GET',
-        url: '/scim/v2/Users',
-        headers: { 'x-scim-token': `${['ck', 'live', TEST_SCIM_PREFIX].join('_')}.${secret}` },
-      });
+      for (const headerName of ['x-scim-token', 'x-carbon-key'] as const) {
+        const res = await app.inject({
+          method: 'GET',
+          url: '/scim/v2/Users',
+          headers: { [headerName]: presentedTestKey(secret) },
+        });
 
-      expect(res.statusCode).toBe(200);
-      expect(res.json()).toMatchObject({
-        totalResults: 1,
-        Resources: [{ userName: 'alice@acme.io' }],
-      });
+        expect(res.statusCode, headerName).toBe(200);
+        expect(res.json()).toMatchObject({
+          totalResults: 1,
+          Resources: [{ userName: 'alice@acme.io' }],
+        });
+      }
     });
 
     it('gates /docs and /openapi.json behind the API key when publicDocs=false', async () => {
