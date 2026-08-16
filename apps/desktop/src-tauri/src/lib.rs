@@ -1,4 +1,5 @@
 use std::io::{BufRead, BufReader};
+use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -12,6 +13,23 @@ struct Emulator {
 
 struct AppState {
     emulator: Mutex<Option<Emulator>>,
+}
+
+/// Resolve the `carbon` CLI binary: prefer a Tauri sidecar bundled next to
+/// this executable, then fall back to `carbon` on PATH (dev mode).
+fn resolve_carbon() -> PathBuf {
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            #[cfg(windows)]
+            let candidate = dir.join("carbon.exe");
+            #[cfg(not(windows))]
+            let candidate = dir.join("carbon");
+            if candidate.is_file() {
+                return candidate;
+            }
+        }
+    }
+    PathBuf::from("carbon")
 }
 
 /// Extract `http://…` from a CLI line, tolerating ANSI color codes and
@@ -52,7 +70,7 @@ fn start_emulator(state: &Arc<AppState>, spec: &str, port: u16) -> Result<String
         }
     }
 
-    let mut child = Command::new("carbon")
+    let mut child = Command::new(resolve_carbon())
         .args([
             "emulate",
             "--from",
@@ -66,7 +84,7 @@ fn start_emulator(state: &Arc<AppState>, spec: &str, port: u16) -> Result<String
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| {
-            format!("failed to launch `carbon`: {e}. Install it with `npm i -g carbon-api`.")
+            format!("failed to launch the bundled `carbon` CLI: {e}. Install it with `npm i -g carbon-api`.")
         })?;
 
     let stdout = child

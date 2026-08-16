@@ -57,3 +57,6 @@ target/
 # Tauri-generated schema caches
 apps/desktop/src-tauri/gen/
 
+# Tauri sidecar binaries (built by apps/desktop/scripts/prepare-sidecar.sh)
+apps/desktop/src-tauri/binaries/
+

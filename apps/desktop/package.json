@@ -1,11 +1,12 @@
 {
   "name": "@carbon/desktop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Carbon desktop — run stateful API replicas from a native window.",
   "scripts": {
     "dev": "tauri dev",
-    "build": "tauri build",
+    "prepare:sidecar": "bash scripts/prepare-sidecar.sh",
+    "build": "pnpm prepare:sidecar && tauri build",
     "check": "cargo check --manifest-path src-tauri/Cargo.toml"
   },
   "devDependencies": {

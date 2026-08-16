@@ -9,24 +9,36 @@ surface and mutation journal.
 
 - Rust toolchain (stable) + the Tauri platform deps for your OS
   (`https://tauri.app/start/prerequisites/`).
-- The Carbon CLI on `PATH`:
-  ```bash
-  npm i -g carbon-api
-  ```
+- `bun` on `PATH` (used to build the bundled CLI sidecar).
 
-## Run
+## Run (dev)
 
 ```bash
 pnpm install
 pnpm --filter @carbon/desktop dev
 ```
 
+In dev mode the CLI is resolved from `PATH` (install it with `npm i -g carbon-api`).
+
+## Build (bundled)
+
+```bash
+pnpm --filter @carbon/desktop build
+```
+
+`build` runs `scripts/prepare-sidecar.sh` first, which builds the standalone
+`carbon` CLI for your host platform and drops it into
+`src-tauri/binaries/carbon-<target-triple>` — the location Tauri's bundler
+expects for `bundle.externalBin`. The finished app therefore ships the CLI
+inside the bundle and needs no Node/npm on the user's machine.
+
 ## How it works
 
-The Rust command layer (`src-tauri/src/lib.rs`) spawns `carbon emulate --from
-<spec> --port <port>` as a managed child process, reads the CLI's
-"Runtime ready at …" line to learn the URL, and exposes four commands to the
-frontend:
+The Rust command layer (`src-tauri/src/lib.rs`) resolves the CLI binary by
+preferring a Tauri sidecar sitting next to the app executable and falling back
+to `carbon` on `PATH`. It spawns `carbon emulate --from <spec> --port <port>` as
+a managed child process, reads the CLI's "Runtime ready at …" line to learn the
+URL, and exposes four commands to the frontend:
 
 - `emulate(spec, port)` — stop any running emulator, boot a new one, return its URL
 - `stop()` — kill the managed child
@@ -41,7 +53,8 @@ no bundler — and talks to Rust through Tauri's global `window.__TAURI__.core`.
 
 - `pnpm --filter @carbon/desktop build` produces a macOS `.app` (+ zip it for
   distribution); DMG bundling still needs the `bundle_dmg` toolchain wired up.
-- A future release step should bundle the CLI as a Tauri
-  [sidecar](https://v2.tauri.app/develop/sidecar/) so end users don't need npm.
+- Cross-compiling for another OS: pass a Bun target to the sidecar script
+  (`./scripts/prepare-sidecar.sh bun-linux-x64`) and build the app on that
+  platform. The release workflow builds the desktop bundle per-OS.
 - The spawned CLI is best-effort killed on Stop; quitting the app also drops
   the child on most platforms.

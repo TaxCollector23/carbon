@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Carbon Desktop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "dev.carbon.desktop",
   "build": {
     "frontendDist": "../frontend"
@@ -24,6 +24,7 @@
   "bundle": {
     "active": true,
     "targets": ["app", "dmg"],
+    "externalBin": ["binaries/carbon"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

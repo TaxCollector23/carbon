@@ -1,6 +1,6 @@
 [package]
 name = "carbon-desktop"
-version = "0.1.0"
+version = "0.2.0"
 description = "Carbon desktop — run stateful API replicas from a native window."
 edition = "2021"
 
