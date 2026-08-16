@@ -17,12 +17,39 @@ export const metadata: Metadata = {
     description: 'Stateful API replicas for development, tests, and CI.',
     type: 'website',
     url: '/',
+    images: ['/opengraph-image'],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Carbon',
     description: 'Stateful API replicas for development, tests, and CI.',
+    images: ['/opengraph-image'],
   },
+};
+
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'SoftwareApplication',
+      name: 'Carbon',
+      applicationCategory: 'DeveloperApplication',
+      operatingSystem: 'macOS, Linux, Windows',
+      description:
+        'Carbon compiles OpenAPI, AsyncAPI, protobuf, gRPC, HAR, Postman, and GraphQL into a stateful local runtime for development, tests, and CI.',
+      offers: {
+        '@type': 'Offer',
+        price: '0',
+        priceCurrency: 'USD',
+      },
+      url: siteUrl(),
+    },
+    {
+      '@type': 'WebSite',
+      name: 'Carbon',
+      url: siteUrl(),
+    },
+  ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -53,6 +80,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to content
         </a>
         {children}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
       </body>
     </html>
   );

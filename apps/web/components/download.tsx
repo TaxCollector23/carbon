@@ -1,11 +1,17 @@
 import Link from 'next/link';
-import { ArrowUpRight, Download as DownloadIcon, MonitorDown, Terminal, FileCode2 } from 'lucide-react';
+import {
+  ArrowUpRight,
+  Download as DownloadIcon,
+  MonitorDown,
+  Terminal,
+  FileCode2,
+} from 'lucide-react';
 import { buttonVariants, cn } from '@carbon/ui';
 import { Section, SectionHeading } from './section';
 
 const RELEASES_URL = 'https://github.com/TaxCollector23/carbon/releases/latest';
 const MACOS_APP_URL =
-  'https://github.com/TaxCollector23/carbon/releases/download/v0.2.1/Carbon-Desktop-0.1.0-macos-arm64.zip';
+  'https://github.com/TaxCollector23/carbon/releases/download/v0.3.0/Carbon-Desktop-0.2.0-macos-arm64.zip';
 
 function Card({
   icon: Icon,
@@ -41,7 +47,7 @@ export function Download() {
         <Card
           icon={MonitorDown}
           title="Desktop app"
-          tagline="Run emulators and watch live state from a native window. macOS (Apple silicon) today; Windows and Linux from source."
+          tagline="Run emulators and watch live state from a native window. The CLI ships inside the app — no Node or npm required. macOS (Apple silicon) today; Windows and Linux from source."
         >
           <Link
             href={MACOS_APP_URL}
@@ -53,7 +59,7 @@ export function Download() {
               <DownloadIcon className="h-4 w-4" />
               Download for macOS
             </span>
-            <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+            <ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
           </Link>
           <Link
             href={RELEASES_URL}
@@ -64,12 +70,15 @@ export function Download() {
             Standalone CLI for Windows &amp; Linux
           </Link>
           <p className="text-muted-foreground text-xs leading-5">
-            The desktop app is an unsigned early beta — right-click → Open to
-            bypass Gatekeeper.
+            The desktop app is an unsigned early beta — right-click → Open to bypass Gatekeeper.
           </p>
         </Card>
 
-        <Card icon={Terminal} title="Command line" tagline="One command to install, no runtime dependencies.">
+        <Card
+          icon={Terminal}
+          title="Command line"
+          tagline="One command to install, no runtime dependencies."
+        >
           <code className="bg-muted/40 text-foreground rounded-md px-3 py-2 font-mono text-sm">
             npm i -g carbon-api
           </code>
@@ -86,7 +95,11 @@ export function Download() {
           </Link>
         </Card>
 
-        <Card icon={FileCode2} title="Language clients" tagline="Typed clients for the control-plane API, generated from the same schema.">
+        <Card
+          icon={FileCode2}
+          title="Language clients"
+          tagline="Typed clients for the control-plane API, generated from the same schema."
+        >
           <code className="bg-muted/40 text-foreground rounded-md px-3 py-2 font-mono text-sm">
             pip install carbon-client
           </code>
