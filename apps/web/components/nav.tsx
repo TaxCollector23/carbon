@@ -66,6 +66,15 @@ export function Nav() {
             Emulators
           </Link>
           <Link
+            href="/#download"
+            className={cn(
+              buttonVariants({ variant: 'ghost', size: 'sm' }),
+              'hidden sm:inline-flex',
+            )}
+          >
+            Download
+          </Link>
+          <Link
             href="/#pricing"
             className={cn(
               buttonVariants({ variant: 'ghost', size: 'sm' }),

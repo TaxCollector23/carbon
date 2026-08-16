@@ -2,6 +2,7 @@ import { Architecture } from '@/components/architecture';
 import { Benchmarks } from '@/components/benchmarks';
 import { CliSection } from '@/components/cli-section';
 import { Comparison } from '@/components/comparison';
+import { Download } from '@/components/download';
 import { Faq } from '@/components/faq';
 import { Features } from '@/components/features';
 import { Footer } from '@/components/footer';
@@ -46,6 +47,7 @@ export default function LandingPage() {
         <Features />
         <Benchmarks />
         <Record />
+        <Download />
         <Pricing />
         <Faq />
       </main>
