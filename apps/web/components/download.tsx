@@ -4,6 +4,8 @@ import { buttonVariants, cn } from '@carbon/ui';
 import { Section, SectionHeading } from './section';
 
 const RELEASES_URL = 'https://github.com/TaxCollector23/carbon/releases/latest';
+const MACOS_APP_URL =
+  'https://github.com/TaxCollector23/carbon/releases/download/v0.2.1/Carbon-Desktop-0.1.0-macos-arm64.zip';
 
 function Card({
   icon: Icon,
@@ -39,10 +41,10 @@ export function Download() {
         <Card
           icon={MonitorDown}
           title="Desktop app"
-          tagline="Run emulators and watch live state from a native window. macOS, Windows, and Linux."
+          tagline="Run emulators and watch live state from a native window. macOS (Apple silicon) today; Windows and Linux from source."
         >
           <Link
-            href={RELEASES_URL}
+            href={MACOS_APP_URL}
             className={cn(buttonVariants(), 'group justify-between')}
             target="_blank"
             rel="noreferrer"
@@ -59,10 +61,11 @@ export function Download() {
             target="_blank"
             rel="noreferrer"
           >
-            Windows &amp; Linux builds
+            Standalone CLI for Windows &amp; Linux
           </Link>
           <p className="text-muted-foreground text-xs leading-5">
-            The desktop app is in early beta — see the release notes for caveats.
+            The desktop app is an unsigned early beta — right-click → Open to
+            bypass Gatekeeper.
           </p>
         </Card>
 
