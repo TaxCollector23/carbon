@@ -1,14 +1,14 @@
 {
   "tool": "carbon",
-  "generatedAt": "2026-08-14T22:49:39.898Z",
+  "generatedAt": "2026-08-16T05:06:33.404Z",
   "node": "v26.7.0",
   "results": {
     "stateful": {
       "tool": "carbon",
       "demo": "stateful-consistency",
-      "generatedAt": "2026-08-14T22:49:34.597Z",
+      "generatedAt": "2026-08-16T05:05:58.308Z",
       "node": "v26.7.0",
-      "url": "http://127.0.0.1:56063",
+      "url": "http://127.0.0.1:64064",
       "passed": true,
       "stepCount": 6,
       "trace": [
@@ -24,86 +24,95 @@
           "responseBody": {
             "name": "Fido",
             "species": "dog",
-            "id": "pet_nnqwdcva777j4gp5x4ba"
+            "id": "pet_u6a6xkdeiymurogmxjoa"
           },
-          "elapsedMs": 23.321,
+          "elapsedMs": 22.613,
           "ok": true,
           "assertion": "status=201 and response.id defined and response.name===\"Fido\""
         },
         {
           "step": "read-after-create",
           "method": "GET",
-          "path": "/pets/pet_nnqwdcva777j4gp5x4ba",
+          "path": "/pets/pet_u6a6xkdeiymurogmxjoa",
           "requestBody": null,
           "status": 200,
           "responseBody": {
             "name": "Fido",
             "species": "dog",
-            "id": "pet_nnqwdcva777j4gp5x4ba"
+            "id": "pet_u6a6xkdeiymurogmxjoa"
           },
-          "elapsedMs": 1.521,
+          "elapsedMs": 2.404,
           "ok": true,
           "assertion": "status=200 and response.name===\"Fido\" (state persisted)"
         },
         {
           "step": "update",
           "method": "PATCH",
-          "path": "/pets/pet_nnqwdcva777j4gp5x4ba",
+          "path": "/pets/pet_u6a6xkdeiymurogmxjoa",
           "requestBody": {
             "name": "Fido II",
-            "tricks": ["sit", "roll"]
+            "tricks": [
+              "sit",
+              "roll"
+            ]
           },
           "status": 200,
           "responseBody": {
             "name": "Fido II",
             "species": "dog",
-            "id": "pet_nnqwdcva777j4gp5x4ba",
-            "tricks": ["sit", "roll"]
+            "id": "pet_u6a6xkdeiymurogmxjoa",
+            "tricks": [
+              "sit",
+              "roll"
+            ]
           },
-          "elapsedMs": 1.292,
+          "elapsedMs": 1.368,
           "ok": true,
           "assertion": "status=200 and response.name===\"Fido II\" (patch merged)"
         },
         {
           "step": "read-after-update",
           "method": "GET",
-          "path": "/pets/pet_nnqwdcva777j4gp5x4ba",
+          "path": "/pets/pet_u6a6xkdeiymurogmxjoa",
           "requestBody": null,
           "status": 200,
           "responseBody": {
             "name": "Fido II",
             "species": "dog",
-            "id": "pet_nnqwdcva777j4gp5x4ba",
-            "tricks": ["sit", "roll"]
+            "id": "pet_u6a6xkdeiymurogmxjoa",
+            "tricks": [
+              "sit",
+              "roll"
+            ]
           },
-          "elapsedMs": 0.764,
+          "elapsedMs": 0.701,
           "ok": true,
           "assertion": "patch persisted, previous fields preserved (species===dog)"
         },
         {
           "step": "delete",
           "method": "DELETE",
-          "path": "/pets/pet_nnqwdcva777j4gp5x4ba",
+          "path": "/pets/pet_u6a6xkdeiymurogmxjoa",
           "requestBody": null,
           "status": 204,
           "responseBody": null,
-          "elapsedMs": 0.766,
+          "elapsedMs": 0.78,
           "ok": true,
           "assertion": "status=204"
         },
         {
           "step": "read-after-delete",
           "method": "GET",
-          "path": "/pets/pet_nnqwdcva777j4gp5x4ba",
+          "path": "/pets/pet_u6a6xkdeiymurogmxjoa",
           "requestBody": null,
           "status": 404,
           "responseBody": {
             "error": {
               "code": "CARBON_NOT_FOUND",
-              "message": "pet pet_nnqwdcva777j4gp5x4ba not found"
+              "message": "pet pet_u6a6xkdeiymurogmxjoa not found"
             }
           },
-          "elapsedMs": 0.592,
+          "elapsedMs": 0.644,
           "ok": true,
           "assertion": "status=404 (delete honored)"
         }
@@ -112,7 +121,7 @@
     "snapshot": {
       "tool": "carbon",
       "demo": "snapshot-restore",
-      "generatedAt": "2026-08-14T22:49:34.928Z",
+      "generatedAt": "2026-08-16T05:05:58.611Z",
       "node": "v26.7.0",
       "seed": 12648430,
       "resources": 5,
@@ -121,149 +130,203 @@
       "snapshotBytes": 1942502,
       "iterations": 20,
       "restoreMs": {
-        "min": 7.413,
-        "p50": 7.894,
-        "p95": 13.772,
-        "max": 13.772
+        "min": 7.414,
+        "p50": 7.895,
+        "p95": 13.116,
+        "max": 13.116
       },
       "samples": [
-        7.413, 7.416, 7.454, 7.5, 7.509, 7.523, 7.71, 7.799, 7.816, 7.858, 7.894, 7.908, 7.945,
-        7.957, 8.304, 8.58, 8.796, 8.845, 8.908, 13.772
+        7.414,
+        7.415,
+        7.449,
+        7.452,
+        7.474,
+        7.606,
+        7.708,
+        7.724,
+        7.734,
+        7.838,
+        7.895,
+        7.907,
+        7.927,
+        7.954,
+        8.129,
+        8.676,
+        8.932,
+        8.954,
+        9.017,
+        13.116
       ]
     },
     "memory": {
       "tool": "carbon",
       "demo": "memory",
-      "generatedAt": "2026-08-14T22:49:35.250Z",
+      "generatedAt": "2026-08-16T05:05:59.151Z",
       "node": "v26.7.0",
       "seed": 3737844653,
-      "rowsCreated": 100,
-      "elapsedMs": 65.251,
+      "rowsCreated": 1000,
+      "elapsedMs": 297.004,
       "before": {
-        "rss": 105086976,
-        "heapTotal": 31621120,
-        "heapUsed": 19065472,
-        "external": 5423126
+        "rss": 92815360,
+        "heapTotal": 32407552,
+        "heapUsed": 18318928,
+        "external": 5357382
       },
       "after": {
-        "rss": 129204224,
-        "heapTotal": 38174720,
-        "heapUsed": 22393184,
-        "external": 6460000
+        "rss": 173113344,
+        "heapTotal": 66486272,
+        "heapUsed": 51083528,
+        "external": 6760903
       },
       "deltaBytes": {
-        "rss": 24117248,
-        "heapUsed": 3327712,
-        "external": 1036874
+        "rss": 80297984,
+        "heapUsed": 32764600,
+        "external": 1403521
       },
       "perRowBytes": {
-        "rss": 241172,
-        "heapUsed": 33277
+        "rss": 80298,
+        "heapUsed": 32765
       }
     },
     "throughput": {
       "tool": "carbon",
       "demo": "throughput",
-      "generatedAt": "2026-08-14T22:49:37.625Z",
+      "generatedAt": "2026-08-16T05:06:29.506Z",
       "node": "v26.7.0",
-      "target": "http://127.0.0.1:56069/pets",
-      "connections": 10,
-      "durationSeconds": 2,
+      "target": "http://127.0.0.1:64070/pets",
+      "connections": 100,
+      "durationSeconds": 30,
       "requests": {
-        "average": 40736,
-        "mean": 40736,
-        "stddev": 2864,
-        "min": 37882,
-        "max": 43603,
-        "total": 81485,
-        "p0_001": 37887,
-        "p0_01": 37887,
-        "p0_1": 37887,
-        "p1": 37887,
-        "p2_5": 37887,
-        "p10": 37887,
-        "p25": 37887,
-        "p50": 37887,
-        "p75": 43615,
-        "p90": 43615,
-        "p97_5": 43615,
-        "p99": 43615,
-        "p99_9": 43615,
-        "p99_99": 43615,
-        "p99_999": 43615,
-        "sent": 81495
+        "average": 43015.47,
+        "mean": 43015.47,
+        "stddev": 2077.52,
+        "min": 35451,
+        "max": 44877,
+        "total": 1290418,
+        "p0_001": 35455,
+        "p0_01": 35455,
+        "p0_1": 35455,
+        "p1": 35455,
+        "p2_5": 35455,
+        "p10": 38975,
+        "p25": 43135,
+        "p50": 43583,
+        "p75": 43871,
+        "p90": 44735,
+        "p97_5": 44895,
+        "p99": 44895,
+        "p99_9": 44895,
+        "p99_99": 44895,
+        "p99_999": 44895,
+        "sent": 1290518
       },
       "latency": {
-        "average": 0.01,
-        "mean": 0.01,
-        "stddev": 0.12,
+        "average": 2.03,
+        "mean": 2.03,
+        "stddev": 0.69,
         "min": 1,
-        "max": 11,
+        "max": 134,
         "p0_001": 0,
-        "p0_01": 0,
-        "p0_1": 0,
-        "p1": 0,
-        "p2_5": 0,
-        "p10": 0,
-        "p25": 0,
-        "p50": 0,
-        "p75": 0,
-        "p90": 0,
-        "p97_5": 0,
-        "p99": 0,
-        "p99_9": 1,
-        "p99_99": 8,
-        "p99_999": 11,
-        "totalCount": 81485
+        "p0_01": 1,
+        "p0_1": 2,
+        "p1": 2,
+        "p2_5": 2,
+        "p10": 2,
+        "p25": 2,
+        "p50": 2,
+        "p75": 2,
+        "p90": 2,
+        "p97_5": 2,
+        "p99": 3,
+        "p99_9": 5,
+        "p99_99": 19,
+        "p99_999": 115,
+        "totalCount": 1290418
       },
       "throughput": {
-        "average": 20815872,
-        "mean": 20815872,
-        "stddev": 1458176,
-        "min": 19357702,
-        "max": 22281133,
-        "total": 41638835,
-        "p0_001": 19365887,
-        "p0_01": 19365887,
-        "p0_1": 19365887,
-        "p1": 19365887,
-        "p2_5": 19365887,
-        "p10": 19365887,
-        "p25": 19365887,
-        "p50": 19365887,
-        "p75": 22282239,
-        "p90": 22282239,
-        "p97_5": 22282239,
-        "p99": 22282239,
-        "p99_9": 22282239,
-        "p99_99": 22282239,
-        "p99_999": 22282239
+        "average": 21980228.27,
+        "mean": 21980228.27,
+        "stddev": 1063580.62,
+        "min": 18115461,
+        "max": 22932147,
+        "total": 659403598,
+        "p0_001": 18120703,
+        "p0_01": 18120703,
+        "p0_1": 18120703,
+        "p1": 18120703,
+        "p2_5": 18120703,
+        "p10": 19906559,
+        "p25": 22052863,
+        "p50": 22265855,
+        "p75": 22429695,
+        "p90": 22855679,
+        "p97_5": 22937599,
+        "p99": 22937599,
+        "p99_9": 22937599,
+        "p99_99": 22937599,
+        "p99_999": 22937599
       },
       "errors": 0,
       "timeouts": 0,
       "non2xx": 0,
-      "2xx": 81485,
-      "start": "2026-08-14T22:49:35.618Z",
-      "finish": "2026-08-14T22:49:37.621Z"
+      "2xx": 1290418,
+      "start": "2026-08-16T05:05:59.490Z",
+      "finish": "2026-08-16T05:06:29.501Z"
     },
     "coldStart": {
       "tool": "carbon",
       "demo": "cold-start",
-      "generatedAt": "2026-08-14T22:49:37.890Z",
+      "generatedAt": "2026-08-16T05:06:31.396Z",
       "node": "v26.7.0",
-      "runs": 1,
+      "runs": 10,
       "method": "child_process.spawn(node apps/cli/dist/index.cjs emulate ...) -> GET /__carbon/health",
       "fixture": "benchmarks/fixtures/petstore.openapi.json",
       "coldStartMs": {
-        "min": 164.875,
-        "p50": 164.875,
-        "p95": 164.875,
-        "max": 164.875
+        "min": 172.393,
+        "p50": 173.587,
+        "p95": 214.238,
+        "max": 214.238
       },
       "samples": [
         {
           "run": 0,
-          "elapsedMs": 164.875
+          "elapsedMs": 214.238
+        },
+        {
+          "run": 1,
+          "elapsedMs": 173.385
+        },
+        {
+          "run": 2,
+          "elapsedMs": 172.83
+        },
+        {
+          "run": 3,
+          "elapsedMs": 173.465
+        },
+        {
+          "run": 4,
+          "elapsedMs": 173.587
+        },
+        {
+          "run": 5,
+          "elapsedMs": 172.928
+        },
+        {
+          "run": 6,
+          "elapsedMs": 172.393
+        },
+        {
+          "run": 7,
+          "elapsedMs": 176.193
+        },
+        {
+          "run": 8,
+          "elapsedMs": 181.407
+        },
+        {
+          "run": 9,
+          "elapsedMs": 179.284
         }
       ]
     }

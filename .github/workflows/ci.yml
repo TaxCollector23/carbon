@@ -131,6 +131,62 @@ jobs:
       - run: pnpm install --frozen-lockfile=false
       - run: pnpm format:check
 
+  python:
+    name: Python client
+    runs-on: ubuntu-latest
+    needs: install
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dev deps
+        working-directory: clients/python
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -q -e ".[dev]"
+      - name: Regenerate client + drift check
+        working-directory: clients/python
+        run: |
+          .venv/bin/python scripts/codegen.py ../../apps/dashboard/lib/openapi.snapshot.json > carbon_client/generated.py
+          .venv/bin/black -q carbon_client/generated.py
+          git diff --exit-code -- clients/python/carbon_client/generated.py
+      - name: Lint + test
+        working-directory: clients/python
+        run: |
+          .venv/bin/ruff check carbon_client tests scripts
+          .venv/bin/black --check carbon_client tests scripts
+          .venv/bin/pytest -q
+
+  perf:
+    name: Performance gate
+    runs-on: ubuntu-latest
+    needs: install
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.6.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile=false
+      - name: Build CLI (cold-start bench needs dist)
+        run: pnpm --filter carbon-api build
+      - name: Run benchmark suite
+        run: pnpm bench
+      - name: Enforce performance thresholds
+        run: pnpm --filter @carbon/benchmarks bench:gate
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmarks/results/latest.json
+          if-no-files-found: ignore
+          retention-days: 7
+
   integration:
     name: API integration (Postgres)
     runs-on: ubuntu-latest
@@ -295,7 +351,7 @@ jobs:
   deploy:
     name: Deploy to Fly.io
     runs-on: ubuntu-latest
-    needs: [typecheck, test, format, examples, integration, e2e]
+    needs: [typecheck, test, format, examples, integration, e2e, python, perf]
     if: github.ref == 'refs/heads/master' && github.event_name == 'push' && vars.CARBON_ENABLE_FLY_DEPLOY == 'true'
     concurrency:
       group: deploy-fly-${{ github.ref }}

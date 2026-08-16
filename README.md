@@ -26,6 +26,13 @@ Or run without installing:
 npx carbon-api <command>
 ```
 
+Standalone binaries (no Node required) and SHA256SUMS are published on every
+GitHub Release, and a Homebrew formula ships in `packaging/homebrew/carbon.rb`:
+
+```bash
+brew install carbon-dev/carbon/carbon
+```
+
 ## Quick start
 
 ```bash
@@ -33,7 +40,8 @@ carbon capabilities                    # inspect a control plane without credent
 carbon ci ./openapi.yaml                # validate and compile a contract for CI
 carbon ci ./openapi.yaml --against main.yaml
                                        # fail CI when normalized drift is detected
-carbon try                            # open the no-auth interactive playground
+carbon test ./openapi.yaml              # exercise every endpoint against a stateful replica
+carbon try                              # open the no-auth interactive playground
 carbon init                            # scaffold carbon.config.ts
 carbon ingest ./openapi.yaml           # parse a spec into Carbon's IR
 carbon ingest ./openapi.yaml --project checkout-api --async --wait
@@ -92,7 +100,7 @@ pnpm install
 pnpm dev
 ```
 
-- `apps/` — `cli` (the `carbon-api` package), `api` (Fastify control plane), `web` (Next.js marketing site), `dashboard` (Next.js app), `docs` (Mintlify).
+- `apps/` — `cli` (the `carbon-api` package), `api` (Fastify control plane), `web` (Next.js marketing site), `dashboard` (Next.js app), `desktop` (Tauri desktop app), `docs` (Mintlify).
 - `packages/` — `parser`, `ingestion`, `graph`, `runtime`, `state`, `storage`, `proxy`, `sdk`, `ai`, `workers`, `database`, `types`, `core`, `shared`, `ui`, `config`.
 
 Issues and pull requests: <https://github.com/TaxCollector23/carbon>.
