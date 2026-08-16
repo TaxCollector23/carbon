@@ -19,7 +19,7 @@ function makeCtx(overrides: Overrides = {}): AppContext {
   const chain = {
     from: () => chain,
     where: () => chain,
-    limit: async () => [{ orgId: 'org_1', slug: 'acme' }],
+    limit: async () => [{ id: 'proj_1', orgId: 'org_1', slug: 'acme' }],
   };
   return {
     logger: NoopLogger,
@@ -140,6 +140,7 @@ describe('POST /v1/ingest — async', () => {
       orgId: 'org_1',
       projectSlug: 'acme',
       origin: 'unit-test',
+      payload: { projectId: 'proj_1' },
     });
     expect(add).toHaveBeenCalledTimes(1);
     const call = (add.mock.calls as unknown as unknown[][])[0]!;
@@ -148,6 +149,7 @@ describe('POST /v1/ingest — async', () => {
     expect(queueJobName).toBe('ingest');
     expect(payload).toMatchObject({
       statusJobId: 'job_abc',
+      projectId: 'proj_1',
       orgId: 'org_1',
       // storageSlug for authenticated org
       projectSlug: 'org_1/acme',

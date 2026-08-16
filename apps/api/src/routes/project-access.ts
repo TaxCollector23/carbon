@@ -26,6 +26,7 @@ export const ProjectSlug = z
   .regex(/^[a-z0-9][a-z0-9-]*$/, 'project slug must be lowercase letters, numbers, and dashes');
 
 export interface ProjectAccess {
+  readonly id?: string;
   readonly orgId?: string;
   readonly slug: string;
   readonly storageSlug: string;
@@ -96,6 +97,7 @@ export async function resolveProjectAccess(
     }
   }
   return {
+    id: project.id,
     orgId: project.orgId,
     slug: project.slug,
     storageSlug: `${project.orgId}/${project.slug}`,

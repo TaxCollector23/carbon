@@ -4,6 +4,8 @@ import type { JudgeIssue, JudgeVerdict } from '@carbon/ai';
 import type { AppContext } from '../context.js';
 import { recordAiJudgeBelowThreshold } from '../plugins/metrics.js';
 
+type AiQualityReportContext = Pick<AppContext, 'db'>;
+
 /**
  * Persist an AI judge verdict pair against a project. Every ingest with the
  * judge enabled writes one row so the dashboard's AI-quality view (and the
@@ -35,7 +37,7 @@ interface TaggedIssue extends JudgeIssue {
 }
 
 export async function recordAiQualityReport(
-  ctx: AppContext,
+  ctx: AiQualityReportContext,
   input: RecordAiQualityReportInput,
 ): Promise<RecordedAiQualityReport> {
   const { resources, relationships } = input.verdicts;

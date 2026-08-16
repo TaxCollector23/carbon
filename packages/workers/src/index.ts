@@ -162,6 +162,7 @@ export {
   type IngestJobSource,
   type IngestJobStatusWriter,
   type IngestMetricsSink,
+  type IngestCompletionHookInput,
   isIngestJobPayload,
   type IngestionRunner,
   type RegisterIngestWorkerOptions,

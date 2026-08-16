@@ -1,9 +1,13 @@
 import { createHmac } from 'node:crypto';
+import { and, eq } from 'drizzle-orm';
 import { CarbonError, type Logger } from '@carbon/core';
+import { schema, type Database } from '@carbon/database';
+import { StorageKeys } from '@carbon/storage';
 import {
   QueueRegistry,
   Queues,
   registerIngestWorker,
+  type IngestCompletionHookInput,
   type IngestionRunner,
   type IngestJobStatusWriter,
   type IngestMetricsSink,
@@ -11,6 +15,7 @@ import {
 } from '@carbon/workers';
 import type { Worker } from 'bullmq';
 import type { Redis } from 'ioredis';
+import { recordAiQualityReport } from './services/ai-quality.js';
 
 /**
  * Embedded workers.
@@ -27,6 +32,7 @@ import type { Redis } from 'ioredis';
 export function startEmbeddedWorkers(deps: {
   redis: Redis;
   logger: Logger;
+  db: Database;
   ingestion: IngestionRunner;
   jobs: IngestJobStatusWriter;
   ingestConcurrency?: number;
@@ -51,6 +57,13 @@ export function startEmbeddedWorkers(deps: {
     metrics: deps.ingestMetrics,
     redisUrl: deps.redisUrl,
     judgeThreshold: deps.judgeThreshold,
+    onCompletedIngest: (input) =>
+      persistAsyncAiQualityReport({
+        db: deps.db,
+        logger: deps.logger,
+        judgeThreshold: deps.judgeThreshold,
+        input,
+      }),
   });
 
   deps.logger.info('workers.embedded_ready', {
@@ -62,6 +75,60 @@ export function startEmbeddedWorkers(deps: {
       await registry.close();
     },
   };
+}
+
+async function persistAsyncAiQualityReport(deps: {
+  db: Database;
+  logger: Logger;
+  judgeThreshold?: number;
+  input: IngestCompletionHookInput;
+}): Promise<void> {
+  const { payload, result } = deps.input;
+  if (!result.judge || !payload.orgId) return;
+
+  try {
+    const projectId = payload.projectId ?? (await lookupProjectId(deps.db, payload));
+    if (!projectId) {
+      deps.logger.warn('ai_quality.persist_skipped', {
+        reason: 'project_not_found',
+        statusJobId: payload.statusJobId,
+        orgId: payload.orgId,
+        projectSlug: payload.publicSlug ?? payload.projectSlug,
+      });
+      return;
+    }
+
+    await recordAiQualityReport(
+      { db: deps.db },
+      {
+        projectId,
+        irKey: StorageKeys.ir(payload.projectSlug, result.irId),
+        verdicts: result.judge,
+        threshold: deps.judgeThreshold ?? 0.75,
+      },
+    );
+  } catch (err) {
+    deps.logger.warn('ai_quality.persist_failed', {
+      statusJobId: payload.statusJobId,
+      projectSlug: payload.publicSlug ?? payload.projectSlug,
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+async function lookupProjectId(
+  db: Database,
+  payload: IngestCompletionHookInput['payload'],
+): Promise<string | undefined> {
+  if (!payload.orgId) return undefined;
+  const publicSlug =
+    payload.publicSlug ?? payload.projectSlug.slice(payload.projectSlug.indexOf('/') + 1);
+  const [row] = await db
+    .select({ id: schema.projects.id })
+    .from(schema.projects)
+    .where(and(eq(schema.projects.orgId, payload.orgId), eq(schema.projects.slug, publicSlug)))
+    .limit(1);
+  return row?.id;
 }
 
 interface DeliverOpts {

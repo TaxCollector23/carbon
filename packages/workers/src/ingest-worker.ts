@@ -24,6 +24,8 @@ export interface IngestJobSource {
 export interface IngestJobPayload {
   /** ID of the JobService status record — the worker writes progress here. */
   readonly statusJobId: string;
+  /** Internal database project id, when the producer has one. */
+  readonly projectId?: string;
   readonly orgId?: string;
   /** Storage-scoped slug (e.g. `orgId/slug`) — what the pipeline uses on disk. */
   readonly projectSlug: string;
@@ -43,6 +45,8 @@ export function isIngestJobPayload(value: unknown): value is IngestJobPayload {
   return (
     typeof payload.statusJobId === 'string' &&
     payload.statusJobId.length > 0 &&
+    (payload.projectId === undefined ||
+      (typeof payload.projectId === 'string' && payload.projectId.length > 0)) &&
     typeof payload.projectSlug === 'string' &&
     payload.projectSlug.length > 0 &&
     (payload.publicSlug === undefined || typeof payload.publicSlug === 'string') &&
@@ -152,6 +156,11 @@ export interface IngestMetricsSink {
   onJobResult(input: { outcome: 'succeeded' | 'failed'; durationMs: number }): void;
 }
 
+export interface IngestCompletionHookInput {
+  readonly payload: IngestJobPayload;
+  readonly result: IngestJobResult;
+}
+
 export interface RegisterIngestWorkerOptions {
   readonly connection: Redis;
   readonly ingestion: IngestionRunner;
@@ -172,6 +181,12 @@ export interface RegisterIngestWorkerOptions {
    * `succeeded`. Defaults to 0.75.
    */
   readonly judgeThreshold?: number;
+  /**
+   * Best-effort callback for host-owned side effects after the ingest result
+   * is built, such as persisting AI-quality reports to Postgres. Hook failures
+   * are logged but never fail the ingest job.
+   */
+  readonly onCompletedIngest?: (input: IngestCompletionHookInput) => Promise<void> | void;
 }
 
 /**
@@ -239,6 +254,17 @@ export function registerIngestWorker(
           ? Math.min(result.judge.resources.score, result.judge.relationships.score)
           : undefined;
         const needsReview = minScore !== undefined && minScore < judgeThreshold;
+        if (opts.onCompletedIngest) {
+          try {
+            await opts.onCompletedIngest({ payload: job.data, result: summary });
+          } catch (err) {
+            logger.warn('ingest.worker.completion_hook_failed', {
+              statusJobId,
+              jobId: job.id,
+              message: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
         await opts.jobs.update(statusJobId, {
           status: needsReview ? 'needs_review' : 'succeeded',
           result: summary,

@@ -1,18 +1,20 @@
-import { createLogger } from '@carbon/core';
+import { and, eq } from 'drizzle-orm';
+import { createLogger, makeId, type Logger } from '@carbon/core';
 import { createIngestionPipeline } from '@carbon/ingestion';
 import { AiCapabilities, AiJudge, OpenRouterProvider } from '@carbon/ai';
 import { createDefaultParserRegistry } from '@carbon/parser';
-import { FsStorage, S3Storage, type Storage } from '@carbon/storage';
+import { FsStorage, S3Storage, StorageKeys, type Storage } from '@carbon/storage';
 import {
   createIngestionQueue,
   createRedisConnection,
   createRedisIngestJobStatusWriter,
+  type IngestCompletionHookInput,
   QueueRegistry,
   Queues,
   redactRedisUrl,
   registerIngestWorker,
 } from '@carbon/workers';
-import { createDatabase } from '@carbon/database';
+import { createDatabase, schema, type Database } from '@carbon/database';
 import { deliverWebhook, startEventNotifier, type EventNotifier } from './handlers/webhook.js';
 import { loadEnv } from './env.js';
 import { startRetentionWorker, type RetentionWorker } from './retention-worker.js';
@@ -31,6 +33,12 @@ async function main(): Promise<void> {
   const storage = buildStorage(env);
   const redis = createRedisConnection(env.REDIS_URL);
   redis.on('error', (err) => logger.warn('redis.error', { message: err.message }));
+  const database = env.DATABASE_URL
+    ? createDatabase({
+        url: env.DATABASE_URL,
+        prepare: env.DATABASE_PREPARE,
+      })
+    : undefined;
 
   const registry = new QueueRegistry({ redis, logger });
   registry.handle(Queues.webhookDelivery, async (job) =>
@@ -59,6 +67,15 @@ async function main(): Promise<void> {
     concurrency: env.CARBON_INGEST_CONCURRENCY,
     redisUrl: env.REDIS_URL,
     judgeThreshold: env.CARBON_AI_JUDGE_THRESHOLD,
+    onCompletedIngest: database
+      ? (input) =>
+          persistAsyncAiQualityReport({
+            db: database.db,
+            logger,
+            judgeThreshold: env.CARBON_AI_JUDGE_THRESHOLD,
+            input,
+          })
+      : undefined,
   });
 
   // Producer-side handle onto the ingest queue for the retry poller. Sharing
@@ -75,11 +92,8 @@ async function main(): Promise<void> {
   let anomaly: AnomalyWorker | undefined;
   let notifier: EventNotifier | undefined;
   let drift: DriftWorkerHandle | undefined;
-  if (env.DATABASE_URL) {
-    const { db } = createDatabase({
-      url: env.DATABASE_URL,
-      prepare: env.DATABASE_PREPARE,
-    });
+  if (database) {
+    const { db } = database;
     retention = startRetentionWorker({
       db,
       logger,
@@ -112,6 +126,13 @@ async function main(): Promise<void> {
     await ingestQueueProducer.close();
     await ingestWorker.close();
     await registry.close();
+    if (database) {
+      try {
+        await database.sql.end({ timeout: 5 });
+      } catch (err) {
+        logger.warn('workers.db_drain_error', { message: (err as Error).message });
+      }
+    }
     process.exit(0);
   };
   process.on('SIGINT', () => void shutdown('SIGINT'));
@@ -137,6 +158,78 @@ function buildStorage(env: ReturnType<typeof loadEnv>): Storage {
     });
   }
   return new FsStorage(env.STORAGE_ROOT);
+}
+
+async function persistAsyncAiQualityReport(deps: {
+  db: Database;
+  logger: Logger;
+  judgeThreshold: number;
+  input: IngestCompletionHookInput;
+}): Promise<void> {
+  const { payload, result } = deps.input;
+  if (!result.judge || !payload.orgId) return;
+
+  try {
+    const projectId = payload.projectId ?? (await lookupProjectId(deps.db, payload));
+    if (!projectId) {
+      deps.logger.warn('ai_quality.persist_skipped', {
+        reason: 'project_not_found',
+        statusJobId: payload.statusJobId,
+        orgId: payload.orgId,
+        projectSlug: payload.publicSlug ?? publicProjectSlug(payload.projectSlug),
+      });
+      return;
+    }
+
+    const { resources, relationships } = result.judge;
+    const minScore = Math.min(resources.score, relationships.score);
+    const needsReview = minScore < deps.judgeThreshold;
+    const issues = [
+      ...resources.issues.map((issue) => ({ ...issue, pass: 'resources' as const })),
+      ...relationships.issues.map((issue) => ({ ...issue, pass: 'relationships' as const })),
+    ];
+
+    await deps.db.insert(schema.aiQualityReports).values({
+      id: makeId('aiq'),
+      projectId,
+      irKey: StorageKeys.ir(payload.projectSlug, result.irId),
+      resourcesScore: resources.score.toFixed(4),
+      relationshipsScore: relationships.score.toFixed(4),
+      minScore: minScore.toFixed(4),
+      issues,
+      needsReview,
+      model: resources.model ?? relationships.model ?? null,
+    });
+  } catch (err) {
+    deps.logger.warn('ai_quality.persist_failed', {
+      statusJobId: payload.statusJobId,
+      projectSlug: payload.publicSlug ?? publicProjectSlug(payload.projectSlug),
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+async function lookupProjectId(
+  db: Database,
+  payload: IngestCompletionHookInput['payload'],
+): Promise<string | undefined> {
+  if (!payload.orgId) return undefined;
+  const [row] = await db
+    .select({ id: schema.projects.id })
+    .from(schema.projects)
+    .where(
+      and(
+        eq(schema.projects.orgId, payload.orgId),
+        eq(schema.projects.slug, payload.publicSlug ?? publicProjectSlug(payload.projectSlug)),
+      ),
+    )
+    .limit(1);
+  return row?.id;
+}
+
+function publicProjectSlug(storageSlug: string): string {
+  const slash = storageSlug.indexOf('/');
+  return slash === -1 ? storageSlug : storageSlug.slice(slash + 1);
 }
 
 main().catch((err) => {

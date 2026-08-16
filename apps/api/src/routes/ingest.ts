@@ -1,7 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { schema } from '@carbon/database';
 import { StorageKeys } from '@carbon/storage';
 import { isIngestJobPayload, type IngestJobPayload } from '@carbon/workers';
 import type { AppContext } from '../context.js';
@@ -87,6 +85,7 @@ export async function registerIngestRoutes(app: FastifyInstance, ctx: AppContext
         }
         const makePayload = (jobId: string): IngestJobPayload => ({
           statusJobId: jobId,
+          projectId: project.id,
           orgId: project.orgId,
           projectSlug: project.storageSlug,
           publicSlug: project.slug,
@@ -196,23 +195,14 @@ export async function registerIngestRoutes(app: FastifyInstance, ctx: AppContext
       // query historical scores without dereferencing storage blobs. Never
       // fails the ingest — a broken metrics pipeline must not turn a 201
       // into a 500.
-      if (result.judge && project.orgId) {
+      if (result.judge && project.orgId && project.id) {
         try {
-          const [projectRow] = await ctx.db
-            .select({ id: schema.projects.id })
-            .from(schema.projects)
-            .where(
-              and(eq(schema.projects.orgId, project.orgId), eq(schema.projects.slug, project.slug)),
-            )
-            .limit(1);
-          if (projectRow) {
-            await recordAiQualityReport(ctx, {
-              projectId: projectRow.id,
-              irKey: StorageKeys.ir(project.storageSlug, result.irId),
-              verdicts: result.judge,
-              threshold: ctx.judgeThreshold ?? 0.75,
-            });
-          }
+          await recordAiQualityReport(ctx, {
+            projectId: project.id,
+            irKey: StorageKeys.ir(project.storageSlug, result.irId),
+            verdicts: result.judge,
+            threshold: ctx.judgeThreshold ?? 0.75,
+          });
         } catch (err) {
           ctx.logger.warn('ai_quality.persist_failed', {
             projectSlug: project.slug,

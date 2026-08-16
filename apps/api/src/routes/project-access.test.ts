@@ -19,7 +19,7 @@ import { requireProjectInOrg } from './projects.js';
  * query, no limit). The chain is therefore thenable as well as chainable so
  * both shapes resolve to the same fixture rows.
  */
-function makeCtx(projects: Array<{ orgId: string; slug: string }>): AppContext {
+function makeCtx(projects: Array<{ id?: string; orgId: string; slug: string }>): AppContext {
   const chain = {
     from: () => chain,
     where: () => chain,
@@ -101,6 +101,7 @@ describe('project access helpers', () => {
     );
 
     expect(project).toEqual({
+      id: undefined,
       orgId: 'org_1',
       slug: 'acme',
       storageSlug: 'org_1/acme',

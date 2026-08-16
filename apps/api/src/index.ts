@@ -165,6 +165,7 @@ async function main(): Promise<void> {
       ? startEmbeddedWorkers({
           redis,
           logger,
+          db,
           ingestion,
           jobs,
           ingestConcurrency: env.CARBON_INGEST_CONCURRENCY,
