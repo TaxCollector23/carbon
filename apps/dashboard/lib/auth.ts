@@ -104,7 +104,7 @@ function toOrigin(value: string | undefined): string | null {
   }
 }
 
-function configuredSocialProviders() {
+export function configuredSocialProviders() {
   return {
     ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
       ? {
@@ -112,14 +112,6 @@ function configuredSocialProviders() {
             clientId: process.env.GOOGLE_CLIENT_ID,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET,
             prompt: 'select_account' as const,
-          },
-        }
-      : {}),
-    ...(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET
-      ? {
-          github: {
-            clientId: process.env.GITHUB_CLIENT_ID,
-            clientSecret: process.env.GITHUB_CLIENT_SECRET,
           },
         }
       : {}),

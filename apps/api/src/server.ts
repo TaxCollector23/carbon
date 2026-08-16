@@ -37,6 +37,7 @@ import { registerSearchRoutes } from './routes/search.js';
 import { registerFeatureFlagRoutes } from './routes/feature-flags.js';
 import { registerLeadsRoutes, LEADS_PUBLIC_PATHS } from './routes/leads.js';
 import { registerSampleRoutes } from './routes/samples.js';
+import { registerSlackRoutes, SLACK_PUBLIC_PATHS } from './routes/slack.js';
 import { registerApiKeyAuth, type ApiKeyPluginOptions } from './plugins/api-key.js';
 import { registerSessionAuth } from './plugins/session-auth.js';
 import { registerIdempotency } from './plugins/idempotency.js';
@@ -91,7 +92,12 @@ const RATE_LIMITED_PUBLIC_PATHS = new Set(['/v1/capabilities', '/v1/samples']);
  * so they require the same API key as every other route.
  */
 export function buildPublicPaths(publicDocs: boolean): readonly string[] {
-  const base = [...OPERATIONAL_PUBLIC_PATHS, ...CLI_AUTH_PUBLIC_PATHS, ...LEADS_PUBLIC_PATHS];
+  const base = [
+    ...OPERATIONAL_PUBLIC_PATHS,
+    ...CLI_AUTH_PUBLIC_PATHS,
+    ...LEADS_PUBLIC_PATHS,
+    ...SLACK_PUBLIC_PATHS,
+  ];
   return publicDocs ? [...base, ...DOCS_PUBLIC_PATHS] : base;
 }
 
@@ -366,6 +372,7 @@ export async function buildServer(
   await registerFeatureFlagRoutes(app, ctx);
   await registerLeadsRoutes(app, ctx);
   await registerSampleRoutes(app, ctx);
+  await registerSlackRoutes(app, ctx);
 
   return app;
 }

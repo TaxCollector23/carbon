@@ -285,6 +285,7 @@
     "/v1/capabilities": {
       "get": {
         "summary": "Discover server capabilities",
+        "tags": ["Capabilities"],
         "description": "Return supported spec formats, runtime features, request limits, and stable links for client discovery. This endpoint is public.",
         "responses": {
           "200": {
@@ -4482,6 +4483,7 @@
     "/v1/quota": {
       "get": {
         "summary": "Per-org plan limits and current usage",
+        "tags": ["Quota"],
         "description": "Return the caller org's plan tier, per-plan ceilings, and current usage counters. Powers the dashboard Settings page's \"Usage & limits\" card. `null` limits mean unlimited.",
         "responses": {
           "200": {
@@ -4646,6 +4648,7 @@
     "/v1/export": {
       "post": {
         "summary": "Export org data",
+        "tags": ["Export"],
         "description": "Admin-only compliance export. Emits a bundle across the requested include categories (`events`, `projects`, `snapshots`, `api_keys`, `members`, `ai_quality`, `usage`, `audit`). Returns JSON by default; pass `format: \"zip\"` for a downloadable archive (binary content-type `application/zip`; not covered by the response schema).",
         "requestBody": {
           "required": true,
@@ -4692,6 +4695,7 @@
     "/v1/search": {
       "get": {
         "summary": "Full-text search across org history",
+        "tags": ["Search"],
         "description": "Search events, projects, and artifacts belonging to the caller's org. Uses Postgres `plainto_tsquery('simple', q)` against generated `search_tsv` columns. `scope` narrows the search; the default `all` merges results across every kind sorted by ts_rank score, descending.",
         "parameters": [
           {
@@ -4778,6 +4782,7 @@
     "/v1/feature-flags": {
       "get": {
         "summary": "List feature flags",
+        "tags": ["Feature Flags"],
         "description": "Return every flag definition plus the overrides that apply to the caller (org, user, plan). The `effective` field is pre-computed against the caller's scope so a UI row is one fetch.",
         "responses": {
           "200": {
@@ -4857,6 +4862,7 @@
     "/v1/feature-flags/{key}": {
       "patch": {
         "summary": "Set a feature flag override",
+        "tags": ["Feature Flags"],
         "description": "Admin-only. Upsert an override for the given flag key at the specified scope (`org`, `user`, or `plan`). `scopeId` is the org id, user id, or plan tier respectively.",
         "requestBody": {
           "required": true,
@@ -4902,6 +4908,7 @@
     "/v1/leads": {
       "post": {
         "summary": "Submit an Enterprise / sales lead",
+        "tags": ["Leads"],
         "description": "Unauthenticated. Backs the marketing site's /contact form. Rate-limited per IP (5/hour).",
         "requestBody": {
           "required": true,
@@ -4943,6 +4950,7 @@
     "/v1/samples": {
       "get": {
         "summary": "List curated samples",
+        "tags": ["Samples"],
         "description": "Return every sample that can be instantiated into a fresh project via `POST /v1/samples/instantiate`. Content is static per deploy.",
         "responses": {
           "200": {
@@ -4988,6 +4996,7 @@
     "/v1/samples/instantiate": {
       "post": {
         "summary": "Instantiate a curated sample into a fresh project",
+        "tags": ["Samples"],
         "description": "Admin-scope one-click: create a new project, ingest the bundled OpenAPI spec for the named sample, and return the fresh project slug plus the ingest summary. Slug shape is `<slugPrefix|sample-{id}>-<random>`. Unknown `sampleId` → 404.",
         "requestBody": {
           "required": true,
@@ -5076,6 +5085,197 @@
           }
         }
       }
+    },
+    "/v1/slack/install": {
+      "get": {
+        "summary": "Begin Slack app installation",
+        "tags": ["Slack"],
+        "description": "Redirects the caller to Slack's OAuth authorize page with the `channels:read chat:write incoming-webhook` scopes. The `state` parameter carries the org id back to the callback so the installation is attributed correctly.",
+        "responses": { "200": { "description": "Default Response" } }
+      }
+    },
+    "/v1/slack/oauth-callback": {
+      "get": {
+        "summary": "Slack OAuth callback",
+        "tags": ["Slack"],
+        "description": "Exchanges the auth code for a bot token and stores an encrypted installation row.",
+        "responses": { "200": { "description": "Default Response" } }
+      }
+    },
+    "/v1/slack/installations": {
+      "get": {
+        "summary": "List Slack installations for the caller's org",
+        "tags": ["Slack"],
+        "description": "GET /v1/slack/installations",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "orgId": { "type": "string" },
+                          "teamId": { "type": "string" },
+                          "teamName": { "type": "string" },
+                          "botUserId": { "type": "string", "nullable": true },
+                          "appId": { "type": "string", "nullable": true },
+                          "installedBy": { "type": "string", "nullable": true },
+                          "installedAt": { "type": "string" }
+                        },
+                        "required": [
+                          "id",
+                          "orgId",
+                          "teamId",
+                          "teamName",
+                          "botUserId",
+                          "appId",
+                          "installedBy",
+                          "installedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["data"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/slack/subscriptions": {
+      "get": {
+        "summary": "List Slack channel subscriptions for the caller's org",
+        "tags": ["Slack"],
+        "description": "GET /v1/slack/subscriptions",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "installationId": { "type": "string" },
+                          "channelId": { "type": "string" },
+                          "channelName": { "type": "string" },
+                          "events": { "type": "array", "items": { "type": "string" } },
+                          "createdAt": { "type": "string" }
+                        },
+                        "required": [
+                          "id",
+                          "installationId",
+                          "channelId",
+                          "channelName",
+                          "events",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["data"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Subscribe a Slack channel to org events",
+        "tags": ["Slack"],
+        "description": "POST /v1/slack/subscriptions",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "installationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "channelId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "channelName": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "events": {
+                    "type": "array",
+                    "items": { "type": "string", "minLength": 1, "maxLength": 200 },
+                    "minItems": 1,
+                    "maxItems": 100
+                  }
+                },
+                "required": ["installationId", "channelId", "channelName", "events"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "installationId": { "type": "string" },
+                    "channelId": { "type": "string" },
+                    "channelName": { "type": "string" },
+                    "events": { "type": "array", "items": { "type": "string" } },
+                    "createdAt": { "type": "string" }
+                  },
+                  "required": [
+                    "id",
+                    "installationId",
+                    "channelId",
+                    "channelName",
+                    "events",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/slack/subscriptions/{id}": {
+      "delete": {
+        "summary": "Remove a Slack channel subscription",
+        "tags": ["Slack"],
+        "description": "DELETE /v1/slack/subscriptions/:id",
+        "parameters": [
+          { "schema": { "type": "string" }, "in": "path", "name": "id", "required": true }
+        ],
+        "responses": { "200": { "description": "Default Response" } }
+      }
+    },
+    "/v1/slack/installations/{id}": {
+      "delete": {
+        "summary": "Uninstall a Slack workspace integration",
+        "tags": ["Slack"],
+        "description": "DELETE /v1/slack/installations/:id",
+        "parameters": [
+          { "schema": { "type": "string" }, "in": "path", "name": "id", "required": true }
+        ],
+        "responses": { "200": { "description": "Default Response" } }
+      }
     }
   },
   "servers": [{ "url": "http://localhost:4000", "description": "local dev" }],
@@ -5101,6 +5301,7 @@
     { "name": "Organizations", "description": "Tenancy, memberships, invitations." },
     { "name": "Billing", "description": "Stripe checkout, portal, and subscription state." },
     { "name": "SCIM", "description": "SCIM 2.0 user + group provisioning." },
+    { "name": "Slack", "description": "Slack app installation and channel subscriptions." },
     { "name": "Chaos Presets", "description": "Reusable fault-injection profiles." },
     { "name": "Contract", "description": "Compare a live server against an emulator contract." },
     { "name": "Assertions", "description": "Declarative response expectations." },
@@ -5108,21 +5309,39 @@
     { "name": "CLI Auth", "description": "Device-flow login for the `carbon` CLI." },
     { "name": "Me", "description": "Identity introspection for the current caller." },
     { "name": "Health", "description": "Liveness, readiness, and version." },
+    { "name": "Capabilities", "description": "Public feature discovery for this deployment." },
+    { "name": "Samples", "description": "Curated example APIs that can seed a project." },
     { "name": "AI Quality", "description": "LLM-graded quality signals per project." },
+    {
+      "name": "Search",
+      "description": "Full-text search across org projects, events, and artifacts."
+    },
+    { "name": "Quota", "description": "Plan limits and current org usage." },
+    { "name": "Feature Flags", "description": "Operator-controlled feature gates." },
     { "name": "Usage", "description": "Metered usage counters and events." },
     { "name": "SSO", "description": "SAML/OIDC provider configuration." },
     { "name": "Export", "description": "Bulk data export endpoints." },
+    { "name": "Leads", "description": "Enterprise lead capture from the marketing site." },
     { "name": "Share Links", "description": "Public read-only project share URLs." },
     { "name": "Ingest", "description": "Turn OpenAPI/HAR/Postman into an IR + behavior graph." }
   ],
   "x-tagGroups": [
-    { "name": "Core", "tags": ["Projects", "Ingest", "Artifacts", "Graphs", "Assertions"] },
+    {
+      "name": "Core",
+      "tags": ["Projects", "Ingest", "Artifacts", "Graphs", "Assertions", "Search", "Samples"]
+    },
     {
       "name": "Runtime",
       "tags": ["Emulators", "Snapshots", "Chaos Presets", "Contract", "Share Links"]
     },
-    { "name": "Enterprise", "tags": ["Organizations", "Billing", "SSO", "SCIM", "Export"] },
-    { "name": "Ops", "tags": ["Events", "Usage", "AI Quality", "Health"] },
+    {
+      "name": "Enterprise",
+      "tags": ["Organizations", "Billing", "SSO", "SCIM", "Slack", "Export", "Leads"]
+    },
+    {
+      "name": "Ops",
+      "tags": ["Events", "Usage", "Quota", "Feature Flags", "AI Quality", "Capabilities", "Health"]
+    },
     { "name": "Auth", "tags": ["Api Keys", "CLI Auth", "Me"] }
   ]
 }

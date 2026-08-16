@@ -163,6 +163,8 @@ describe('server', () => {
         '/v1/version',
         '/v1/capabilities',
         '/v1/samples',
+        '/v1/slack/install',
+        '/v1/slack/oauth-callback',
       ]) {
         const res = await app.inject(path);
         expect(res.statusCode, `${path} should not require a key`).not.toBe(401);
@@ -188,6 +190,7 @@ describe('server', () => {
     it('still closes the actual API surface', async () => {
       const app = await build(undefined, authed);
       expect((await app.inject('/v1/projects')).statusCode).toBe(401);
+      expect((await app.inject('/v1/slack/installations')).statusCode).toBe(401);
     });
 
     it('gates /docs and /openapi.json behind the API key when publicDocs=false', async () => {
@@ -242,6 +245,13 @@ describe('server', () => {
       headers: { 'x-forwarded-for': '9.9.9.9' },
     });
     expect(res.json().ip).toBe('9.9.9.9');
+  });
+
+  it('mounts the Slack integration routes in the main API server', async () => {
+    const app = await build();
+    const res = await app.inject('/v1/slack/installations');
+    expect(res.statusCode).not.toBe(404);
+    expect(res.json().error.code).toBe('CARBON_INVALID_INPUT');
   });
 
   it('exposes route-labelled metrics with a valid histogram', async () => {

@@ -1,10 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Github } from 'lucide-react';
 import { signIn } from '@/lib/auth-client';
-
-type Provider = 'google' | 'github';
 
 interface Props {
   readonly next: string;
@@ -12,22 +9,22 @@ interface Props {
 }
 
 export function SocialAuthButtons({ next, onError }: Props) {
-  const [pending, setPending] = useState<Provider | null>(null);
+  const [pending, setPending] = useState(false);
 
-  async function start(provider: Provider) {
-    setPending(provider);
+  async function start() {
+    setPending(true);
     onError('');
     try {
-      const res = await signIn.social({ provider, callbackURL: next });
+      const res = await signIn.social({ provider: 'google', callbackURL: next });
       if (res?.error) {
-        onError(res.error.message ?? `Could not start ${label(provider)} sign-in.`);
-        setPending(null);
+        onError(res.error.message ?? 'Could not start Google sign-in.');
+        setPending(false);
         return;
       }
       if (res?.data?.url) window.location.assign(res.data.url);
     } catch (err) {
-      onError(err instanceof Error ? err.message : `Could not start ${label(provider)} sign-in.`);
-      setPending(null);
+      onError(err instanceof Error ? err.message : 'Could not start Google sign-in.');
+      setPending(false);
     }
   }
 
@@ -35,26 +32,13 @@ export function SocialAuthButtons({ next, onError }: Props) {
     <div className="space-y-3">
       <button
         type="button"
-        onClick={() => void start('google')}
-        disabled={pending !== null}
+        onClick={() => void start()}
+        disabled={pending}
         className="border-border hover:bg-muted/40 flex w-full items-center justify-center gap-2 rounded-md border px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-60"
       >
         <span className="grid h-4 w-4 place-items-center font-semibold">G</span>
-        {pending === 'google' ? 'Opening Google...' : 'Continue with Google'}
-      </button>
-      <button
-        type="button"
-        onClick={() => void start('github')}
-        disabled={pending !== null}
-        className="border-border hover:bg-muted/40 flex w-full items-center justify-center gap-2 rounded-md border px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-60"
-      >
-        <Github className="h-4 w-4" />
-        {pending === 'github' ? 'Opening GitHub...' : 'Continue with GitHub'}
+        {pending ? 'Opening Google...' : 'Continue with Google'}
       </button>
     </div>
   );
-}
-
-function label(provider: Provider): string {
-  return provider === 'google' ? 'Google' : 'GitHub';
 }

@@ -379,6 +379,68 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/capabilities': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Discover server capabilities
+     * @description Return supported spec formats, runtime features, request limits, and stable links for client discovery. This endpoint is public.
+     */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              /** @enum {string} */
+              service: 'carbon-api';
+              /** @enum {string} */
+              apiVersion: 'v1';
+              capabilities: {
+                specFormats: (
+                  'openapi' | 'postman' | 'har' | 'graphql' | 'asyncapi' | 'protobuf' | 'grpc'
+                )[];
+                statefulRuntime: boolean;
+                snapshots: boolean;
+                asyncIngest: boolean;
+                browserPlayground: boolean;
+              };
+              limits: {
+                ingestBodyBytes: number;
+                requestTimeoutMs: number;
+              };
+              links: {
+                docs: string;
+                samples: string;
+                tryIt: string;
+              };
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/projects': {
     parameters: {
       query?: never;
@@ -5658,6 +5720,295 @@ export interface paths {
       };
     };
     delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/slack/install': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Begin Slack app installation
+     * @description Redirects the caller to Slack's OAuth authorize page with the `channels:read chat:write incoming-webhook` scopes. The `state` parameter carries the org id back to the callback so the installation is attributed correctly.
+     */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content?: never;
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/slack/oauth-callback': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Slack OAuth callback
+     * @description Exchanges the auth code for a bot token and stores an encrypted installation row.
+     */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content?: never;
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/slack/installations': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Slack installations for the caller's org
+     * @description GET /v1/slack/installations
+     */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              data: {
+                id: string;
+                orgId: string;
+                teamId: string;
+                teamName: string;
+                botUserId: string | null;
+                appId: string | null;
+                installedBy: string | null;
+                installedAt: string;
+              }[];
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/slack/subscriptions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Slack channel subscriptions for the caller's org
+     * @description GET /v1/slack/subscriptions
+     */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              data: {
+                id: string;
+                installationId: string;
+                channelId: string;
+                channelName: string;
+                events: string[];
+                createdAt: string;
+              }[];
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    /**
+     * Subscribe a Slack channel to org events
+     * @description POST /v1/slack/subscriptions
+     */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': {
+            installationId: string;
+            channelId: string;
+            channelName: string;
+            events: string[];
+          };
+        };
+      };
+      responses: {
+        /** @description Default Response */
+        201: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              id: string;
+              installationId: string;
+              channelId: string;
+              channelName: string;
+              events: string[];
+              createdAt: string;
+            };
+          };
+        };
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/slack/subscriptions/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Remove a Slack channel subscription
+     * @description DELETE /v1/slack/subscriptions/:id
+     */
+    delete: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content?: never;
+        };
+      };
+    };
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/slack/installations/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Uninstall a Slack workspace integration
+     * @description DELETE /v1/slack/installations/:id
+     */
+    delete: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content?: never;
+        };
+      };
+    };
     options?: never;
     head?: never;
     patch?: never;

@@ -48,6 +48,7 @@ const FIXTURE_ROUTES: readonly StubRoute[] = [
   { method: 'GET', url: '/v1/organizations', tag: 'Organizations' },
   { method: 'POST', url: '/v1/billing/checkout', tag: 'Billing' },
   { method: 'GET', url: '/scim/v2/Users', tag: 'SCIM' },
+  { method: 'GET', url: '/v1/slack/installations', tag: 'Slack' },
   { method: 'GET', url: '/v1/chaos-presets', tag: 'Chaos Presets' },
   { method: 'GET', url: '/v1/contract/xyz', tag: 'Contract' },
   { method: 'GET', url: '/v1/assertions', tag: 'Assertions' },
@@ -55,10 +56,16 @@ const FIXTURE_ROUTES: readonly StubRoute[] = [
   { method: 'POST', url: '/v1/cli-auth/start', tag: 'CLI Auth' },
   { method: 'GET', url: '/v1/me', tag: 'Me' },
   { method: 'GET', url: '/v1/health/live', tag: 'Health' },
+  { method: 'GET', url: '/v1/capabilities', tag: 'Capabilities' },
+  { method: 'GET', url: '/v1/samples', tag: 'Samples' },
   { method: 'GET', url: '/v1/ai-quality/latest', tag: 'AI Quality' },
+  { method: 'GET', url: '/v1/search', tag: 'Search' },
+  { method: 'GET', url: '/v1/quota', tag: 'Quota' },
+  { method: 'GET', url: '/v1/feature-flags', tag: 'Feature Flags' },
   { method: 'GET', url: '/v1/usage', tag: 'Usage' },
   { method: 'GET', url: '/v1/sso/providers', tag: 'SSO' },
   { method: 'GET', url: '/v1/events/export', tag: 'Export' },
+  { method: 'POST', url: '/v1/leads', tag: 'Leads' },
   { method: 'GET', url: '/v1/projects/pid/share-links', tag: 'Share Links' },
   { method: 'POST', url: '/v1/ingest', tag: 'Ingest' },
 ];
@@ -278,36 +285,7 @@ describe('docs plugin', () => {
       // Scalar's sidebar cannot silently drop one.
       const grouped = new Set(groups?.flatMap((g) => g.tags) ?? []);
       for (const t of API_TAGS) {
-        // Some tags (Ingest, Share Links, Export, Assertions, etc.) also appear
-        // in the fixture map — just assert every tag is grouped somewhere.
-        // (SCIM is grouped under Enterprise; Export under Enterprise; etc.)
-        // A missing tag would fail the sidebar rendering.
-        if (
-          t.name === 'Ingest' ||
-          t.name === 'Artifacts' ||
-          t.name === 'Graphs' ||
-          t.name === 'Assertions' ||
-          t.name === 'Projects' ||
-          t.name === 'Emulators' ||
-          t.name === 'Snapshots' ||
-          t.name === 'Chaos Presets' ||
-          t.name === 'Contract' ||
-          t.name === 'Share Links' ||
-          t.name === 'Organizations' ||
-          t.name === 'Billing' ||
-          t.name === 'SSO' ||
-          t.name === 'SCIM' ||
-          t.name === 'Export' ||
-          t.name === 'Events' ||
-          t.name === 'Usage' ||
-          t.name === 'AI Quality' ||
-          t.name === 'Health' ||
-          t.name === 'Api Keys' ||
-          t.name === 'CLI Auth' ||
-          t.name === 'Me'
-        ) {
-          expect(grouped, `tag "${t.name}" is not in any x-tagGroups section`).toContain(t.name);
-        }
+        expect(grouped, `tag "${t.name}" is not in any x-tagGroups section`).toContain(t.name);
       }
     } finally {
       await app.close();
@@ -383,6 +361,14 @@ describe('docs plugin', () => {
     expect(matchTag('/v1/events/export')).toBe('Export');
     expect(matchTag('/v1/events')).toBe('Events');
     expect(matchTag('/v1/health/live')).toBe('Health');
+    expect(matchTag('/v1/slack/installations')).toBe('Slack');
+    expect(matchTag('/v1/capabilities')).toBe('Capabilities');
+    expect(matchTag('/v1/samples')).toBe('Samples');
+    expect(matchTag('/v1/search')).toBe('Search');
+    expect(matchTag('/v1/quota')).toBe('Quota');
+    expect(matchTag('/v1/feature-flags')).toBe('Feature Flags');
+    expect(matchTag('/v1/export')).toBe('Export');
+    expect(matchTag('/v1/leads')).toBe('Leads');
     expect(matchTag('/scim/v2/Users')).toBe('SCIM');
     expect(matchTag('/something/unknown')).toBeNull();
   });
