@@ -1,21 +1,23 @@
 # Deploying Carbon
 
-This repo uses one public web URL for the landing page, dashboard, and
-benchmarks:
+Carbon ships three public surfaces:
 
-- `/` landing
-- `/dashboard` Firebase-gated dashboard
-- `/benchmarks` benchmark methodology
+- Landing + marketing: https://carbon-web-psi.vercel.app (Vercel, `apps/web`)
+- Dashboard: https://carbon-dashboard-lovat.vercel.app (Vercel, `apps/dashboard`)
+- Docs: https://taxcollector23.github.io/carbon/ (GitHub Pages, `apps/docs`)
 
-A low-cost hosted setup can use:
+The dashboard signs humans in with Better Auth and talks to the API at
+`https://carbon-api.fly.dev` via `NEXT_PUBLIC_CARBON_API_URL`. A low-cost
+hosted setup can use:
 
-| Piece           | Provider                | Notes                                            |
-| --------------- | ----------------------- | ------------------------------------------------ |
-| Web + dashboard | Vercel                  | One project, root directory `apps/web`           |
-| API             | Node runtime            | Fastify service in `apps/api`; see notes below   |
-| Postgres        | Neon                    | Durable control-plane data                       |
-| Redis           | Upstash                 | Async jobs, rate limits, idempotency             |
-| Object storage  | Cloudflare R2, optional | Durable artifacts when managed storage is needed |
+| Piece          | Provider                | Notes                                                 |
+| -------------- | ----------------------- | ----------------------------------------------------- |
+| Web            | Vercel                  | Project `carbon-web`, root directory `apps/web`       |
+| Dashboard      | Vercel                  | Project `carbon-dashboard`, root dir `apps/dashboard` |
+| API            | Fly.io                  | Fastify service in `apps/api`; see notes below        |
+| Postgres       | Neon                    | Durable control-plane data                            |
+| Redis          | Upstash                 | Async jobs, rate limits, idempotency                  |
+| Object storage | Cloudflare R2, optional | Durable artifacts when managed storage is needed      |
 
 Postgres and Redis need managed services. Free web deployments restart and
 redeploy often, so they are a poor fit for durable control-plane data.
@@ -109,9 +111,11 @@ Set this environment variable if you use a custom domain:
 NEXT_PUBLIC_SITE_URL=https://your-domain.example
 ```
 
-Firebase config is public browser config and is wired in `apps/web/lib/firebase.ts`.
-Enable Google and GitHub providers in the Firebase console for the dashboard
-sign-in buttons to work.
+Human auth is Better Auth, run by the dashboard app (`apps/dashboard`). Set
+`BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` on the dashboard project, and enable
+Google sign-in by providing `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
+`apps/web/lib/firebase.ts` is a retained stub that throws if a stale import
+reintroduces the old Firebase auth system.
 
 ## Neon
 
@@ -147,8 +151,8 @@ starts with `redis://`.
 
 ## API Keys
 
-Keep API keys backend-only. Firebase signs humans into the dashboard; Carbon API
-keys authenticate CLI, CI, and API callers.
+Keep API keys backend-only. Better Auth signs humans into the dashboard; Carbon
+API keys authenticate CLI, CI, and API callers.
 
 Mint the first key from your machine:
 
@@ -167,6 +171,17 @@ store.
 readiness — point the load balancer here. Readiness results are cached for two
 seconds, so probing at 1Hz is cheap; it checks Postgres, Redis, and object
 storage concurrently and returns 503 with a per-dependency breakdown.
+
+### Smoke check
+
+After any deploy, run the committed smoke check to confirm the versioned public
+surface is actually live — a stale Fly machine (or one serving only the probe
+routes) 404s `/v1/version` and `/v1/capabilities` and this catches it:
+
+```bash
+scripts/smoke-api.sh                        # https://carbon-api.fly.dev
+scripts/smoke-api.sh https://localhost:4000 # a local API
+```
 
 ### Rolling deploys
 
