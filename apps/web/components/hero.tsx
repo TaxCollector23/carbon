@@ -1,11 +1,67 @@
 import Link from 'next/link';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { ArrowRight, LayoutDashboard, Play, Sparkles } from 'lucide-react';
 import { buttonVariants, cn } from '@carbon/ui';
 import { dashboardSignInUrl } from '@/lib/urls';
 import { TerminalDemo } from './terminal';
 
+interface HeroStat {
+  readonly value: string;
+  readonly label: string;
+}
+
+/**
+ * Read the committed benchmark results at build time so the hero's proof
+ * points stay current with the suite instead of drifting out of date. Falls
+ * back to the last-known-good numbers when the file is absent (e.g. a fresh
+ * clone before the first `pnpm bench` run).
+ */
+function heroStats(): HeroStat[] {
+  const fallback: HeroStat[] = [
+    { value: '0', label: 'network calls to the real API during tests' },
+    { value: '6/6', label: 'stateful consistency checks passed' },
+    { value: '7.9 ms', label: 'p50 restore for a 10k-row snapshot' },
+  ];
+  try {
+    const path = join(process.cwd(), '..', '..', 'benchmarks', 'results', 'latest.json');
+    const results = JSON.parse(readFileSync(path, 'utf8')) as {
+      results?: {
+        stateful?: { passed?: boolean; stepCount?: number };
+        snapshot?: { totalRows?: number; restoreMs?: { p50?: number } };
+      };
+    };
+    const stateful = results.results?.stateful;
+    const snapshot = results.results?.snapshot;
+    return [
+      { value: '0', label: 'network calls to the real API during tests' },
+      stateful?.stepCount
+        ? {
+            value: `${stateful.passed ? stateful.stepCount : 0}/${stateful.stepCount}`,
+            label: 'stateful consistency checks passed',
+          }
+        : fallback[1]!,
+      snapshot?.restoreMs?.p50 != null && snapshot.totalRows != null
+        ? {
+            value: `${snapshot.restoreMs.p50.toFixed(1)} ms`,
+            label: `p50 restore for a ${formatK(snapshot.totalRows)}-row snapshot`,
+          }
+        : fallback[2]!,
+    ];
+  } catch {
+    return fallback;
+  }
+}
+
+function formatK(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}m`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, '')}k`;
+  return String(n);
+}
+
 export function Hero() {
   const dashboardHref = dashboardSignInUrl('/');
+  const stats = heroStats();
 
   return (
     <section id="top" className="border-border bg-background relative overflow-hidden border-b">
@@ -60,11 +116,7 @@ export function Hero() {
               </Link>
             </div>
             <div className="border-border mt-8 grid max-w-xl grid-cols-3 border-y text-sm">
-              {[
-                ['0', 'network calls to the real API during tests'],
-                ['6/6', 'stateful consistency checks passed'],
-                ['7.9 ms', 'p50 restore for a 10k-row snapshot'],
-              ].map(([value, label], index) => (
+              {stats.map(({ value, label }, index) => (
                 <div key={label} className={cn('py-4', index > 0 && 'border-border border-l pl-5')}>
                   <div className="text-foreground font-mono text-base">{value}</div>
                   <div className="text-muted-foreground mt-1 text-xs">{label}</div>
