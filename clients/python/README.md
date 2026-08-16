@@ -91,6 +91,21 @@ make codegen        # or: python scripts/codegen.py ../../apps/dashboard/lib/ope
 
 Run `make lint` and `make test` before committing.
 
+## Releasing
+
+Publishing to PyPI is automated: pushing a `v*` tag runs the
+`publish-python` job in `.github/workflows/release.yml`, which regenerates the
+client (and fails if it drifted), runs the tests, builds the sdist + wheel, and
+publishes via PyPI [trusted publishing](https://docs.pypi.org/trusted-publishing/).
+Set up the `pypi` GitHub environment once (no token needed — it uses OIDC).
+
+To build locally:
+
+```bash
+cd clients/python
+python -m build
+```
+
 ## License
 
 MIT

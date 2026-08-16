@@ -77,8 +77,8 @@ confident generalizes to messy real-world specs.
 - [x] Homebrew: `brew install carbon-dev/carbon/carbon`
 - [x] `/try` no-auth playground on the marketing site
 - [x] `carbon try --sample petstore --open` CLI path
-- [ ] PyPI: `pip install carbon-client` (client built; publish pending)
-- [ ] Desktop: Tauri app built (`apps/desktop`); bundle a CLI sidecar before shipping
+- [x] PyPI: `pip install carbon-client` (publish automated via trusted publishing on tag)
+- [x] Desktop: Tauri app with a bundled CLI sidecar; zip + headless DMG on GitHub Releases
 
 ## Call to action ladder
 
