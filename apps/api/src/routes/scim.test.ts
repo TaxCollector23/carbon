@@ -46,10 +46,19 @@ interface Store {
   orgs: OrgRow[];
   users: UserRow[];
   memberships: Membership[];
+  membershipReads?: unknown[][];
+  ops?: Array<{ kind: 'delete' | 'execute' | 'transaction'; table?: unknown; query?: unknown }>;
+}
+
+const TEST_KEY_PREFIX = 'aa11bb22cc33';
+
+function presentedScimToken(secret: string): string {
+  return `${['ck', 'live', TEST_KEY_PREFIX].join('_')}.${secret}`;
 }
 
 function makeDb(store: Store): AppContext['db'] {
   let lastTable: unknown = null;
+  const ops = (store.ops ??= []);
   const selectChain = () => {
     const chain: any = {
       from: (t: unknown) => {
@@ -68,6 +77,7 @@ function makeDb(store: Store): AppContext['db'] {
     if (lastTable === schema.apiKeys) return store.apiKeys;
     if (lastTable === schema.organizations) return store.orgs;
     if (lastTable === schema.memberships) {
+      if (store.membershipReads?.length) return store.membershipReads.shift()!;
       return store.memberships.map((m) => {
         const u = store.users.find((x) => x.id === m.userId);
         return {
@@ -85,6 +95,19 @@ function makeDb(store: Store): AppContext['db'] {
   return {
     select: () => selectChain(),
     insert: () => ({ values: async () => {} }),
+    delete: (table: unknown) => ({
+      where: async () => {
+        ops.push({ kind: 'delete', table });
+      },
+    }),
+    execute: async (query: unknown) => {
+      ops.push({ kind: 'execute', query });
+      return [];
+    },
+    transaction: async <T>(fn: (tx: AppContext['db']) => Promise<T>): Promise<T> => {
+      ops.push({ kind: 'transaction' });
+      return fn(makeDb(store));
+    },
   } as unknown as AppContext['db'];
 }
 
@@ -128,7 +151,7 @@ describe('SCIM routes', () => {
     const app = await build(store, {
       id: 'k',
       orgId: 'org_1',
-      prefix: 'aa11bb22cc33',
+      prefix: TEST_KEY_PREFIX,
       scopes: ['admin'],
       projectIds: null,
       expiresAt: null,
@@ -147,7 +170,7 @@ describe('SCIM routes', () => {
         {
           id: 'key_scim',
           orgId: 'org_1',
-          prefix: 'aa11bb22cc33',
+          prefix: TEST_KEY_PREFIX,
           hash: hashOf(secret),
           scopes: ['admin'],
           projectIds: null,
@@ -171,7 +194,7 @@ describe('SCIM routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/scim/v2/Users',
-      headers: { 'x-scim-token': `ck_live_aa11bb22cc33.${secret}` },
+      headers: { 'x-scim-token': presentedScimToken(secret) },
     });
     expect(res.statusCode).toBe(200);
     const body = res.json() as {
@@ -195,5 +218,95 @@ describe('SCIM routes', () => {
     const app = await build(store);
     const res = await app.inject({ method: 'GET', url: '/scim/v2/Users' });
     expect(res.statusCode).toBe(401);
+  });
+
+  it('DELETE refuses to remove the final owner', async () => {
+    const now = new Date();
+    const store: Store = {
+      apiKeys: [],
+      orgs: [{ id: 'org_1', isEnterprise: true }],
+      users: [
+        { id: 'usr_owner', email: 'owner@acme.io', name: 'Owner', createdAt: now, updatedAt: now },
+      ],
+      memberships: [],
+      membershipReads: [
+        [
+          {
+            userId: 'usr_owner',
+            role: 'owner',
+            email: 'owner@acme.io',
+            name: 'Owner',
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+        [{ role: 'owner' }],
+        [],
+      ],
+      ops: [],
+    };
+    const app = await build(store, {
+      id: 'k',
+      orgId: 'org_1',
+      prefix: TEST_KEY_PREFIX,
+      scopes: ['admin'],
+      projectIds: null,
+      expiresAt: null,
+    });
+
+    const res = await app.inject({ method: 'DELETE', url: '/scim/v2/Users/usr_owner' });
+
+    expect(res.statusCode).toBe(409);
+    expect(res.json().detail).toMatch(/last owner/i);
+    expect(store.ops?.some((o) => o.kind === 'transaction')).toBe(true);
+    expect(store.ops?.some((o) => o.kind === 'execute')).toBe(true);
+    expect(store.ops?.find((o) => o.kind === 'delete')).toBeUndefined();
+  });
+
+  it('PATCH active:false removes a non-final owner under the membership lock', async () => {
+    const now = new Date();
+    const store: Store = {
+      apiKeys: [],
+      orgs: [{ id: 'org_1', isEnterprise: true }],
+      users: [
+        { id: 'usr_owner', email: 'owner@acme.io', name: 'Owner', createdAt: now, updatedAt: now },
+      ],
+      memberships: [],
+      membershipReads: [
+        [
+          {
+            userId: 'usr_owner',
+            role: 'owner',
+            email: 'owner@acme.io',
+            name: 'Owner',
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+        [{ role: 'owner' }],
+        [{ userId: 'usr_other' }],
+      ],
+      ops: [],
+    };
+    const app = await build(store, {
+      id: 'k',
+      orgId: 'org_1',
+      prefix: TEST_KEY_PREFIX,
+      scopes: ['admin'],
+      projectIds: null,
+      expiresAt: null,
+    });
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/scim/v2/Users/usr_owner',
+      payload: { Operations: [{ op: 'replace', path: 'active', value: false }] },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().active).toBe(false);
+    expect(store.ops?.some((o) => o.kind === 'transaction')).toBe(true);
+    expect(store.ops?.some((o) => o.kind === 'execute')).toBe(true);
+    expect(store.ops?.find((o) => o.kind === 'delete')).toBeDefined();
   });
 });

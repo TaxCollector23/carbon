@@ -21,7 +21,7 @@ import { registerJobRoutes } from './routes/jobs.js';
 import { registerEventRoutes } from './routes/events.js';
 import { registerOrganizationRoutes } from './routes/organizations.js';
 import { registerBillingRoutes } from './routes/billing.js';
-import { registerScimRoutes } from './routes/scim.js';
+import { registerScimRoutes, SCIM_PUBLIC_PATHS } from './routes/scim.js';
 import { registerChaosPresetRoutes } from './routes/chaos-presets.js';
 import { registerContractRoutes } from './routes/contract.js';
 import { registerAssertionRoutes } from './routes/assertions.js';
@@ -97,6 +97,7 @@ export function buildPublicPaths(publicDocs: boolean): readonly string[] {
     ...CLI_AUTH_PUBLIC_PATHS,
     ...LEADS_PUBLIC_PATHS,
     ...SLACK_PUBLIC_PATHS,
+    ...SCIM_PUBLIC_PATHS,
   ];
   return publicDocs ? [...base, ...DOCS_PUBLIC_PATHS] : base;
 }

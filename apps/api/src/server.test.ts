@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import { createHash } from 'node:crypto';
 import { NoopLogger, NotFoundError } from '@carbon/core';
+import { schema } from '@carbon/database';
 import { MemoryStorage } from '@carbon/storage';
 import type { FastifyInstance } from 'fastify';
 import { buildServer } from './server.js';
 import type { AppContext } from './context.js';
+
+const TEST_SCIM_PREFIX = 'aa11bb22cc33';
 
 function makeCtx(): AppContext {
   return {
@@ -30,11 +34,63 @@ function makeCtx(): AppContext {
 async function build(
   probe?: (app: FastifyInstance) => void,
   options: Parameters<typeof buildServer>[2] = {},
+  ctx: AppContext = makeCtx(),
 ): Promise<FastifyInstance> {
-  const app = await buildServer(makeCtx(), NoopLogger, options);
+  const app = await buildServer(ctx, NoopLogger, options);
   probe?.(app);
   await app.ready();
   return app;
+}
+
+function makeScimCtx(secret: string): AppContext {
+  const now = new Date('2026-01-01T00:00:00Z');
+  let table: unknown = null;
+  const chain = {
+    from: (t: unknown) => {
+      table = t;
+      return chain;
+    },
+    innerJoin: () => chain,
+    where: () => chain,
+    limit: async () => resolveScimRows(),
+    then: (resolve: (rows: unknown[]) => unknown, reject?: (err: unknown) => unknown) =>
+      Promise.resolve(resolveScimRows()).then(resolve, reject),
+  };
+  const resolveScimRows = (): unknown[] => {
+    if (table === schema.apiKeys) {
+      return [
+        {
+          id: 'key_scim',
+          orgId: 'org_1',
+          prefix: TEST_SCIM_PREFIX,
+          hash: createHash('sha256').update(secret).digest('hex'),
+          scopes: ['admin'],
+          projectIds: null,
+          revokedAt: null,
+          expiresAt: null,
+        },
+      ];
+    }
+    if (table === schema.organizations) return [{ isEnterprise: true }];
+    if (table === schema.memberships) {
+      return [
+        {
+          userId: 'usr_1',
+          role: 'member',
+          email: 'alice@acme.io',
+          name: 'Alice',
+          createdAt: now,
+          updatedAt: now,
+        },
+      ];
+    }
+    return [];
+  };
+
+  return {
+    ...makeCtx(),
+    db: { select: () => chain } as unknown as AppContext['db'],
+  };
 }
 
 describe('server', () => {
@@ -191,6 +247,22 @@ describe('server', () => {
       const app = await build(undefined, authed);
       expect((await app.inject('/v1/projects')).statusCode).toBe(401);
       expect((await app.inject('/v1/slack/installations')).statusCode).toBe(401);
+    });
+
+    it('lets SCIM authenticate with X-SCIM-Token instead of x-carbon-key', async () => {
+      const secret = 'b'.repeat(32);
+      const app = await build(undefined, authed, makeScimCtx(secret));
+      const res = await app.inject({
+        method: 'GET',
+        url: '/scim/v2/Users',
+        headers: { 'x-scim-token': `${['ck', 'live', TEST_SCIM_PREFIX].join('_')}.${secret}` },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toMatchObject({
+        totalResults: 1,
+        Resources: [{ userName: 'alice@acme.io' }],
+      });
     });
 
     it('gates /docs and /openapi.json behind the API key when publicDocs=false', async () => {

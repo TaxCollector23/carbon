@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { and, eq, inArray } from 'drizzle-orm';
-import { randomBytes } from 'node:crypto';
+import { and, eq, gt, inArray, isNull, ne, or, sql } from 'drizzle-orm';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { CarbonError, makeId, NotFoundError } from '@carbon/core';
 import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
@@ -67,6 +67,7 @@ const SCIM_GROUP_SCHEMA = 'urn:ietf:params:scim:schemas:core:2.0:Group';
 const SCIM_LIST_SCHEMA = 'urn:ietf:params:scim:api:messages:2.0:ListResponse';
 const SCIM_PATCH_SCHEMA = 'urn:ietf:params:scim:api:messages:2.0:PatchOp';
 const SCIM_ERROR_SCHEMA = 'urn:ietf:params:scim:api:messages:2.0:Error';
+export const SCIM_PUBLIC_PATHS: readonly string[] = ['/scim/v2/*'];
 
 interface ScimUser {
   readonly schemas: string[];
@@ -131,14 +132,20 @@ export async function registerScimRoutes(app: FastifyInstance, ctx: AppContext):
     const rows = await ctx.db
       .select()
       .from(schema.apiKeys)
-      .where(eq(schema.apiKeys.prefix, prefix))
+      .where(
+        and(
+          eq(schema.apiKeys.prefix, prefix),
+          isNull(schema.apiKeys.revokedAt),
+          or(isNull(schema.apiKeys.expiresAt), gt(schema.apiKeys.expiresAt, sql`now()`)),
+        ),
+      )
       .limit(1);
     const row = rows[0];
-    if (!row || row.revokedAt) return;
-    const { createHash, timingSafeEqual } = await import('node:crypto');
+    if (!row) return;
     const hash = createHash('sha256').update(secret).digest();
     const stored = Buffer.from(row.hash, 'hex');
     if (stored.length !== hash.length || !timingSafeEqual(stored, hash)) return;
+    if (row.expiresAt && row.expiresAt.getTime() <= Date.now()) return;
     auth.apiKey = {
       id: row.id,
       orgId: row.orgId,
@@ -381,11 +388,15 @@ export async function registerScimRoutes(app: FastifyInstance, ctx: AppContext):
         }
       }
       if (!active) {
-        await ctx.db
-          .delete(schema.memberships)
-          .where(
-            and(eq(schema.memberships.orgId, orgId), eq(schema.memberships.userId, row.userId)),
-          );
+        const removed = await removeMembershipForScim(ctx, orgId, row.userId);
+        if (removed === 'last_owner') {
+          scimError(reply, 409, 'Cannot remove the last owner of the organization');
+          return;
+        }
+        if (removed === 'not_found') {
+          scimError(reply, 404, 'User not found');
+          return;
+        }
       }
       return toScimUser(row.userId, row.email, row.name, active, row.createdAt, row.updatedAt);
     },
@@ -408,9 +419,15 @@ export async function registerScimRoutes(app: FastifyInstance, ctx: AppContext):
         scimError(reply, 404, 'User not found');
         return;
       }
-      await ctx.db
-        .delete(schema.memberships)
-        .where(and(eq(schema.memberships.orgId, orgId), eq(schema.memberships.userId, row.userId)));
+      const removed = await removeMembershipForScim(ctx, orgId, row.userId);
+      if (removed === 'last_owner') {
+        scimError(reply, 409, 'Cannot remove the last owner of the organization');
+        return;
+      }
+      if (removed === 'not_found') {
+        scimError(reply, 404, 'User not found');
+        return;
+      }
       reply.status(204);
     },
   );
@@ -488,6 +505,67 @@ async function loadUser(
     .where(and(eq(schema.memberships.orgId, orgId), eq(schema.memberships.userId, userId)))
     .limit(1);
   return rows[0];
+}
+
+type RemoveMembershipResult = 'removed' | 'not_found' | 'last_owner';
+
+async function removeMembershipForScim(
+  ctx: AppContext,
+  orgId: string,
+  userId: string,
+): Promise<RemoveMembershipResult> {
+  return withOrgMembershipMutationLock(ctx, orgId, async (db) => {
+    const [target] = await db
+      .select({ role: schema.memberships.role })
+      .from(schema.memberships)
+      .where(and(eq(schema.memberships.orgId, orgId), eq(schema.memberships.userId, userId)))
+      .limit(1);
+    if (!target) return 'not_found';
+
+    if (target.role === 'owner') {
+      const [otherOwner] = await db
+        .select({ userId: schema.memberships.userId })
+        .from(schema.memberships)
+        .where(
+          and(
+            eq(schema.memberships.orgId, orgId),
+            eq(schema.memberships.role, 'owner'),
+            ne(schema.memberships.userId, userId),
+          ),
+        )
+        .limit(1);
+      if (!otherOwner) return 'last_owner';
+    }
+
+    await db
+      .delete(schema.memberships)
+      .where(and(eq(schema.memberships.orgId, orgId), eq(schema.memberships.userId, userId)));
+    return 'removed';
+  });
+}
+
+async function withOrgMembershipMutationLock<T>(
+  ctx: AppContext,
+  orgId: string,
+  fn: (db: AppContext['db']) => Promise<T>,
+): Promise<T> {
+  const db = ctx.db as unknown as {
+    transaction?: (fn: (tx: AppContext['db']) => Promise<T>) => Promise<T>;
+  };
+  if (typeof db.transaction !== 'function') return fn(ctx.db);
+
+  return db.transaction(async (tx) => {
+    await lockOrgMemberships(tx, orgId);
+    return fn(tx);
+  });
+}
+
+async function lockOrgMemberships(db: AppContext['db'], orgId: string): Promise<void> {
+  const executable = db as unknown as { execute?: (query: unknown) => Promise<unknown> };
+  if (typeof executable.execute !== 'function') return;
+  await executable.execute(
+    sql`select pg_advisory_xact_lock(hashtext('carbon:org-memberships'), hashtext(${orgId}))`,
+  );
 }
 
 function toScimUser(
