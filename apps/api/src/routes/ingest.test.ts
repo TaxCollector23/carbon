@@ -104,14 +104,7 @@ describe('POST /v1/ingest — async', () => {
 
   it('creates a status record and enqueues onto BullMQ with the storage-scoped slug', async () => {
     const jobs = {
-      create: vi.fn(async () => ({
-        id: 'job_abc',
-        kind: 'ingest',
-        status: 'queued' as const,
-        createdAt: 0,
-        updatedAt: 0,
-      })),
-      setMeta: vi.fn(async () => ({
+      create: vi.fn(async (_kind: string, metaInput: (id: string) => Record<string, unknown>) => ({
         id: 'job_abc',
         kind: 'ingest',
         status: 'queued' as const,
@@ -121,7 +114,9 @@ describe('POST /v1/ingest — async', () => {
         maxAttempts: 5,
         nextAttemptAt: null,
         deadLetter: false,
+        meta: metaInput('job_abc'),
       })),
+      setMeta: vi.fn(),
       get: vi.fn(),
       update: vi.fn(),
     } as unknown as JobService;
@@ -138,7 +133,10 @@ describe('POST /v1/ingest — async', () => {
 
     expect(res.statusCode).toBe(202);
     expect(res.json()).toEqual({ jobId: 'job_abc', status: 'queued' });
-    expect(jobs.create).toHaveBeenCalledWith('ingest', {
+    expect(jobs.create).toHaveBeenCalledWith('ingest', expect.any(Function));
+    const createCall = (jobs.create as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    const metaInput = createCall[1] as (id: string) => Record<string, unknown>;
+    expect(metaInput('job_abc')).toMatchObject({
       orgId: 'org_1',
       projectSlug: 'acme',
       origin: 'unit-test',
@@ -158,14 +156,41 @@ describe('POST /v1/ingest — async', () => {
       origin: 'unit-test',
       enrich: false,
     });
-    expect(jobs.setMeta).toHaveBeenCalledWith('job_abc', {
-      orgId: 'org_1',
-      projectSlug: 'acme',
-      origin: 'unit-test',
-      payload,
-    });
+    expect(call[2]).toMatchObject({ jobId: 'job_abc' });
+    expect(jobs.setMeta).not.toHaveBeenCalled();
     // Sync ingest must NOT be invoked on the async path.
     expect(ingestion.ingest as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
+  });
+
+  it('marks the job failed and returns 503 when the queue push fails', async () => {
+    const jobs = {
+      create: vi.fn(async (_kind: string, metaInput: (id: string) => Record<string, unknown>) => ({
+        id: 'job_abc',
+        kind: 'ingest',
+        status: 'queued' as const,
+        createdAt: 0,
+        updatedAt: 0,
+        attempts: 0,
+        maxAttempts: 5,
+        nextAttemptAt: null,
+        deadLetter: false,
+        meta: metaInput('job_abc'),
+      })),
+      update: vi.fn(async () => ({})),
+    } as unknown as JobService;
+    const add = vi.fn(async () => {
+      throw new Error('redis down');
+    });
+    const app = await build(makeCtx({ jobs, ingestionQueue: { add } as unknown as Queue }));
+
+    const res = await app.inject({ method: 'POST', url: '/v1/ingest', payload: asyncBody });
+
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error.code).toBe('CARBON_RUNTIME_UNAVAILABLE');
+    expect(jobs.update).toHaveBeenCalledWith('job_abc', {
+      status: 'failed',
+      error: 'Failed to enqueue ingestion job',
+    });
   });
 });
 

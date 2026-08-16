@@ -22,6 +22,9 @@ export interface JobRecord {
   readonly meta?: Record<string, unknown>;
 }
 
+export type JobMetaInput =
+  Record<string, unknown> | ((id: string) => Record<string, unknown> | undefined) | undefined;
+
 /**
  * Redis-backed job status tracker.
  *
@@ -40,7 +43,7 @@ export interface JobRecord {
  * Keys expire after 24h. Move to Postgres if you need longer retention.
  */
 export interface JobService {
-  create(kind: string, meta?: Record<string, unknown>): Promise<JobRecord>;
+  create(kind: string, meta?: JobMetaInput): Promise<JobRecord>;
   get(id: string): Promise<JobRecord>;
   setMeta(id: string, meta: Record<string, unknown>): Promise<JobRecord>;
   update(
@@ -94,17 +97,11 @@ export function backoffMs(attempts: number): number {
 }
 
 function hydrate(row: Record<string, string>): JobRecord {
-  let meta: Record<string, unknown> | undefined;
-  if (row.meta) {
-    try {
-      const parsed = JSON.parse(row.meta) as unknown;
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        meta = parsed as Record<string, unknown>;
-      }
-    } catch {
-      meta = undefined;
-    }
-  }
+  const parsedMeta = safeParseJson(row.meta);
+  const meta =
+    parsedMeta && typeof parsedMeta === 'object' && !Array.isArray(parsedMeta)
+      ? (parsedMeta as Record<string, unknown>)
+      : undefined;
   return {
     id: row.id ?? '',
     kind: row.kind ?? '',
@@ -112,7 +109,7 @@ function hydrate(row: Record<string, string>): JobRecord {
     status: (row.status ?? 'queued') as JobStatus,
     createdAt: Number(row.createdAt ?? 0),
     updatedAt: Number(row.updatedAt ?? 0),
-    result: row.result ? JSON.parse(row.result) : undefined,
+    result: safeParseJson(row.result),
     error: row.error || undefined,
     attempts: Number(row.attempts ?? 0),
     maxAttempts: Number(row.maxAttempts ?? DEFAULT_MAX_ATTEMPTS),
@@ -120,6 +117,19 @@ function hydrate(row: Record<string, string>): JobRecord {
     deadLetter: row.deadLetter === '1',
     meta,
   };
+}
+
+function resolveMeta(id: string, input: JobMetaInput): Record<string, unknown> | undefined {
+  return typeof input === 'function' ? input(id) : input;
+}
+
+function safeParseJson(value: string | undefined): unknown {
+  if (!value) return undefined;
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return undefined;
+  }
 }
 
 export function createJobService(deps: {
@@ -136,9 +146,10 @@ export function createJobService(deps: {
   }
 
   return {
-    async create(kind, meta) {
+    async create(kind, metaInput) {
       const id = makeId('job');
       const now = Date.now();
+      const meta = resolveMeta(id, metaInput);
       const orgId = typeof meta?.orgId === 'string' ? meta.orgId : undefined;
       const fields: Record<string, string> = {
         id,

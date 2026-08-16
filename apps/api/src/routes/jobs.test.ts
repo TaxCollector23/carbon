@@ -52,7 +52,9 @@ async function build(ctx: AppContext, scopes: readonly string[] = ['admin']) {
               ? 409
               : err.code === 'CARBON_FORBIDDEN'
                 ? 403
-                : 500;
+                : err.code === 'CARBON_RUNTIME_UNAVAILABLE'
+                  ? 503
+                  : 500;
       reply.status(status).send({ error: { code: err.code, message: err.message } });
       return;
     }
@@ -141,16 +143,16 @@ describe('GET /v1/jobs', () => {
 });
 
 describe('POST /v1/jobs/:id/retry', () => {
-  it('re-queues a failed job', async () => {
+  it('rejects a failed job that has no stored ingest payload', async () => {
     const jobs = {
       get: vi.fn(async () => makeJob({ status: 'failed', attempts: 1 })),
       retry: vi.fn(async () => makeJob({ status: 'queued', attempts: 1 })),
     } as unknown as JobService;
     const app = await build(makeCtx(jobs));
     const res = await app.inject({ method: 'POST', url: '/v1/jobs/job_a/retry' });
-    expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({ id: 'job_a', status: 'queued' });
-    expect(jobs.retry).toHaveBeenCalledWith('job_a');
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.code).toBe('CARBON_STATE_VIOLATION');
+    expect(jobs.retry).not.toHaveBeenCalled();
   });
 
   it('re-enqueues a stored ingest payload when a queue is configured', async () => {
@@ -179,6 +181,56 @@ describe('POST /v1/jobs/:id/retry', () => {
       expect.objectContaining({ jobId: expect.stringContaining('job_a:manual:') }),
     );
     expect(res.json().meta).toBeUndefined();
+  });
+
+  it('returns 503 and keeps the job failed when the ingestion queue is missing', async () => {
+    const payload = {
+      statusJobId: 'job_a',
+      orgId: 'org_1',
+      projectSlug: 'org_1/acme',
+      publicSlug: 'acme',
+      source: { kind: 'json', content: { openapi: '3.0.0' } },
+      enrich: false,
+    };
+    const jobs = {
+      get: vi.fn(async () => makeJob({ status: 'failed', attempts: 1, meta: { payload } })),
+      retry: vi.fn(async () => makeJob({ status: 'queued', attempts: 1, meta: { payload } })),
+    } as unknown as JobService;
+    const app = await build(makeCtx(jobs));
+    const res = await app.inject({ method: 'POST', url: '/v1/jobs/job_a/retry' });
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error.code).toBe('CARBON_RUNTIME_UNAVAILABLE');
+    expect(jobs.retry).not.toHaveBeenCalled();
+  });
+
+  it('marks the job failed again when manual retry enqueue fails', async () => {
+    const payload = {
+      statusJobId: 'job_a',
+      orgId: 'org_1',
+      projectSlug: 'org_1/acme',
+      publicSlug: 'acme',
+      source: { kind: 'json', content: { openapi: '3.0.0' } },
+      enrich: false,
+    };
+    const jobs = {
+      get: vi.fn(async () => makeJob({ status: 'failed', attempts: 1, meta: { payload } })),
+      retry: vi.fn(async () => makeJob({ status: 'queued', attempts: 1, meta: { payload } })),
+      update: vi.fn(async () => makeJob({ status: 'failed', attempts: 1, meta: { payload } })),
+    } as unknown as JobService;
+    const add = vi.fn(async () => {
+      throw new Error('redis down');
+    });
+    const app = await build({
+      ...makeCtx(jobs),
+      ingestionQueue: { add } as unknown as AppContext['ingestionQueue'],
+    });
+    const res = await app.inject({ method: 'POST', url: '/v1/jobs/job_a/retry' });
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error.code).toBe('CARBON_RUNTIME_UNAVAILABLE');
+    expect(jobs.update).toHaveBeenCalledWith('job_a', {
+      status: 'failed',
+      error: 'Failed to enqueue retry',
+    });
   });
 
   it('returns 404 on cross-org retry attempts', async () => {

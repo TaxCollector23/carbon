@@ -189,7 +189,7 @@ describe('organization routes', () => {
     const res = await app.inject({
       method: 'PATCH',
       url: '/v1/organizations/org_1',
-      headers: { 'x-test-user': 'user_1,alice@acme.io,org_1' },
+      headers: { 'x-test-user': 'user_1,alice@acme.io,org_1,owner' },
       payload: { name: 'Acme Corp' },
     });
     expect(res.statusCode).toBe(200);
@@ -199,14 +199,11 @@ describe('organization routes', () => {
   });
 
   it('POST /organizations/:id/members — member role is rejected with 403', async () => {
-    // callerContext returns member (no admin/owner privilege).
-    fake.results.push([{ role: 'member' }]);
-
     const app = await buildApp(fake);
     const res = await app.inject({
       method: 'POST',
       url: '/v1/organizations/org_1/members',
-      headers: { 'x-test-user': 'user_1,alice@acme.io,org_1' },
+      headers: { 'x-test-user': 'user_1,alice@acme.io,org_1,member' },
       payload: { email: 'bob@acme.io', role: 'member' },
     });
     expect(res.statusCode).toBe(403);
@@ -224,7 +221,7 @@ describe('organization routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/v1/organizations/org_1/members',
-      headers: { 'x-test-user': 'user_1,alice@acme.io,org_1' },
+      headers: { 'x-test-user': 'user_1,alice@acme.io,org_1,admin' },
       payload: { email: 'BOB@acme.io', role: 'admin' },
     });
     expect(res.statusCode).toBe(201);
@@ -250,7 +247,7 @@ describe('organization routes', () => {
     const res = await app.inject({
       method: 'PATCH',
       url: '/v1/organizations/org_1/members/user_1',
-      headers: { 'x-test-user': 'user_2,carol@acme.io,org_1' },
+      headers: { 'x-test-user': 'user_2,carol@acme.io,org_1,owner' },
       payload: { role: 'admin' },
     });
     expect(res.statusCode).toBe(409);
@@ -267,7 +264,7 @@ describe('organization routes', () => {
     const res = await app.inject({
       method: 'PATCH',
       url: '/v1/organizations/org_1/members/user_1',
-      headers: { 'x-test-user': 'user_2,carol@acme.io,org_1' },
+      headers: { 'x-test-user': 'user_2,carol@acme.io,org_1,owner' },
       payload: { role: 'admin' },
     });
     expect(res.statusCode).toBe(200);
@@ -283,7 +280,7 @@ describe('organization routes', () => {
     const res = await app.inject({
       method: 'DELETE',
       url: '/v1/organizations/org_1/members/user_1',
-      headers: { 'x-test-user': 'user_2,carol@acme.io,org_1' },
+      headers: { 'x-test-user': 'user_2,carol@acme.io,org_1,owner' },
     });
     expect(res.statusCode).toBe(409);
     expect(fake.ops.find((o) => o.kind === 'delete')).toBeUndefined();
@@ -320,6 +317,33 @@ describe('organization routes', () => {
     // Invitation was marked accepted.
     const updateOp = fake.ops.find((o) => o.kind === 'update');
     expect(updateOp?.patch).toMatchObject({ acceptedAt: expect.any(Date) });
+  });
+
+  it('POST /invitations/accept — rejects a signed-in user with the wrong email', async () => {
+    const invite = {
+      id: 'inv_1',
+      orgId: 'org_1',
+      email: 'bob@acme.io',
+      role: 'member',
+      token: 'tok_' + 'c'.repeat(30),
+      invitedBy: 'user_1',
+      createdAt: new Date(),
+      expiresAt: new Date(Date.now() + 60_000),
+      acceptedAt: null,
+    };
+    fake.results.push([invite]);
+
+    const app = await buildApp(fake);
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/invitations/accept',
+      headers: { 'x-test-user': 'user_new,mallory@acme.io,org_x' },
+      payload: { token: invite.token },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error.code).toBe('CARBON_FORBIDDEN');
+    expect(fake.ops.find((o) => o.kind === 'insert')).toBeUndefined();
+    expect(fake.ops.find((o) => o.kind === 'update')).toBeUndefined();
   });
 
   it('POST /invitations/accept — expired token is rejected with 409', async () => {

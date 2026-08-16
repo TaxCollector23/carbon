@@ -55,8 +55,9 @@ export function resolveCallerOrg(
 ): string | undefined {
   const apiKey = (req as AuthenticatedRequest).apiKey;
   const session = (req as SessionAuthenticatedRequest).sessionUser;
-  const orgId = apiKey?.orgId ?? session?.orgId ?? opts.queryOrg;
+  const orgId = apiKey?.orgId ?? session?.orgId;
   if (orgId) return orgId;
+  if (!apiKey && !session && opts.queryOrg) return opts.queryOrg;
   const mode = opts.mode ?? 'throw';
   if (mode === 'throw') {
     throw new CarbonError({

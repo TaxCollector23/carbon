@@ -51,6 +51,11 @@ describe('resolveCallerOrg — precedence', () => {
     expect(resolveCallerOrg(req, { queryOrg: 'org-query', mode: 'optional' })).toBe('org-query');
   });
 
+  it('does not accept queryOrg for an authenticated session with no membership', () => {
+    const req = makeReq({ sessionUser: { id: 'u', email: 'user@example.com' } });
+    expect(resolveCallerOrg(req, { queryOrg: 'org-query', mode: 'optional' })).toBeUndefined();
+  });
+
   it('does not read query.orgId off the request automatically', () => {
     // Historical routes like billing must not silently start accepting a query
     // fallback just because they now go through the shared resolver.

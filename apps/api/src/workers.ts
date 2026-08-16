@@ -39,7 +39,7 @@ export function startEmbeddedWorkers(deps: {
   const registry = new QueueRegistry({ redis: deps.redis, logger: deps.logger });
 
   registry.handle(Queues.webhookDelivery, async (job) =>
-    deliverWebhook(job.data, { logger: deps.logger }),
+    deliverWebhook({ ...job.data, attempt: (job.attemptsMade ?? 0) + 1 }, { logger: deps.logger }),
   );
 
   const ingestWorker: Worker = registerIngestWorker({

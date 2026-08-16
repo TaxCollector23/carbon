@@ -33,7 +33,9 @@ async function main(): Promise<void> {
   redis.on('error', (err) => logger.warn('redis.error', { message: err.message }));
 
   const registry = new QueueRegistry({ redis, logger });
-  registry.handle(Queues.webhookDelivery, async (job) => deliverWebhook(job.data, { logger }));
+  registry.handle(Queues.webhookDelivery, async (job) =>
+    deliverWebhook({ ...job.data, attempt: (job.attemptsMade ?? 0) + 1 }, { logger }),
+  );
 
   const parsers = createDefaultParserRegistry();
   const aiProvider = env.CARBON_AI_API_KEY

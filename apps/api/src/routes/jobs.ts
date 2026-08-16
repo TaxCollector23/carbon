@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { NotFoundError } from '@carbon/core';
+import { CarbonError, NotFoundError } from '@carbon/core';
+import { isIngestJobPayload } from '@carbon/workers';
 import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from '../plugins/api-key.js';
 import { requireScope } from '../plugins/scopes.js';
@@ -116,16 +117,51 @@ export async function registerJobRoutes(app: FastifyInstance, ctx: AppContext): 
       const existing = await ctx.jobs.get(req.params.id);
       const orgId = (req as AuthenticatedRequest).apiKey?.orgId;
       if (orgId && existing.orgId !== orgId) throw new NotFoundError('job', req.params.id);
-      const updated = await ctx.jobs.retry(req.params.id);
+      if (existing.deadLetter || existing.status === 'succeeded' || existing.status === 'running') {
+        return publicJob(await ctx.jobs.retry(req.params.id));
+      }
       const payload = existing.meta?.payload;
-      if (ctx.ingestionQueue && payload && typeof payload === 'object') {
-        await ctx.ingestionQueue.add(
-          'ingest',
-          payload as Parameters<typeof ctx.ingestionQueue.add>[1],
-          {
-            jobId: `${existing.id}:manual:${Date.now()}`,
-          },
-        );
+      if (!isIngestJobPayload(payload)) {
+        throw new CarbonError({
+          code: 'CARBON_STATE_VIOLATION',
+          message: 'Job cannot be retried because its ingest payload was not recorded',
+          details: { id: existing.id, kind: existing.kind },
+          expose: true,
+        });
+      }
+      if (!ctx.ingestionQueue) {
+        throw new CarbonError({
+          code: 'CARBON_RUNTIME_UNAVAILABLE',
+          message: 'Job retry requires the ingestion queue to be configured',
+          details: { id: existing.id },
+          expose: true,
+        });
+      }
+      const updated = await ctx.jobs.retry(req.params.id);
+      try {
+        await ctx.ingestionQueue.add('ingest', payload, {
+          jobId: `${existing.id}:manual:${Date.now()}`,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        ctx.logger.warn('job.retry_enqueue_failed', { id: existing.id, message });
+        try {
+          await ctx.jobs.update(existing.id, {
+            status: 'failed',
+            error: 'Failed to enqueue retry',
+          });
+        } catch (updateErr) {
+          ctx.logger.warn('job.retry_status_update_failed', {
+            id: existing.id,
+            message: updateErr instanceof Error ? updateErr.message : String(updateErr),
+          });
+        }
+        throw new CarbonError({
+          code: 'CARBON_RUNTIME_UNAVAILABLE',
+          message: 'Job retry is temporarily unavailable',
+          details: { id: existing.id },
+          expose: true,
+        });
       }
       return publicJob(updated);
     },

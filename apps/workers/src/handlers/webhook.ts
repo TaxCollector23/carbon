@@ -7,13 +7,11 @@ import type { WebhookDeliveryPayload } from '@carbon/workers';
 
 /**
  * Deliver a webhook to the configured URL. Signs the payload with HMAC-SHA256
- * if a secret is provided (Stripe-style: `t=<unix>,v1=<sig>`), retries up to
- * `maxAttempts` times with exponential backoff on 5xx / network errors, and
- * throws on final failure so BullMQ can move the job to failed for review.
+ * if a secret is provided (Stripe-style: `t=<unix>,v1=<sig>`). Performs one
+ * HTTP attempt; BullMQ owns retry/backoff so worker slots are not held asleep.
  */
 export interface DeliverOpts {
   readonly logger: Logger;
-  readonly maxAttempts?: number;
   readonly timeoutMs?: number;
 }
 
@@ -23,7 +21,6 @@ export async function deliverWebhook(
 ): Promise<{ status: number }> {
   const logger = opts.logger.child({ event: payload.event, url: payload.url });
   const timeoutMs = opts.timeoutMs ?? 10_000;
-  const maxAttempts = opts.maxAttempts ?? 5;
   const body = JSON.stringify(payload.body);
   const headers: Record<string, string> = {
     'content-type': 'application/json',
@@ -39,37 +36,32 @@ export async function deliverWebhook(
     headers['x-carbon-signature'] = `t=${timestamp},v1=${signature}`;
   }
 
-  let attempt = 1;
-  let lastError: string | null = null;
-  while (attempt <= maxAttempts) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const res = await fetch(payload.url, {
-        method: 'POST',
-        headers,
-        body,
-        signal: controller.signal,
-      });
-      clearTimeout(timer);
-      if (res.status < 500 && res.status !== 429) {
-        logger.info('webhook.delivered', { status: res.status, attempt });
-        return { status: res.status };
-      }
-      lastError = `HTTP ${res.status}`;
-    } catch (err) {
-      clearTimeout(timer);
-      lastError = (err as Error).message;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(payload.url, {
+      method: 'POST',
+      headers,
+      body,
+      signal: controller.signal,
+    });
+    if (res.status < 500 && res.status !== 429) {
+      logger.info('webhook.delivered', { status: res.status, attempt: payload.attempt ?? 1 });
+      return { status: res.status };
     }
-    const backoff = Math.min(30_000, 500 * 2 ** (attempt - 1));
-    logger.warn('webhook.retry', { attempt, backoff, lastError });
-    await new Promise((r) => setTimeout(r, backoff));
-    attempt++;
+    throw new CarbonError({
+      code: 'CARBON_INTERNAL',
+      message: `Webhook delivery failed: HTTP ${res.status}`,
+    });
+  } catch (err) {
+    if (err instanceof CarbonError) throw err;
+    throw new CarbonError({
+      code: 'CARBON_INTERNAL',
+      message: `Webhook delivery failed: ${(err as Error).message}`,
+    });
+  } finally {
+    clearTimeout(timer);
   }
-  throw new CarbonError({
-    code: 'CARBON_INTERNAL',
-    message: `Webhook delivery failed after ${maxAttempts} attempts: ${lastError}`,
-  });
 }
 
 /**

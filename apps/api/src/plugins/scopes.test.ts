@@ -4,6 +4,7 @@ import { isCarbonError, NoopLogger } from '@carbon/core';
 import { MemoryStorage } from '@carbon/storage';
 import type { AppContext } from '../context.js';
 import type { AuthenticatedRequest } from './api-key.js';
+import type { SessionAuthenticatedRequest } from './session-auth.js';
 import { keyHasScope, requireScope } from './scopes.js';
 import { resolveProjectAccess } from '../routes/project-access.js';
 
@@ -15,6 +16,7 @@ import { resolveProjectAccess } from '../routes/project-access.js';
 function buildApp(
   apiKey: AuthenticatedRequest['apiKey'] | null,
   routes: (app: FastifyInstance) => void,
+  sessionUser?: SessionAuthenticatedRequest['sessionUser'],
 ): FastifyInstance {
   const app = Fastify();
   app.setErrorHandler((err, _req, reply) => {
@@ -27,6 +29,7 @@ function buildApp(
   });
   app.addHook('onRequest', async (req) => {
     if (apiKey) (req as AuthenticatedRequest).apiKey = apiKey;
+    if (sessionUser) (req as SessionAuthenticatedRequest).sessionUser = sessionUser;
   });
   routes(app);
   return app;
@@ -91,6 +94,17 @@ describe('requireScope guard', () => {
     );
     const res = await app.inject({ method: 'POST', url: '/a' });
     expect(res.statusCode).toBe(403);
+  });
+
+  it('rejects a signed-in session that has no organization role', async () => {
+    const app = buildApp(
+      null,
+      (a) => a.get('/admin', { preHandler: requireScope('admin') }, async () => ({ ok: true })),
+      { id: 'user_1', email: 'person@example.com' },
+    );
+    const res = await app.inject({ method: 'GET', url: '/admin' });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error.code).toBe('CARBON_FORBIDDEN');
   });
 
   it('is a no-op when no api key is present (CARBON_AUTH_MODE=disabled)', async () => {

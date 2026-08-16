@@ -34,6 +34,25 @@ export interface IngestJobPayload {
   readonly enrich?: boolean;
 }
 
+export function isIngestJobPayload(value: unknown): value is IngestJobPayload {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const payload = value as Record<string, unknown>;
+  const source = payload.source;
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return false;
+  const sourceKind = (source as Record<string, unknown>).kind;
+  return (
+    typeof payload.statusJobId === 'string' &&
+    payload.statusJobId.length > 0 &&
+    typeof payload.projectSlug === 'string' &&
+    payload.projectSlug.length > 0 &&
+    (payload.publicSlug === undefined || typeof payload.publicSlug === 'string') &&
+    (payload.orgId === undefined || typeof payload.orgId === 'string') &&
+    (payload.origin === undefined || typeof payload.origin === 'string') &&
+    (payload.enrich === undefined || typeof payload.enrich === 'boolean') &&
+    (sourceKind === 'json' || sourceKind === 'text')
+  );
+}
+
 export interface IngestJobJudgeVerdict {
   readonly score: number;
   readonly issues: ReadonlyArray<{
@@ -86,6 +105,7 @@ export interface IngestionRunner {
     input: any;
     origin?: string;
     enrich?: boolean;
+    context?: { readonly orgId?: string; readonly projectId?: string };
   }): Promise<{
     irId: string;
     graphId: string;
@@ -195,7 +215,7 @@ export function registerIngestWorker(
   const worker = new Worker<IngestJobPayload, IngestJobResult>(
     INGEST_QUEUE_NAME,
     async (job: Job<IngestJobPayload>) => {
-      const { statusJobId, projectSlug, source, origin, enrich } = job.data;
+      const { statusJobId, orgId, projectSlug, source, origin, enrich } = job.data;
       logger.info('ingest.worker.start', { statusJobId, jobId: job.id, projectSlug });
       await opts.jobs.update(statusJobId, { status: 'running' });
       try {
@@ -204,6 +224,7 @@ export function registerIngestWorker(
           input: source,
           origin,
           enrich,
+          context: orgId ? { orgId } : undefined,
         });
         const summary: IngestJobResult = {
           irId: result.irId,

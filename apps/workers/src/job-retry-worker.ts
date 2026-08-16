@@ -1,9 +1,6 @@
 import type { Logger } from '@carbon/core';
-import type {
-  IngestJobPayload,
-  createIngestionQueue,
-  createRedisConnection,
-} from '@carbon/workers';
+import type { createIngestionQueue, createRedisConnection } from '@carbon/workers';
+import { isIngestJobPayload } from '@carbon/workers';
 
 type IngestQueue = ReturnType<typeof createIngestionQueue>;
 type RedisConn = ReturnType<typeof createRedisConnection>;
@@ -14,9 +11,8 @@ type RedisConn = ReturnType<typeof createRedisConnection>;
  *
  * Two hard requirements:
  *   - Read the same Redis hashes the API writes (see `apps/api/src/services/jobs.ts`).
- *   - Never double-fire — the job service resets `status='queued'` and clears
- *     `nextAttemptAt` atomically before the queue push, so a concurrent poller
- *     tick sees no candidate.
+ *   - Never retry jobs whose original payload was not recorded; changing their
+ *     state to queued would only hide the repair needed from an operator.
  *
  * The retryable set is discovered via SCAN — cheap at the volumes we ship
  * with, and it keeps the workers process out of the API's JobService.
@@ -107,6 +103,13 @@ export function startJobRetryWorker(opts: JobRetryWorkerOptions): JobRetryWorker
 
     for (const job of eligible) {
       if (stopped) return;
+      const payload = job.meta?.payload;
+      if (!isIngestJobPayload(payload)) {
+        // No payload snapshot — the API didn't record enough context to
+        // re-enqueue. Keep the job failed so the operator can still see it.
+        logger.warn('job_retry.no_payload', { id: job.id });
+        continue;
+      }
       try {
         // Reset status BEFORE re-enqueueing so the worker's start-transition
         // is what increments `attempts`. Order matters — a queue push that
@@ -117,26 +120,34 @@ export function startJobRetryWorker(opts: JobRetryWorkerOptions): JobRetryWorker
           .hdel(`${PREFIX}:${job.id}`, 'nextAttemptAt', 'error')
           .exec();
 
-        const meta = job.meta ?? {};
-        const payload = meta.payload as IngestJobPayload | undefined;
-        if (payload && typeof payload === 'object') {
-          await opts.ingestionQueue.add('ingest', payload, {
-            jobId: `${job.id}:retry:${job.attempts}`,
-          });
-          logger.info('job_retry.enqueued', {
-            id: job.id,
-            attempts: job.attempts,
-          });
-        } else {
-          // No payload snapshot — the API didn't record enough context to
-          // re-enqueue. Log so the operator can decide whether to add it.
-          logger.warn('job_retry.no_payload', { id: job.id });
-        }
+        await opts.ingestionQueue.add('ingest', payload, {
+          jobId: `${job.id}:retry:${job.attempts}`,
+        });
+        logger.info('job_retry.enqueued', {
+          id: job.id,
+          attempts: job.attempts,
+        });
       } catch (err) {
         logger.warn('job_retry.enqueue_failed', {
           id: job.id,
           message: (err as Error).message,
         });
+        try {
+          await opts.redis
+            .multi()
+            .hset(`${PREFIX}:${job.id}`, {
+              status: 'failed',
+              updatedAt: String(Date.now()),
+              nextAttemptAt: String(Date.now() + interval),
+              error: 'Failed to enqueue retry',
+            })
+            .exec();
+        } catch (updateErr) {
+          logger.warn('job_retry.status_restore_failed', {
+            id: job.id,
+            message: (updateErr as Error).message,
+          });
+        }
       }
     }
   }

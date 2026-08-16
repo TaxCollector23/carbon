@@ -614,6 +614,13 @@ export async function registerOrganizationRoutes(
           expose: true,
         });
       }
+      if (normalizeEmail(sessionUser.email) !== normalizeEmail(invite.email)) {
+        throw new CarbonError({
+          code: 'CARBON_FORBIDDEN',
+          message: 'Invitation is addressed to a different email',
+          expose: true,
+        });
+      }
 
       // Idempotent: if a membership already exists (e.g. the user was added
       // out-of-band), skip the insert. Either way, mark the invite consumed.
@@ -648,4 +655,8 @@ export async function registerOrganizationRoutes(
       };
     },
   );
+}
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
 }

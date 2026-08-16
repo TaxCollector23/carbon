@@ -75,6 +75,13 @@ export function requireScope(required: Scope): preHandlerHookHandler {
       }
       return;
     }
+    if (sessionUser) {
+      throw new CarbonError({
+        code: 'CARBON_FORBIDDEN',
+        message: 'Session is not attached to an organization',
+        expose: true,
+      });
+    }
 
     // Neither auth path has run (e.g. `CARBON_AUTH_MODE=disabled` in dev, or
     // an unauthenticated public route). Treat the guard as a no-op so local

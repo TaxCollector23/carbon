@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { schema } from '@carbon/database';
 import { StorageKeys } from '@carbon/storage';
-import type { IngestJobPayload } from '@carbon/workers';
+import { isIngestJobPayload, type IngestJobPayload } from '@carbon/workers';
 import type { AppContext } from '../context.js';
 import { requireScope } from '../plugins/scopes.js';
 import { zodBody, zodQuery, zodResponse } from '../plugins/schema-helpers.js';
@@ -85,30 +85,53 @@ export async function registerIngestRoutes(app: FastifyInstance, ctx: AppContext
           });
           return;
         }
-        const job = await ctx.jobs.create('ingest', {
-          orgId: project.orgId,
-          projectSlug: project.slug,
-          origin: body.origin,
-        });
-        const payload: IngestJobPayload = {
-          statusJobId: job.id,
+        const makePayload = (jobId: string): IngestJobPayload => ({
+          statusJobId: jobId,
           orgId: project.orgId,
           projectSlug: project.storageSlug,
           publicSlug: project.slug,
           source: body.source,
           origin: body.origin,
           enrich: body.enrich,
-        };
-        await ctx.jobs.setMeta(job.id, {
-          orgId: project.orgId,
-          projectSlug: project.slug,
-          origin: body.origin,
-          payload,
         });
+        const job = await ctx.jobs.create('ingest', (jobId) => {
+          return {
+            orgId: project.orgId,
+            projectSlug: project.slug,
+            origin: body.origin,
+            payload: makePayload(jobId),
+          };
+        });
+        const metaPayload = job.meta?.payload;
+        const storedPayload = isIngestJobPayload(metaPayload) ? metaPayload : makePayload(job.id);
         // Hand off to BullMQ so the work survives a SIGTERM of this API
-        // process and gets retried on failure. See packages/workers for the
-        // shared queue/worker plumbing.
-        await ctx.ingestionQueue.add('ingest', payload);
+        // process and gets retried on failure. Use the status job id as the
+        // BullMQ id so a lost client response cannot enqueue the exact same
+        // job twice.
+        try {
+          await ctx.ingestionQueue.add('ingest', storedPayload, { jobId: job.id });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          ctx.logger.warn('ingest.enqueue_failed', { jobId: job.id, message });
+          try {
+            await ctx.jobs.update(job.id, {
+              status: 'failed',
+              error: 'Failed to enqueue ingestion job',
+            });
+          } catch (updateErr) {
+            ctx.logger.warn('ingest.enqueue_status_update_failed', {
+              jobId: job.id,
+              message: updateErr instanceof Error ? updateErr.message : String(updateErr),
+            });
+          }
+          reply.status(503).send({
+            error: {
+              code: 'CARBON_RUNTIME_UNAVAILABLE',
+              message: 'Async ingestion is temporarily unavailable',
+            },
+          });
+          return;
+        }
         if (project.orgId) {
           const actor = getActor(req);
           await recordEvent(ctx, {
