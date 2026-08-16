@@ -3,6 +3,8 @@ title: 'Welcome to Carbon'
 description: 'Carbon compiles APIs into deterministic runtimes.'
 ---
 
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
 Carbon is an API behavior engine. Give it an OpenAPI spec, AsyncAPI document,
 Protobuf or gRPC service definition, Postman collection, HAR file, GraphQL
 schema, or recorded traffic. Carbon analyzes the API shape, builds an
@@ -21,11 +23,7 @@ reads.
 
 ## What's next
 
-<CardGroup cols={2}>
-  <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Start your first replica in under a minute.
-  </Card>
-  <Card title="Architecture" icon="diagram-project" href="/concepts/architecture">
-    See how ingestion turns API inputs into a runtime.
-  </Card>
-</CardGroup>
+<CardGrid>
+  <LinkCard href="quickstart/" title="Quickstart" description="Start your first replica in under a minute." />
+  <LinkCard href="concepts/architecture/" title="Architecture" description="See how ingestion turns API inputs into a runtime." />
+</CardGrid>

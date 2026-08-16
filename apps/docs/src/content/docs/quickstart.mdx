@@ -3,6 +3,8 @@ title: 'Quickstart'
 description: 'From npm install to a stateful replica in under five minutes.'
 ---
 
+import { Aside } from '@astrojs/starlight/components';
+
 ## Or start from a sample
 
 Not ready to point Carbon at your own spec yet? Every install ships with a
@@ -104,7 +106,7 @@ carbon snapshot load baseline
 
 That's the whole loop: **ingest → emulate → mutate → snapshot → restore**.
 
-<Note>
+<Aside type="note">
   **Try the examples.** Runnable copy-paste samples live under
   [`examples/`](https://github.com/TaxCollector23/carbon/tree/master/examples) in the
   repo:
@@ -118,13 +120,13 @@ That's the whole loop: **ingest → emulate → mutate → snapshot → restore*
 
 From a clone: `pnpm --filter @carbon/example-sdk-basic dev`.
 
-</Note>
+</Aside>
 
 ## Next steps
 
-- [Spec to runtime](/concepts/spec-to-runtime) — how ingest, IR, and the
+- [Spec to runtime](concepts/spec-to-runtime/) — how ingest, IR, and the
   behavior graph fit together.
-- [State engine](/concepts/state-engine) — snapshots, journal, rewind.
-- [Chaos](/concepts/chaos) — latency and error injection for resilience
+- [State engine](concepts/state-engine/) — snapshots, journal, rewind.
+- [Chaos](concepts/chaos/) — latency and error injection for resilience
   tests.
-- [CLI reference](/cli/reference) — every command and flag.
+- [CLI reference](cli/reference/) — every command and flag.

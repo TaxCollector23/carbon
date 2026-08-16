@@ -3,6 +3,8 @@ title: 'Slack'
 description: 'Install Carbon as a real Slack app and route events to any channel.'
 ---
 
+import { Aside } from '@astrojs/starlight/components';
+
 Carbon has two Slack integration modes:
 
 1. **Legacy webhook URL** (round 1) — paste an Incoming Webhook URL into
@@ -11,13 +13,13 @@ Carbon has two Slack integration modes:
    OAuth, then subscribe any channel to any subset of Carbon events. This
    page covers the real app.
 
-<Note>
+<Aside type="note">
   The real Slack app requires you to create your own Slack app at
   <a href="https://api.slack.com/apps">api.slack.com/apps</a>. Carbon does
   not ship with a Slack app id / secret baked in — self-hosted deployments
   own their own app and users, and Carbon Cloud runs a distinct production
   app.
-</Note>
+</Aside>
 
 ## One-time server setup
 

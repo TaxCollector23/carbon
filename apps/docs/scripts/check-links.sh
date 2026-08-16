@@ -1,35 +1,56 @@
 #!/usr/bin/env bash
-# Run `mintlify broken-links` and fail (nonzero) if any broken link is found.
-#
-# The Mintlify CLI prints results to stdout and, historically, has been
-# inconsistent about its exit code — successful runs with broken links have
-# sometimes returned 0. This wrapper enforces the invariant we actually
-# care about: broken link => nonzero exit.
-
+# Statically verify internal links in the docs source. External URLs are
+# skipped (network checks in CI are flaky); every relative/absolute link must
+# resolve to a real .md/.mdx file under src/content/docs/.
 set -uo pipefail
 
 cd "$(dirname "$0")/.."
 
-TMP="$(mktemp -t carbon-docs-links.XXXXXX)"
-trap 'rm -f "$TMP"' EXIT
+python3 - <<'PY'
+import os, re, sys
 
-# Capture output and CLI exit code.
-set +e
-./node_modules/.bin/mintlify broken-links 2>&1 | tee "$TMP"
-CLI_EXIT=${PIPESTATUS[0]}
-set -e
+root = os.path.realpath(os.path.join('src', 'content', 'docs'))
 
-# If the CLI itself failed (crash, auth, etc), surface that.
-if [ "$CLI_EXIT" -ne 0 ]; then
-  echo "check-links: mintlify broken-links exited with $CLI_EXIT" >&2
-  exit "$CLI_EXIT"
-fi
+def resolve(src_dir, target):
+    if target.startswith('/'):
+        base = os.path.normpath(os.path.join(root, target.lstrip('/')))
+    else:
+        base = os.path.normpath(os.path.join(src_dir, target))
+    for candidate in (
+        base + '.mdx',
+        base + '.md',
+        os.path.join(base, 'index.mdx'),
+        os.path.join(base, 'index.md'),
+    ):
+        if os.path.isfile(candidate):
+            return True
+    return os.path.isfile(base)
 
-# Belt & suspenders — grep for failure phrases without catching
-# Mintlify's happy-path "success no broken links found" message.
-if grep -Eiq '(broken link:|broken links detected|[1-9][0-9]* broken links?|not found|404|dead link)' "$TMP"; then
-  echo "check-links: broken links detected in docs" >&2
-  exit 1
-fi
+link_re = re.compile(r'\]\(([^)]+)\)')
+href_re = re.compile(r'href="([^"]+)"')
 
-echo "check-links: no broken links"
+broken = []
+for dirpath, _dirs, files in os.walk(root):
+    for fn in files:
+        if not fn.endswith(('.mdx', '.md')):
+            continue
+        path = os.path.join(dirpath, fn)
+        with open(path, encoding='utf-8') as f:
+            text = f.read()
+        for target in link_re.findall(text) + href_re.findall(text):
+            if target.startswith(('http://', 'https://', 'mailto:', '#')):
+                continue
+            target = target.split('#', 1)[0]
+            if not target:
+                continue
+            if not resolve(dirpath, target):
+                broken.append(f'{os.path.relpath(path, root)} -> {target}')
+
+if broken:
+    print('check-links: broken links detected', file=sys.stderr)
+    for b in sorted(broken):
+        print(f'  {b}', file=sys.stderr)
+    sys.exit(1)
+
+print('check-links: no broken links')
+PY

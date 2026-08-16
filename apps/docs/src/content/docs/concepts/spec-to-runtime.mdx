@@ -33,7 +33,7 @@ carbon ingest ./petstore.openapi.json
 
 `@carbon/graph` walks the IR and builds a **behavior graph**: a state
 machine that describes how each endpoint reads and mutates resources.
-Where the raw spec is silent, the [AI inference](/concepts/ai-inference)
+Where the raw spec is silent, the [AI inference](ai-inference/)
 pipeline can enrich it — resources are grouped, path parameters are tied
 to resource ids, and cross-resource relationships (owner, membership) are
 proposed. A quality judge then scores the enrichment so bad inferences

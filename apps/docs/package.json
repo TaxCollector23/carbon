@@ -2,14 +2,20 @@
   "name": "@carbon/docs",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "mintlify dev --port 3002",
-    "validate": "mintlify validate",
-    "build": "mintlify export --output docs-site.zip",
-    "check": "mintlify broken-links",
+    "dev": "astro dev --port 3002",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
     "check:links": "bash scripts/check-links.sh"
   },
   "devDependencies": {
-    "mintlify": "^4.0.0"
+    "@astrojs/check": "^0.9.4",
+    "@astrojs/starlight": "^0.34.0",
+    "astro": "^5.7.0",
+    "sharp": "^0.34.0",
+    "typescript": "^5.7.0",
+    "zod": "^3.25.76"
   }
 }

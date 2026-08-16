@@ -3,6 +3,8 @@ title: 'SSO'
 description: 'Manage SAML and OIDC providers for your Carbon org.'
 ---
 
+import { Aside } from '@astrojs/starlight/components';
+
 Enterprise orgs can register SAML or OIDC identity providers through
 the admin-only SSO management routes. Configuration is stored on the
 organization record and drives the dashboard sign-in flow.
@@ -32,12 +34,12 @@ Enterprise-provisioned deep-links can skip the discovery step by
 appending `?sso=<providerId>` to `/sign-in` — the page bounces to
 `/api/auth/sso/login` immediately.
 
-<Note>
+<Aside type="note">
   SAML is planned; today the shim only implements OIDC. The management routes still accept `type:
   'saml'` for forward-compatible storage. Registering a SAML provider today lets you configure IdPs
   ahead of the release, but the sign-in flow will 501 for SAML providers until
   `@better-auth/plugin-sso` ships and this shim is retired.
-</Note>
+</Aside>
 
 ## Routes
 
@@ -87,5 +89,5 @@ curl -X POST <api-origin>/v1/sso/providers \
 
 Every SSO change writes an audit event (`sso_provider.created` /
 `sso_provider.deleted`) so it shows up in `carbon activity` and in the
-[compliance export](/security/compliance-export) `events` / `audit`
+[compliance export](../security/compliance-export) `events` / `audit`
 buckets.

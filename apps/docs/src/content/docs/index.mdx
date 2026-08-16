@@ -3,6 +3,8 @@ title: 'Carbon'
 description: 'Stateful API replicas for development, tests, and CI.'
 ---
 
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
 Carbon turns an API description — OpenAPI, AsyncAPI, GraphQL, protobuf, gRPC,
 HAR, or a Postman collection — into a **deterministic, stateful runtime** you
 can hit locally, snapshot, rewind, and share.
@@ -11,27 +13,19 @@ can hit locally, snapshot, rewind, and share.
 
 - **Spec ingest.** Any supported format normalizes into one Intermediate
   Representation, then compiles into a behavior graph. One runtime serves
-  them all — see [Spec to runtime](/concepts/spec-to-runtime).
+  them all — see [Spec to runtime](concepts/spec-to-runtime/).
 - **Stateful runtime.** `POST /users` creates a resource that later
   `GET /users/:id` calls return. Relationships between endpoints are
   inferred, so the replica behaves like the real service, not a static
-  fixture. See [State engine](/concepts/state-engine).
+  fixture. See [State engine](concepts/state-engine/).
 - **Snapshots + rewind.** Serialize the runtime's entire state, commit it,
   and restore in one call. Every CI run starts from the same baseline.
 
 ## Get moving
 
-<CardGroup cols={2}>
-  <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Boot your first replica in five minutes.
-  </Card>
-  <Card title="CLI reference" icon="terminal" href="/cli/reference">
-    Every command, every flag, with an example.
-  </Card>
-  <Card title="Deployment" icon="cloud" href="/deployment/fly-io">
-    Fly.io, self-hosted, and Prometheus alerts.
-  </Card>
-  <Card title="Enterprise" icon="building" href="/enterprise/sso">
-    SSO, SCIM, compliance exports, plan matrix.
-  </Card>
-</CardGroup>
+<CardGrid>
+  <LinkCard href="quickstart/" title="Quickstart" description="Boot your first replica in five minutes." />
+  <LinkCard href="cli/reference/" title="CLI reference" description="Every command, every flag, with an example." />
+  <LinkCard href="deployment/fly-io/" title="Deployment" description="Fly.io, self-hosted, and Prometheus alerts." />
+  <LinkCard href="enterprise/sso/" title="Enterprise" description="SSO, SCIM, compliance exports, plan matrix." />
+</CardGrid>
