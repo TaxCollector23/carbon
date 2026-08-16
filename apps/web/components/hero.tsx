@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { ArrowRight, LayoutDashboard, Play, Sparkles } from 'lucide-react';
+import { ArrowRight, BookOpen, LayoutDashboard, Play, Sparkles } from 'lucide-react';
 import { buttonVariants, cn } from '@carbon/ui';
 import { dashboardSignInUrl } from '@/lib/urls';
 import { TerminalDemo } from './terminal';
@@ -114,6 +114,16 @@ export function Hero() {
                 <Play className="h-4 w-4 fill-current" />
                 See workflow
               </Link>
+              <a
+                href="https://taxcollector23.github.io/carbon/"
+                target="_blank"
+                rel="noreferrer"
+                className={cn(buttonVariants({ variant: 'ghost', size: 'lg' }), 'group gap-2')}
+              >
+                <BookOpen className="h-4 w-4" />
+                Read the docs
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </a>
             </div>
             <div className="border-border mt-8 grid max-w-xl grid-cols-3 border-y text-sm">
               {stats.map(({ value, label }, index) => (

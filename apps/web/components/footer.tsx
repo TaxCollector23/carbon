@@ -20,8 +20,14 @@ export function Footer() {
       ],
     },
     {
-      heading: 'Community',
-      links: [['GitHub', 'https://github.com/TaxCollector23/carbon']],
+      heading: 'Resources',
+      links: [
+        ['Documentation', 'https://taxcollector23.github.io/carbon/'],
+        ['Quickstart', 'https://taxcollector23.github.io/carbon/quickstart/'],
+        ['CLI reference', 'https://taxcollector23.github.io/carbon/cli/reference/'],
+        ['GitHub', 'https://github.com/TaxCollector23/carbon'],
+        ['Releases', 'https://github.com/TaxCollector23/carbon/releases'],
+      ],
     },
   ] satisfies Array<{ heading: string; links: [string, string][] }>;
 

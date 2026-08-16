@@ -47,6 +47,17 @@ export function Nav() {
           >
             Compare
           </Link>
+          <a
+            href="https://taxcollector23.github.io/carbon/"
+            target="_blank"
+            rel="noreferrer"
+            className={cn(
+              buttonVariants({ variant: 'ghost', size: 'sm' }),
+              'hidden sm:inline-flex',
+            )}
+          >
+            Docs
+          </a>
           <Link
             href="/try"
             className={cn(
