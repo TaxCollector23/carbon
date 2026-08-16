@@ -1,11 +1,18 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Check, ChevronDown, Play, RotateCcw, Server, Trash2 } from 'lucide-react';
+import { Camera, Check, ChevronDown, Play, RotateCcw, Server, Trash2, Undo2 } from 'lucide-react';
 import { cn } from '@carbon/ui';
+import {
+  createInitialState,
+  executeRequest,
+  restoreSnapshot,
+  takeSnapshot,
+  type Method,
+  type ReplicaResponse,
+  type ReplicaState,
+} from '@/lib/try-replica';
 
-type Method = 'GET' | 'POST' | 'DELETE';
-type Pet = { id: string; name: string; status: string };
 type HistoryEntry = {
   id: number;
   method: Method;
@@ -14,8 +21,6 @@ type HistoryEntry = {
   response: unknown;
   durationMs: number;
 };
-
-const INITIAL_PETS: readonly Pet[] = [{ id: 'pet_1', name: 'Carbon cat', status: 'available' }];
 
 const EXAMPLES: ReadonlyArray<{ method: Method; path: string; label: string; body?: string }> = [
   { method: 'GET', path: '/pets', label: 'List pets' },
@@ -29,14 +34,18 @@ const EXAMPLES: ReadonlyArray<{ method: Method; path: string; label: string; bod
   { method: 'DELETE', path: '/pets/{id}', label: 'Delete a pet' },
 ];
 
+function responseError(response: ReplicaResponse): string | null {
+  const body = response.body as { error?: unknown };
+  return typeof body.error === 'string' ? body.error : null;
+}
+
 export function TryPlayground() {
-  const [pets, setPets] = useState<Pet[]>([...INITIAL_PETS]);
+  const [state, setState] = useState<ReplicaState>(createInitialState);
   const [method, setMethod] = useState<Method>('GET');
   const [path, setPath] = useState('/pets');
   const [body, setBody] = useState('');
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [lastResponse, setLastResponse] = useState<HistoryEntry | null>(null);
-  const [nextId, setNextId] = useState(2);
   const [error, setError] = useState<string | null>(null);
 
   const selectedExample = useMemo(
@@ -51,79 +60,44 @@ export function TryPlayground() {
     setError(null);
   }
 
-  function executeRequest() {
+  function dispatch() {
     const started = performance.now();
-    let status = 200;
-    let response: unknown;
-    let nextPets = pets;
     setError(null);
 
-    try {
-      if (method === 'GET' && path === '/pets') {
-        response = { data: pets, count: pets.length };
-      } else if (method === 'POST' && path === '/pets') {
-        const parsed = JSON.parse(body || '{}') as { name?: unknown; status?: unknown };
-        if (typeof parsed.name !== 'string' || parsed.name.trim() === '') {
-          throw new Error('POST /pets needs a JSON body with a non-empty `name`.');
-        }
-        const pet: Pet = {
-          id: `pet_${nextId}`,
-          name: parsed.name.trim(),
-          status: typeof parsed.status === 'string' ? parsed.status : 'available',
-        };
-        nextPets = [...pets, pet];
-        setPets(nextPets);
-        setNextId((value) => value + 1);
-        status = 201;
-        response = pet;
-      } else if (method === 'GET' && path === '/pets/{id}') {
-        const pet = pets.at(-1);
-        if (!pet) {
-          status = 404;
-          response = { error: 'No pets exist. Create one first.' };
-        } else {
-          response = pet;
-        }
-      } else if (method === 'DELETE' && path === '/pets/{id}') {
-        const pet = pets.at(-1);
-        if (!pet) {
-          status = 404;
-          response = { error: 'No pets exist. Create one first.' };
-        } else {
-          nextPets = pets.slice(0, -1);
-          setPets(nextPets);
-          response = { deleted: pet.id, remaining: nextPets.length };
-        }
-      } else {
-        status = 404;
-        response = { error: `No route for ${method} ${path}` };
-      }
-    } catch (err) {
-      status = 400;
-      response = { error: err instanceof Error ? err.message : 'Invalid request' };
-    }
+    const { state: next, response } = executeRequest(state, { method, path, body });
+    setState(next);
 
     const entry: HistoryEntry = {
       id: Date.now(),
       method,
       path,
-      status,
-      response,
+      status: response.status,
+      response: response.body,
       durationMs: Math.max(1, Math.round(performance.now() - started)),
     };
     setLastResponse(entry);
     setHistory((entries) => [entry, ...entries].slice(0, 8));
-    if (status >= 400)
-      setError(String((response as { error?: unknown }).error ?? 'Request failed'));
+    if (response.status >= 400) setError(responseError(response) ?? 'Request failed');
+  }
+
+  function snapshot() {
+    setState(takeSnapshot(state));
+    setError(null);
+  }
+
+  function restore() {
+    setState(restoreSnapshot(state));
+    setError(state.snapshot === null ? 'Take a snapshot first, then mutate the store.' : null);
   }
 
   function reset() {
-    setPets([...INITIAL_PETS]);
-    setNextId(2);
+    setState(createInitialState());
     setHistory([]);
     setLastResponse(null);
     setError(null);
   }
+
+  const hasSnapshot = state.snapshot !== null;
 
   return (
     <div className="border-border grid overflow-hidden rounded-xl border lg:grid-cols-[0.9fr_1.1fr]">
@@ -213,20 +187,48 @@ export function TryPlayground() {
 
         <button
           type="button"
-          onClick={executeRequest}
+          onClick={dispatch}
           className="bg-foreground text-background mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-opacity hover:opacity-90"
         >
           <Play className="h-4 w-4 fill-current" />
           Send request
         </button>
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={snapshot}
+            className="border-input text-foreground hover:bg-muted inline-flex items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium transition-colors"
+          >
+            <Camera className="h-3.5 w-3.5" />
+            Snapshot
+          </button>
+          <button
+            type="button"
+            onClick={restore}
+            disabled={!hasSnapshot}
+            className="border-input text-foreground hover:bg-muted inline-flex items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Undo2 className="h-3.5 w-3.5" />
+            Restore
+          </button>
+        </div>
+
         {error && <p className="text-destructive mt-3 text-xs leading-5">{error}</p>}
 
         <div className="border-border mt-8 border-t pt-5">
-          <div className="text-muted-foreground mb-3 text-xs font-medium uppercase tracking-widest">
-            State · {pets.length} pet{pets.length === 1 ? '' : 's'}
+          <div className="text-muted-foreground mb-3 flex items-center justify-between text-xs font-medium uppercase tracking-widest">
+            <span>
+              State · {state.pets.length} pet{state.pets.length === 1 ? '' : 's'}
+            </span>
+            {hasSnapshot && (
+              <span className="text-emerald-600 dark:text-emerald-400">
+                snapshot · {state.snapshot!.length}
+              </span>
+            )}
           </div>
           <div className="space-y-2">
-            {pets.map((pet) => (
+            {state.pets.map((pet) => (
               <div
                 key={pet.id}
                 className="bg-background flex items-center justify-between rounded-md border px-3 py-2 text-xs"

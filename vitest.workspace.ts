@@ -11,4 +11,5 @@ export default defineWorkspace([
   'packages/workers',
   'packages/secret-scan',
   'apps/api',
+  'apps/web',
 ]);
