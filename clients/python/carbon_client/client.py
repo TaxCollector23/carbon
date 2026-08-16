@@ -7,10 +7,12 @@ same constructor shape (`base_url`, `api_key`) and same auth semantics
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from types import TracebackType
-from typing import Any, Dict, List, Mapping, Optional, Type, Union
+from typing import Any, Union
 
 import httpx
+from typing_extensions import Self
 
 from .exceptions import CarbonError
 from .models import (
@@ -23,7 +25,7 @@ from .models import (
     UsageResponse,
 )
 
-JSON = Union[Dict[str, Any], List[Any], str, int, float, bool, None]
+JSON = Union[dict[str, Any], list[Any], str, int, float, bool, None]
 
 DEFAULT_TIMEOUT = 30.0
 _USER_AGENT = "carbon-client-python/0.1.0"
@@ -41,18 +43,18 @@ class CarbonClient:
     def __init__(
         self,
         base_url: str,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         *,
         timeout: float = DEFAULT_TIMEOUT,
-        headers: Optional[Mapping[str, str]] = None,
-        transport: Optional[httpx.BaseTransport] = None,
-        async_transport: Optional[httpx.AsyncBaseTransport] = None,
+        headers: Mapping[str, str] | None = None,
+        transport: httpx.BaseTransport | None = None,
+        async_transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         if not base_url:
             raise ValueError("base_url is required")
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
-        base_headers: Dict[str, str] = {
+        base_headers: dict[str, str] = {
             "accept": "application/json",
             "user-agent": _USER_AGENT,
         }
@@ -82,25 +84,25 @@ class CarbonClient:
     async def aclose(self) -> None:
         await self._async.aclose()
 
-    def __enter__(self) -> "CarbonClient":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc: Optional[BaseException],
-        tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
     ) -> None:
         self.close()
 
-    async def __aenter__(self) -> "CarbonClient":
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc: Optional[BaseException],
-        tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
     ) -> None:
         await self.aclose()
 
@@ -111,7 +113,7 @@ class CarbonClient:
         method: str,
         path: str,
         *,
-        params: Optional[Mapping[str, Any]] = None,
+        params: Mapping[str, Any] | None = None,
         json: Any = None,
     ) -> JSON:
         """Send a request and return the parsed JSON body.
@@ -126,20 +128,86 @@ class CarbonClient:
         method: str,
         path: str,
         *,
-        params: Optional[Mapping[str, Any]] = None,
+        params: Mapping[str, Any] | None = None,
         json: Any = None,
     ) -> JSON:
         resp = await self._async.request(method, path, params=params, json=json)
         return _parse(resp)
 
+    # ---- pagination -----------------------------------------------------
+
+    def paginate(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        json: Any = None,
+    ):
+        """Yield every row from a cursor-paginated list endpoint.
+
+        Walks `nextCursor` (and `hasMore`, when present) until the server
+        returns no cursor, yielding the items in each `data` page. For
+        endpoints that return a bare list, yields that list once.
+        """
+        query = dict(params or {})
+        while True:
+            data = self.request(method, path, params=query or None, json=json)
+            items: Any = data
+            cursor: Any = None
+            has_more: Any = None
+            if isinstance(data, dict):
+                items = data.get("data", data)
+                cursor = data.get("nextCursor") or data.get("next_cursor")
+                has_more = data.get("hasMore", data.get("has_more"))
+            if isinstance(items, list):
+                yield from items
+            else:
+                yield items
+            if not cursor:
+                return
+            if has_more is False:
+                return
+            query["cursor"] = cursor
+
+    async def apaginate(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        json: Any = None,
+    ):
+        """Async twin of :meth:`paginate`."""
+        query = dict(params or {})
+        while True:
+            data = await self.arequest(method, path, params=query or None, json=json)
+            items: Any = data
+            cursor: Any = None
+            has_more: Any = None
+            if isinstance(data, dict):
+                items = data.get("data", data)
+                cursor = data.get("nextCursor") or data.get("next_cursor")
+                has_more = data.get("hasMore", data.get("has_more"))
+            if isinstance(items, list):
+                for item in items:
+                    yield item
+            else:
+                yield items
+            if not cursor:
+                return
+            if has_more is False:
+                return
+            query["cursor"] = cursor
+
     # ---- top-10 hand-written surface ------------------------------------
 
     # 1. GET /v1/projects
-    def list_projects(self, *, org_id: Optional[str] = None) -> List[Project]:
+    def list_projects(self, *, org_id: str | None = None) -> list[Project]:
         data = self.request("GET", "/v1/projects", params=_org_params(org_id))
         return [Project.from_dict(x) for x in _as_list(data, "projects")]
 
-    async def alist_projects(self, *, org_id: Optional[str] = None) -> List[Project]:
+    async def alist_projects(self, *, org_id: str | None = None) -> list[Project]:
         data = await self.arequest("GET", "/v1/projects", params=_org_params(org_id))
         return [Project.from_dict(x) for x in _as_list(data, "projects")]
 
@@ -149,9 +217,9 @@ class CarbonClient:
         *,
         name: str,
         slug: str,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
     ) -> Project:
-        body: Dict[str, Any] = {"name": name, "slug": slug}
+        body: dict[str, Any] = {"name": name, "slug": slug}
         if org_id is not None:
             body["orgId"] = org_id
         data = self.request("POST", "/v1/projects", json=body)
@@ -162,9 +230,9 @@ class CarbonClient:
         *,
         name: str,
         slug: str,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
     ) -> Project:
-        body: Dict[str, Any] = {"name": name, "slug": slug}
+        body: dict[str, Any] = {"name": name, "slug": slug}
         if org_id is not None:
             body["orgId"] = org_id
         data = await self.arequest("POST", "/v1/projects", json=body)
@@ -180,23 +248,23 @@ class CarbonClient:
         return Project.from_dict(_unwrap(data, "project"))
 
     # 4. GET /v1/snapshots
-    def list_snapshots(self, *, project_id: Optional[str] = None) -> List[Snapshot]:
+    def list_snapshots(self, *, project_id: str | None = None) -> list[Snapshot]:
         params = {"projectId": project_id} if project_id else None
         data = self.request("GET", "/v1/snapshots", params=params)
         return [Snapshot.from_dict(x) for x in _as_list(data, "snapshots")]
 
-    async def alist_snapshots(self, *, project_id: Optional[str] = None) -> List[Snapshot]:
+    async def alist_snapshots(self, *, project_id: str | None = None) -> list[Snapshot]:
         params = {"projectId": project_id} if project_id else None
         data = await self.arequest("GET", "/v1/snapshots", params=params)
         return [Snapshot.from_dict(x) for x in _as_list(data, "snapshots")]
 
     # 5. GET /v1/emulators
-    def list_emulators(self, *, project_id: Optional[str] = None) -> List[Emulator]:
+    def list_emulators(self, *, project_id: str | None = None) -> list[Emulator]:
         params = {"projectId": project_id} if project_id else None
         data = self.request("GET", "/v1/emulators", params=params)
         return [Emulator.from_dict(x) for x in _as_list(data, "emulators")]
 
-    async def alist_emulators(self, *, project_id: Optional[str] = None) -> List[Emulator]:
+    async def alist_emulators(self, *, project_id: str | None = None) -> list[Emulator]:
         params = {"projectId": project_id} if project_id else None
         data = await self.arequest("GET", "/v1/emulators", params=params)
         return [Emulator.from_dict(x) for x in _as_list(data, "emulators")]
@@ -205,10 +273,10 @@ class CarbonClient:
     def list_events(
         self,
         *,
-        project_id: Optional[str] = None,
-        limit: Optional[int] = None,
-    ) -> List[Event]:
-        params: Dict[str, Any] = {}
+        project_id: str | None = None,
+        limit: int | None = None,
+    ) -> list[Event]:
+        params: dict[str, Any] = {}
         if project_id:
             params["projectId"] = project_id
         if limit is not None:
@@ -219,10 +287,10 @@ class CarbonClient:
     async def alist_events(
         self,
         *,
-        project_id: Optional[str] = None,
-        limit: Optional[int] = None,
-    ) -> List[Event]:
-        params: Dict[str, Any] = {}
+        project_id: str | None = None,
+        limit: int | None = None,
+    ) -> list[Event]:
+        params: dict[str, Any] = {}
         if project_id:
             params["projectId"] = project_id
         if limit is not None:
@@ -231,11 +299,11 @@ class CarbonClient:
         return [Event.from_dict(x) for x in _as_list(data, "events")]
 
     # 7. GET /v1/api-keys
-    def list_api_keys(self) -> List[ApiKey]:
+    def list_api_keys(self) -> list[ApiKey]:
         data = self.request("GET", "/v1/api-keys")
         return [ApiKey.from_dict(x) for x in _as_list(data, "keys", "apiKeys")]
 
-    async def alist_api_keys(self) -> List[ApiKey]:
+    async def alist_api_keys(self) -> list[ApiKey]:
         data = await self.arequest("GET", "/v1/api-keys")
         return [ApiKey.from_dict(x) for x in _as_list(data, "keys", "apiKeys")]
 
@@ -252,8 +320,8 @@ class CarbonClient:
     def list_usage(
         self,
         *,
-        org_id: Optional[str] = None,
-        period: Optional[str] = None,
+        org_id: str | None = None,
+        period: str | None = None,
     ) -> UsageResponse:
         params = _org_params(org_id) or {}
         if period:
@@ -264,8 +332,8 @@ class CarbonClient:
     async def alist_usage(
         self,
         *,
-        org_id: Optional[str] = None,
-        period: Optional[str] = None,
+        org_id: str | None = None,
+        period: str | None = None,
     ) -> UsageResponse:
         params = _org_params(org_id) or {}
         if period:
@@ -299,7 +367,7 @@ def _parse(resp: httpx.Response) -> JSON:
     return body
 
 
-def _as_list(data: Any, *keys: str) -> List[Any]:
+def _as_list(data: Any, *keys: str) -> list[Any]:
     """Extract a list from a response that may be `[...]` or `{"k": [...]}`."""
     if isinstance(data, list):
         return data
@@ -324,5 +392,5 @@ def _unwrap(data: Any, *keys: str) -> Any:
     return data
 
 
-def _org_params(org_id: Optional[str]) -> Optional[Dict[str, str]]:
+def _org_params(org_id: str | None) -> dict[str, str] | None:
     return {"orgId": org_id} if org_id else None

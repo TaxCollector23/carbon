@@ -29,6 +29,7 @@ def client():
 
 # ---- 1. list_projects ---------------------------------------------------
 
+
 @respx.mock
 def test_list_projects(client: CarbonClient) -> None:
     route = respx.get(f"{BASE}/v1/projects").mock(
@@ -46,6 +47,7 @@ def test_list_projects(client: CarbonClient) -> None:
 
 # ---- 2. create_project --------------------------------------------------
 
+
 @respx.mock
 def test_create_project(client: CarbonClient) -> None:
     route = respx.post(f"{BASE}/v1/projects").mock(
@@ -62,6 +64,7 @@ def test_create_project(client: CarbonClient) -> None:
 
 # ---- 3. get_project -----------------------------------------------------
 
+
 @respx.mock
 def test_get_project(client: CarbonClient) -> None:
     respx.get(f"{BASE}/v1/projects/proj_1").mock(
@@ -72,6 +75,7 @@ def test_get_project(client: CarbonClient) -> None:
 
 
 # ---- 4. list_snapshots --------------------------------------------------
+
 
 @respx.mock
 def test_list_snapshots(client: CarbonClient) -> None:
@@ -87,6 +91,7 @@ def test_list_snapshots(client: CarbonClient) -> None:
 
 # ---- 5. list_emulators --------------------------------------------------
 
+
 @respx.mock
 def test_list_emulators(client: CarbonClient) -> None:
     respx.get(f"{BASE}/v1/emulators").mock(
@@ -100,6 +105,7 @@ def test_list_emulators(client: CarbonClient) -> None:
 
 
 # ---- 6. list_events -----------------------------------------------------
+
 
 @respx.mock
 def test_list_events(client: CarbonClient) -> None:
@@ -119,6 +125,7 @@ def test_list_events(client: CarbonClient) -> None:
 
 # ---- 7. list_api_keys ---------------------------------------------------
 
+
 @respx.mock
 def test_list_api_keys(client: CarbonClient) -> None:
     respx.get(f"{BASE}/v1/api-keys").mock(
@@ -132,6 +139,7 @@ def test_list_api_keys(client: CarbonClient) -> None:
 
 
 # ---- 8. create_api_key --------------------------------------------------
+
 
 @respx.mock
 def test_create_api_key(client: CarbonClient) -> None:
@@ -155,6 +163,7 @@ def test_create_api_key(client: CarbonClient) -> None:
 
 # ---- 9. list_usage ------------------------------------------------------
 
+
 @respx.mock
 def test_list_usage(client: CarbonClient) -> None:
     respx.get(f"{BASE}/v1/usage").mock(
@@ -162,9 +171,7 @@ def test_list_usage(client: CarbonClient) -> None:
             200,
             json={
                 "total": {"requests": 42, "ingested": 100, "egress": 7},
-                "buckets": [
-                    {"period": "2026-08", "requests": 42, "ingested": 100, "egress": 7}
-                ],
+                "buckets": [{"period": "2026-08", "requests": 42, "ingested": 100, "egress": 7}],
             },
         )
     )
@@ -176,6 +183,7 @@ def test_list_usage(client: CarbonClient) -> None:
 
 # ---- 10. get_health -----------------------------------------------------
 
+
 @respx.mock
 def test_get_health(client: CarbonClient) -> None:
     respx.get(f"{BASE}/v1/health/live").mock(
@@ -186,6 +194,7 @@ def test_get_health(client: CarbonClient) -> None:
 
 
 # ---- error handling -----------------------------------------------------
+
 
 @respx.mock
 def test_carbon_error_raised(client: CarbonClient) -> None:
@@ -203,6 +212,7 @@ def test_carbon_error_raised(client: CarbonClient) -> None:
 
 
 # ---- async smoke --------------------------------------------------------
+
 
 @pytest.mark.asyncio
 @respx.mock

@@ -1,4 +1,4 @@
-.PHONY: install test format lint clean
+.PHONY: install test format lint codegen clean
 
 # Prefer `uv` if available, fall back to plain pip.
 PY ?= python3
@@ -35,6 +35,10 @@ else
 	uv run ruff check carbon_client tests scripts
 	uv run black --check carbon_client tests scripts
 endif
+
+# Regenerate carbon_client/generated.py from the committed OpenAPI snapshot.
+codegen:
+	$(PY) scripts/codegen.py ../../apps/dashboard/lib/openapi.snapshot.json > carbon_client/generated.py
 
 clean:
 	rm -rf build dist *.egg-info .pytest_cache .ruff_cache

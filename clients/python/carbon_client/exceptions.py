@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 
 class CarbonError(Exception):
@@ -16,7 +16,7 @@ class CarbonError(Exception):
         self,
         status: int,
         code: str = "CARBON_ERROR",
-        message: Optional[str] = None,
+        message: str | None = None,
         details: Any = None,
     ) -> None:
         self.status = int(status)
@@ -26,7 +26,7 @@ class CarbonError(Exception):
         super().__init__(self.message)
 
     @classmethod
-    def from_response(cls, status: int, body: Any) -> "CarbonError":
+    def from_response(cls, status: int, body: Any) -> CarbonError:
         """Best-effort parse of a JSON error body into a CarbonError."""
         if isinstance(body, dict):
             return cls(
@@ -39,6 +39,5 @@ class CarbonError(Exception):
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
         return (
-            f"CarbonError(status={self.status!r}, code={self.code!r}, "
-            f"message={self.message!r})"
+            f"CarbonError(status={self.status!r}, code={self.code!r}, " f"message={self.message!r})"
         )

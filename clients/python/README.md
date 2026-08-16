@@ -46,37 +46,50 @@ asyncio.run(main())
 
 ## Methods
 
-The hand-written surface covers the top 10 control-plane endpoints:
+The package ships two surfaces on the same class hierarchy:
 
-| Method           | Endpoint                |
-| ---------------- | ----------------------- |
-| `list_projects`  | `GET /v1/projects`      |
-| `create_project` | `POST /v1/projects`     |
-| `get_project`    | `GET /v1/projects/{id}` |
-| `list_snapshots` | `GET /v1/snapshots`     |
-| `list_emulators` | `GET /v1/emulators`     |
-| `list_events`    | `GET /v1/events`        |
-| `list_api_keys`  | `GET /v1/api-keys`      |
-| `create_api_key` | `POST /v1/api-keys`     |
-| `list_usage`     | `GET /v1/usage`         |
-| `get_health`     | `GET /v1/health/live`   |
+- **`Carbon`** (`CarbonGenerated`) — a full-surface client with one method per
+  API route, generated from the committed OpenAPI snapshot. List endpoints are
+  unwrapped from their `{"data": [...]}` envelope for you.
+- **`CarbonClient`** — the hand-written base with the 10 most common,
+  ergonomically-typed methods (`list_projects`, `create_project`, `get_project`,
+  `list_snapshots`, `list_emulators`, `list_events`, `list_api_keys`,
+  `create_api_key`, `list_usage`, `get_health`) plus the low-level `request`.
 
-Each has an `a`-prefixed async twin (`alist_projects`, `acreate_project`, …)
-usable via `async with CarbonClient(...)`.
+Every method has an `a`-prefixed async twin (`aget_health_live`,
+`alist_projects`, …) usable via `async with Carbon(...)`.
 
-For endpoints not in the hand-written surface, use
-`carbon.request("GET", "/v1/anything", params={...})` — it returns the parsed
-JSON body directly.
+```python
+from carbon_client import Carbon
+
+carbon = Carbon(base_url="http://localhost:4000", api_key="ck_live_xxx")
+projects = carbon.get_projects()          # GET /v1/projects -> [Project, ...]
+health = await carbon.aget_health_live()  # async twin
+```
+
+For cursor-paginated lists, use `paginate`/`apaginate`, which walk
+`nextCursor` for you:
+
+```python
+for event in carbon.paginate("GET", "/v1/events"):
+    print(event["action"])
+```
 
 ## Errors
 
 All non-2xx responses raise `CarbonError(status, code, message, details)`.
 
-## Regenerating (aspirational)
+## Regenerating
 
-A regeneration stub lives at `scripts/codegen.py` — it reads
-`apps/dashboard/lib/openapi.snapshot.json` from the Carbon monorepo and
-prints per-endpoint method stubs. Not run on install.
+`carbon_client/generated.py` is committed and kept in sync with the API schema
+by CI. To regenerate it after the schema changes:
+
+```bash
+cd clients/python
+make codegen        # or: python scripts/codegen.py ../../apps/dashboard/lib/openapi.snapshot.json > carbon_client/generated.py
+```
+
+Run `make lint` and `make test` before committing.
 
 ## License
 

@@ -9,7 +9,9 @@ attributes never breaks the client.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, fields
-from typing import Any, Dict, List, Optional, Type, TypeVar
+from typing import Any, TypeVar
+
+from typing_extensions import Self
 
 T = TypeVar("T", bound="_Base")
 
@@ -18,7 +20,7 @@ class _Base:
     """Shared `from_dict` that tolerates unknown/missing keys."""
 
     @classmethod
-    def from_dict(cls: Type[T], data: Any) -> T:
+    def from_dict(cls, data: Any) -> Self:
         if not isinstance(data, dict):
             raise TypeError(f"{cls.__name__}.from_dict expected dict, got {type(data)!r}")
         allowed = {f.name for f in fields(cls)}  # type: ignore[arg-type]
@@ -30,49 +32,49 @@ class Project(_Base):
     id: str = ""
     slug: str = ""
     name: str = ""
-    orgId: Optional[str] = None
-    createdAt: Optional[str] = None
-    updatedAt: Optional[str] = None
+    orgId: str | None = None
+    createdAt: str | None = None
+    updatedAt: str | None = None
 
 
 @dataclass
 class Snapshot(_Base):
     id: str = ""
     name: str = ""
-    projectId: Optional[str] = None
-    projectSlug: Optional[str] = None
-    createdAt: Optional[str] = None
-    size: Optional[int] = None
+    projectId: str | None = None
+    projectSlug: str | None = None
+    createdAt: str | None = None
+    size: int | None = None
 
 
 @dataclass
 class Emulator(_Base):
     id: str = ""
     name: str = ""
-    projectId: Optional[str] = None
-    status: Optional[str] = None
-    createdAt: Optional[str] = None
+    projectId: str | None = None
+    status: str | None = None
+    createdAt: str | None = None
 
 
 @dataclass
 class Event(_Base):
     id: str = ""
     type: str = ""
-    projectId: Optional[str] = None
-    orgId: Optional[str] = None
+    projectId: str | None = None
+    orgId: str | None = None
     payload: Any = None
-    createdAt: Optional[str] = None
+    createdAt: str | None = None
 
 
 @dataclass
 class ApiKey(_Base):
     id: str = ""
     name: str = ""
-    prefix: Optional[str] = None
-    lastUsedAt: Optional[str] = None
-    createdAt: Optional[str] = None
+    prefix: str | None = None
+    lastUsedAt: str | None = None
+    createdAt: str | None = None
     # Only present in create responses:
-    key: Optional[str] = None
+    key: str | None = None
 
 
 @dataclass
@@ -85,11 +87,11 @@ class UsageBucket(_Base):
 
 @dataclass
 class UsageResponse(_Base):
-    total: Dict[str, int] = field(default_factory=dict)
-    buckets: List[UsageBucket] = field(default_factory=list)
+    total: dict[str, int] = field(default_factory=dict)
+    buckets: list[UsageBucket] = field(default_factory=list)
 
     @classmethod
-    def from_dict(cls, data: Any) -> "UsageResponse":  # type: ignore[override]
+    def from_dict(cls, data: Any) -> UsageResponse:  # type: ignore[override]
         if not isinstance(data, dict):
             raise TypeError("UsageResponse.from_dict expected dict")
         buckets = [UsageBucket.from_dict(b) for b in data.get("buckets", []) or []]
@@ -100,5 +102,5 @@ class UsageResponse(_Base):
 @dataclass
 class HealthResponse(_Base):
     status: str = "unknown"
-    version: Optional[str] = None
-    uptime: Optional[float] = None
+    version: str | None = None
+    uptime: float | None = None
