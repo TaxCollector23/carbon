@@ -13,22 +13,22 @@ class Carbon < Formula
   on_macos do
     on_arm do
       url "https://github.com/TaxCollector23/carbon/releases/download/v0.2.1/carbon-darwin-arm64"
-      sha256 "f639e506cbc68bcfb1200b067c23844e8bbfbbfb80ed1835338f29a36cb975a9"
+      sha256 "930ff82e0286a342495e5b62cf6c0207a48a420055a90b398b99b0218bf36c90"
     end
     on_intel do
       url "https://github.com/TaxCollector23/carbon/releases/download/v0.2.1/carbon-darwin-x64"
-      sha256 "REPLACE_WITH_SHA256_OF_carbon-darwin-x64"
+      sha256 "ba0a50c379c023051e6d7bb87697a0375e126eab8dd1dd104fc280ad0eaf325c"
     end
   end
 
   on_linux do
     on_arm do
       url "https://github.com/TaxCollector23/carbon/releases/download/v0.2.1/carbon-linux-arm64"
-      sha256 "REPLACE_WITH_SHA256_OF_carbon-linux-arm64"
+      sha256 "ae928af16ba3ec52404f50ed1474dcd270f78180e588cd4d85cb8ffd9e987f73"
     end
     on_intel do
       url "https://github.com/TaxCollector23/carbon/releases/download/v0.2.1/carbon-linux-x64"
-      sha256 "32e066e1ed8e4b7a99d0d565dcb777653dc3331246d77e02dc6069bb56b8bae7"
+      sha256 "922cec7096dfada7e393e73f11fd4927d115d9113adeed8d8ca7a2830f74ef27"
     end
   end
 

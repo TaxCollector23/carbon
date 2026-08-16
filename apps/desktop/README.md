@@ -39,8 +39,9 @@ no bundler — and talks to Rust through Tauri's global `window.__TAURI__.core`.
 
 ## Notes
 
-- Bundling is disabled (`src-tauri/tauri.conf.json` → `bundle.active: false`).
-  A future release step should bundle the CLI as a Tauri
+- `pnpm --filter @carbon/desktop build` produces a macOS `.app` (+ zip it for
+  distribution); DMG bundling still needs the `bundle_dmg` toolchain wired up.
+- A future release step should bundle the CLI as a Tauri
   [sidecar](https://v2.tauri.app/develop/sidecar/) so end users don't need npm.
 - The spawned CLI is best-effort killed on Stop; quitting the app also drops
   the child on most platforms.
