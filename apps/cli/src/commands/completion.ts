@@ -26,6 +26,7 @@ const TOP_COMMANDS = [
   'emulate',
   'inspect',
   'snapshot',
+  'test',
   'try',
   'replay',
   'serve',

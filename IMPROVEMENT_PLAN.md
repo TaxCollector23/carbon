@@ -28,11 +28,12 @@ The main product gap is not raw capability; it is the first five minutes. A new 
 
 ### Phase 3 — CLI that becomes the default workflow
 
-- Add a first-class local project lifecycle: `carbon init`, `carbon ingest`, `carbon emulate`, `carbon test`, `carbon snapshot`, and `carbon ci` with consistent exit codes and JSON events. `carbon ci` now validates IR references, compiles the behavior graph, and can gate normalized drift against a baseline.
+- Add a first-class local project lifecycle: `carbon init`, `carbon ingest`, `carbon emulate`, `carbon test`, `carbon snapshot`, and `carbon ci` with consistent exit codes and JSON events. `carbon ci` now validates IR references, compiles the behavior graph, and can gate normalized drift against a baseline; `carbon test` now boots an isolated replica and exercises every declared endpoint in stateful order.
 - [x] Make `carbon ingest` optionally persist to the control plane and print stable artifact/job IDs with `--project`, `--async`, `--wait`, and `--timeout`.
 - [x] Expand shell completion coverage to the complete command catalog.
 - [x] Add `carbon diff` for normalized spec drift and `carbon explain` for why an endpoint mutates a resource or returns a generated response.
 - [x] Add `carbon ci` as a single contract-validation and drift-gating entry point with stable exit codes and JSON output.
+- [x] Add `carbon test` for stateful endpoint smoke testing with per-request results and JSON output.
 - Publish signed binaries or a reproducible installer alongside npm, with checksum verification and an offline cache for catalog specs.
 
 ### Phase 4 — hosted product and developer ecosystem

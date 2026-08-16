@@ -20,6 +20,7 @@ import { recordCommand } from './commands/record.js';
 import { replayCommand } from './commands/replay.js';
 import { serveCommand } from './commands/serve.js';
 import { snapshotCommand } from './commands/snapshot.js';
+import { testCommand } from './commands/test.js';
 import { tryCommand } from './commands/try.js';
 import { usageCommand } from './commands/usage.js';
 import { watchCommand } from './commands/watch.js';
@@ -44,6 +45,7 @@ export const cliSubCommands = {
   emulate: emulateCommand,
   inspect: inspectCommand,
   snapshot: snapshotCommand,
+  test: testCommand,
   try: tryCommand,
   replay: replayCommand,
   serve: serveCommand,
@@ -72,6 +74,7 @@ export const cliCommandCatalog: readonly CliCommandInfo[] = [
   commandInfo('emulate', emulateCommand),
   commandInfo('inspect', inspectCommand),
   commandInfo('snapshot', snapshotCommand),
+  commandInfo('test', testCommand),
   commandInfo('try', tryCommand),
   commandInfo('snapshot save', snapshotSubCommand('save')),
   commandInfo('snapshot load', snapshotSubCommand('load')),
