@@ -6,9 +6,10 @@ import type { AuthenticatedRequest } from './api-key.js';
 /**
  * Structured access logging.
  *
- * Fastify's built-in request logging is disabled (`disableRequestLogging`)
- * because its shape is noisy and it emits two lines per request. This emits
- * exactly one line per completed request, at a level chosen by status class:
+ * Fastify's built-in request logging is disabled (`logger: false` in
+ * `buildServer`) because its shape is noisy and it emits two lines per
+ * request. This emits exactly one line per completed request, at a level
+ * chosen by status class:
  *
  *   5xx → error, 4xx → warn, everything else → info
  *

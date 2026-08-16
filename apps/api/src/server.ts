@@ -163,8 +163,9 @@ export async function buildServer(
 
   const app = Fastify({
     // No Fastify logger at all — `registerAccessLog` owns request logging and
-    // emits one structured line per request instead of Fastify's two.
-    // (`disableRequestLogging` is deprecated in Fastify 5 and redundant here.)
+    // emits one structured line per request instead of Fastify's two. Setting
+    // `logger: false` already disables Fastify's built-in request logger (the
+    // now-deprecated `disableRequestLogging` option was removed in Fastify 6).
     logger: false,
     // 0 → ignore XFF entirely (`req.ip` is the socket peer). Any other value
     // trusts that many hops of the header, so upstream proxies must strip

@@ -57,8 +57,10 @@ export interface Runtime {
 export async function createRuntime(opts: RuntimeOptions): Promise<Runtime> {
   const logger = opts.logger ?? NoopLogger;
   const app = Fastify({
-    logger: false, // we use our own structured logger; fastify's is off
-    disableRequestLogging: true,
+    // We log requests ourselves via the onRequest hook below, so Fastify's
+    // built-in request logger stays off (`logger: false` already disables it;
+    // `disableRequestLogging` was removed in Fastify 6).
+    logger: false,
     ajv: { customOptions: { removeAdditional: false, useDefaults: true } },
   });
 
