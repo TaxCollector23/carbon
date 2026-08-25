@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import { siteUrl } from '@/lib/urls';
+import { TrackDelegation } from '@/components/track-delegation';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -73,6 +74,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="font-sans">
+        <TrackDelegation />
         <a
           href="#main"
           className="focus:bg-foreground focus:text-background sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:px-3 focus:py-2 focus:text-sm"

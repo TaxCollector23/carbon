@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Nav } from '@/components/nav';
 import { Footer } from '@/components/footer';
+import { PageTracker } from '@/components/page-tracker';
 import { Section, SectionHeading } from '@/components/section';
 import { dashboardUrl } from '@/lib/urls';
 
@@ -95,6 +96,7 @@ function openInCarbon(entry: GalleryEntry): string {
 export default function GalleryPage() {
   return (
     <div className="bg-background text-foreground min-h-dvh">
+      <PageTracker action="gallery.view" />
       <Nav />
       <main id="main" className="pt-16">
         <Section id="gallery" className="py-24">

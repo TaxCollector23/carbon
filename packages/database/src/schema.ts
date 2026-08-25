@@ -635,6 +635,35 @@ export const processedStripeEvents = pgTable('processed_stripe_events', {
   receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Anonymous, unauthenticated marketing-funnel events (page views, CTA
+ * clicks, sandbox starts). Deliberately separate from the org-scoped
+ * `events` audit table — there is no org on the marketing site. Only a
+ * one-way hash of the client IP is stored (enough to count unique visitors
+ * per bucket, not enough to identify a person), plus the raw `action` string
+ * and a small metadata blob. Written by the public `POST /v1/track` route.
+ */
+export const anonymousEvents = pgTable(
+  'anonymous_events',
+  {
+    id: text('id').primaryKey(),
+    action: text('action').notNull(),
+    /** SHA-256 hex of the client IP — not the IP itself. */
+    ipHash: text('ip_hash'),
+    /** Path the event happened on (e.g. "/try", "/#test-it"). */
+    path: text('path'),
+    /** First 200 chars of the User-Agent, for device/browser bucketing. */
+    userAgent: text('user_agent'),
+    /** Free-form extra context (sample id, CTA label, …). Capped at write time. */
+    metadata: jsonb('metadata').notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    actionCreatedIdx: index('anonymous_events_action_created_idx').on(t.action, t.createdAt),
+    createdIdx: index('anonymous_events_created_idx').on(t.createdAt),
+  }),
+);
+
 /** Short-lived, read-only shareable replica links. */
 export const shareLinks = pgTable(
   'share_links',

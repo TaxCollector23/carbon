@@ -38,6 +38,7 @@ import { registerExportRoutes } from './routes/export.js';
 import { registerSearchRoutes } from './routes/search.js';
 import { registerFeatureFlagRoutes } from './routes/feature-flags.js';
 import { registerLeadsRoutes, LEADS_PUBLIC_PATHS } from './routes/leads.js';
+import { registerTrackRoutes } from './routes/track.js';
 import { registerSampleRoutes } from './routes/samples.js';
 import { registerSlackRoutes, SLACK_PUBLIC_PATHS } from './routes/slack.js';
 import { registerApiKeyAuth, type ApiKeyPluginOptions } from './plugins/api-key.js';
@@ -77,6 +78,7 @@ const OPERATIONAL_PUBLIC_PATHS: readonly string[] = [
   '/v1/benchmark',
   '/v1/sandbox',
   '/v1/sandbox/*',
+  '/v1/track',
 ];
 
 /** Documentation endpoints — public only when `CARBON_PUBLIC_DOCS` is on. */
@@ -88,6 +90,7 @@ const RATE_LIMITED_PUBLIC_PATHS = new Set([
   '/v1/benchmark',
   '/v1/sandbox',
   '/v1/sandbox/*',
+  '/v1/track',
 ]);
 
 /**
@@ -386,6 +389,7 @@ export async function buildServer(
   await registerSearchRoutes(app, ctx);
   await registerFeatureFlagRoutes(app, ctx);
   await registerLeadsRoutes(app, ctx);
+  await registerTrackRoutes(app, ctx);
   await registerSampleRoutes(app, ctx);
   await registerSlackRoutes(app, ctx);
 

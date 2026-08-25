@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Nav } from '@/components/nav';
 import { Footer } from '@/components/footer';
+import { PageTracker } from '@/components/page-tracker';
 import { Section, SectionHeading } from '@/components/section';
 
 export const metadata: Metadata = {
@@ -77,6 +78,7 @@ export default function BenchmarksPage() {
   const memory = results.results.memory;
   return (
     <div className="bg-background text-foreground min-h-dvh">
+      <PageTracker action="benchmarks.view" />
       <Nav />
       <main id="main" className="pt-16">
         <Section id="live-benchmarks" className="py-24">

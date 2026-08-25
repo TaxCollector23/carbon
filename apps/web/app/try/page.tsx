@@ -4,6 +4,7 @@ import { ArrowRight, Terminal } from 'lucide-react';
 import { buttonVariants, cn } from '@carbon/ui';
 import { Footer } from '@/components/footer';
 import { Nav } from '@/components/nav';
+import { PageTracker } from '@/components/page-tracker';
 import { Section, SectionHeading } from '@/components/section';
 import { TryPlayground } from '@/components/try-playground';
 
@@ -16,6 +17,7 @@ export const metadata: Metadata = {
 export default function TryPage() {
   return (
     <div className="bg-background text-foreground min-h-dvh">
+      <PageTracker action="try.view" />
       <Nav />
       <main id="main" className="pt-16">
         <Section id="try" className="pb-10 pt-20 md:pb-14 md:pt-28">

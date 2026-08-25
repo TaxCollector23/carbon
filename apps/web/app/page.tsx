@@ -10,6 +10,7 @@ import { Hero } from '@/components/hero';
 import { Integrations } from '@/components/integrations';
 import { MetricsTest } from '@/components/metrics-test';
 import { Nav } from '@/components/nav';
+import { PageTracker } from '@/components/page-tracker';
 import { Pricing } from '@/components/pricing';
 import { Problem } from '@/components/problem';
 import { Record } from '@/components/record';
@@ -20,6 +21,7 @@ import { Workflow } from '@/components/workflow';
 export default function LandingPage() {
   return (
     <div className="bg-background text-foreground min-h-dvh">
+      <PageTracker action="site.view" />
       <Nav />
       {/*
        * Landing sections are ordered as a narrative:

@@ -60,6 +60,7 @@ export function Nav() {
           </a>
           <Link
             href="/try"
+            data-track="nav.try"
             className={cn(
               buttonVariants({ variant: 'ghost', size: 'sm' }),
               'hidden sm:inline-flex',
@@ -87,6 +88,7 @@ export function Nav() {
           </Link>
           <Link
             href="/#download"
+            data-track="nav.download"
             className={cn(
               buttonVariants({ variant: 'ghost', size: 'sm' }),
               'hidden sm:inline-flex',
@@ -124,7 +126,7 @@ export function Nav() {
           <a href={signIn} className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
             Sign in
           </a>
-          <a href={signUp} className={cn(buttonVariants({ size: 'sm' }))}>
+          <a href={signUp} data-track="nav.signup" className={cn(buttonVariants({ size: 'sm' }))}>
             Sign up
           </a>
         </div>

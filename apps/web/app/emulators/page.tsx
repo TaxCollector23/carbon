@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { CATALOG, catalogByCategory } from '@carbon/catalog';
 import { Nav } from '@/components/nav';
 import { Footer } from '@/components/footer';
+import { PageTracker } from '@/components/page-tracker';
 import { Section, SectionHeading } from '@/components/section';
 
 export const metadata: Metadata = {
@@ -22,6 +23,7 @@ export default function EmulatorsIndexPage() {
   const grouped = catalogByCategory();
   return (
     <div className="bg-background text-foreground min-h-dvh">
+      <PageTracker action="emulators.view" />
       <Nav />
       <main id="main" className="pt-16">
         <Section bordered={false}>

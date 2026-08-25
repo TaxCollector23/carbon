@@ -86,6 +86,7 @@ export function Hero() {
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link
                 href={dashboardHref}
+                data-track="cta.dashboard"
                 className={cn(buttonVariants({ size: 'lg' }), 'group gap-2')}
               >
                 <LayoutDashboard className="h-4 w-4" />
@@ -94,6 +95,7 @@ export function Hero() {
               </Link>
               <Link
                 href="/try"
+                data-track="cta.try"
                 className={cn(buttonVariants({ variant: 'secondary', size: 'lg' }), 'group gap-2')}
               >
                 <Sparkles className="h-4 w-4" />
@@ -102,6 +104,7 @@ export function Hero() {
               </Link>
               <Link
                 href="#cli"
+                data-track="cta.install"
                 className={cn(buttonVariants({ variant: 'ghost', size: 'lg' }), 'group gap-2')}
               >
                 Install CLI

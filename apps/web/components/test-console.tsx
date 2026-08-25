@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@carbon/ui';
 import { runBrowserMetrics, type BrowserMetrics } from '@/lib/metrics-harness';
+import { track } from '@/lib/track';
 
 const API_URL =
   (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_CARBON_API_URL : undefined) ?? '';
@@ -142,6 +143,7 @@ export function TestConsole() {
       setResponse(null);
       setRequestLog([]);
       setHistory([]);
+      track('test.start', { sample: record.sample, spec: record.spec });
       await refreshState(record.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -161,7 +163,8 @@ export function TestConsole() {
     setResponse(null);
     setHistory([]);
     setError(null);
-  }, [apiUrl, sandbox]);
+    track('test.stop', { sample });
+  }, [apiUrl, sandbox, sample]);
 
   const send = useCallback(async () => {
     if (!sandbox) return;
@@ -194,6 +197,7 @@ export function TestConsole() {
           ...log,
         ].slice(0, 12),
       );
+      track('test.send', { method, path: cleanPath, status: wrapped.status });
       await refreshState(sandbox.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
