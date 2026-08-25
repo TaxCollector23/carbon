@@ -5,7 +5,7 @@ import { isCarbonError, NoopLogger } from '@carbon/core';
 import { MemoryStorage } from '@carbon/storage';
 import { schema } from '@carbon/database';
 import type { AppContext } from '../context.js';
-import { registerTrackRoutes } from './track.js';
+import { makeIpLimiter, registerTrackRoutes } from './track.js';
 
 interface TrackRow {
   id: string;
@@ -138,3 +138,28 @@ describe('POST /v1/track', () => {
     expect(blocked.statusCode).toBe(429);
   });
 });
+
+describe('makeIpLimiter', () => {
+  it('bounded bucket map: oldest IP evicted once the cap is reached', () => {
+    const check = makeIpLimiter(2, 60_000, 3);
+    // Three distinct IPs fill the map (limit 2 per window, cap 3 buckets).
+    expect(check('1.1.1.1').ok).toBe(true);
+    expect(check('2.2.2.2').ok).toBe(true);
+    expect(check('3.3.3.3').ok).toBe(true);
+    // A fourth IP evicts the oldest bucket (1.1.1.1) rather than growing.
+    expect(check('4.4.4.4').ok).toBe(true);
+    // The evicted IP gets a fresh window — it is no longer rate-limited.
+    expect(check('1.1.1.1').ok).toBe(true);
+    // The non-evicted IP keeps its original bucket and still rate-limits:
+    // two more hits push it past the per-window limit of 2.
+    expect(check('1.1.1.1').ok).toBe(true);
+    expect(check('2.2.2.2').ok).toBe(true);
+    expect(check('3.3.3.3').ok).toBe(true);
+    expect(check('4.4.4.4').ok).toBe(true);
+    expect(check('1.1.1.1').ok).toBe(true);
+    expect(check('2.2.2.2').ok).toBe(true);
+    expect(check('2.2.2.2').ok).toBe(true);
+    expect(check('2.2.2.2').ok).toBe(false);
+  });
+});
+

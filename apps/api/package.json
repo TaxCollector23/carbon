@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "bootstrap": "tsx src/scripts/bootstrap.ts"
+    "bootstrap": "tsx src/scripts/bootstrap.ts",
+    "funnel": "tsx src/scripts/funnel.ts"
   },
   "dependencies": {
     "@carbon/ai": "workspace:*",

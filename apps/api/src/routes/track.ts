@@ -32,17 +32,31 @@ const TrackResponse = z.object({ id: z.string() });
 const TRACK_LIMIT = 300;
 const TRACK_WINDOW_MS = 60 * 1000;
 
+/**
+ * Ceiling on distinct tracked IPs held in memory. A Reddit/HN post can throw
+ * thousands of unique IPs at /v1/track in minutes; without a cap the bucket
+ * map grows without bound. Oldest buckets are evicted first (insertion
+ * order), which just means a lapsed visitor gets a fresh window — harmless
+ * for funnel analytics.
+ */
+const TRACK_MAX_BUCKETS = 10_000;
+
 interface Bucket {
   count: number;
   resetAt: number;
 }
 
-function makeIpLimiter(max: number, windowMs: number) {
+export function makeIpLimiter(max: number, windowMs: number, maxBuckets = TRACK_MAX_BUCKETS) {
   const buckets = new Map<string, Bucket>();
   return function check(ip: string): { ok: true } | { ok: false } {
     const now = Date.now();
     const b = buckets.get(ip);
     if (!b || b.resetAt <= now) {
+      if (!buckets.has(ip) && buckets.size >= maxBuckets) {
+        // Map iteration is insertion-ordered — drop the oldest bucket.
+        const oldest = buckets.keys().next();
+        if (!oldest.done) buckets.delete(oldest.value);
+      }
       buckets.set(ip, { count: 1, resetAt: now + windowMs });
       return { ok: true };
     }

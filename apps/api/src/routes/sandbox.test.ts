@@ -4,8 +4,10 @@ import { ZodError } from 'zod';
 import { isCarbonError, NoopLogger } from '@carbon/core';
 import { MemoryStorage } from '@carbon/storage';
 import type { AppContext } from '../context.js';
-import { _resetSampleSpecCache } from './samples.js';
-import { registerSandboxRoutes } from './sandbox.js';
+import { statusFor } from '../server.js';
+import { _resetSampleSpecCache, loadSampleSpec } from './samples.js';
+import { registerSandboxRoutes, type SandboxOptions } from './sandbox.js';
+import { createSandboxRegistry } from '../services/sandbox-registry.js';
 
 function makeCtx(): AppContext {
   return {
@@ -19,7 +21,7 @@ function makeCtx(): AppContext {
 
 async function build(
   ctx: AppContext,
-  options: { maxSandboxes?: number; idleTtlMs?: number; sweepIntervalMs?: number } = {},
+  options: SandboxOptions = {},
 ): Promise<FastifyInstance> {
   const app = Fastify();
   app.setErrorHandler((err, _req, reply) => {
@@ -28,9 +30,8 @@ async function build(
       return;
     }
     if (isCarbonError(err)) {
-      const status =
-        err.code === 'CARBON_CONFLICT' ? 409 : err.code === 'CARBON_NOT_FOUND' ? 404 : 400;
-      reply.status(status).send({ error: { code: err.code, message: err.message } });
+      // Mirror production: statusFor maps CARBON_* codes to HTTP statuses.
+      reply.status(statusFor(err.code)).send({ error: { code: err.code, message: err.message } });
       return;
     }
     reply.status(500).send({ error: { code: 'CARBON_INTERNAL', message: String(err) } });
@@ -207,6 +208,54 @@ describe('sandbox proxy', () => {
     });
     expect(res.statusCode).toBe(404);
     expect(res.json().error.code).toBe('CARBON_NOT_FOUND');
+  });
+
+  it('maps a crashed runtime to 503 instead of a raw 500', async () => {
+    const ctx = makeCtx();
+    // Sandbox exists in the map but the upstream is unreachable (e.g. the
+    // runtime crashed without the registry noticing).
+    const registry = createSandboxRegistry({
+      logger: NoopLogger,
+      fetchImpl: (async () => {
+        throw new TypeError('fetch failed');
+      }) as typeof fetch,
+    });
+    const app = await build(ctx, { registry });
+    const created = (await app.inject({ method: 'POST', url: '/v1/sandbox', payload: {} })).json() as SandboxBody;
+    const res = await app.inject({ method: 'GET', url: `/v1/sandbox/${created.id}/pets` });
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error.code).toBe('CARBON_RUNTIME_UNAVAILABLE');
+  });
+
+  it('maps a hung runtime to 504', async () => {
+    const ctx = makeCtx();
+    // A fetch that never resolves (ignores its abort signal) hits the proxy
+    // timeout and maps to 504, not a hang.
+    const registry = createSandboxRegistry({
+      logger: NoopLogger,
+      proxyTimeoutMs: 25,
+      fetchImpl: (() => new Promise<Response>(() => {})) as typeof fetch,
+    });
+    const app = await build(ctx, { registry });
+    const created = (await app.inject({ method: 'POST', url: '/v1/sandbox', payload: {} })).json() as SandboxBody;
+    const res = await app.inject({ method: 'GET', url: `/v1/sandbox/${created.id}/pets` });
+    expect(res.statusCode).toBe(504);
+    expect(res.json().error.code).toBe('CARBON_TIMEOUT');
+  });
+
+  it('rejects path traversal at the registry (defense in depth)', async () => {
+    // Fastify's router normalizes `..` segments before the route is matched,
+    // so a traversal attempt dies with 404 at the router. The registry guard
+    // covers direct/programmatic proxy calls regardless of router behavior.
+    const registry = createSandboxRegistry({ logger: NoopLogger });
+    const record = await registry.create(loadSampleSpec('petstore'), 'petstore');
+    try {
+      await expect(
+        registry.proxy(record.id, 'GET', '/pets/../__carbon/health', undefined, undefined),
+      ).rejects.toMatchObject({ code: 'CARBON_INVALID_INPUT' });
+    } finally {
+      await registry.stop(record.id);
+    }
   });
 });
 
