@@ -9,6 +9,8 @@ import { ZodError } from 'zod';
 import { createLogger, isCarbonError, type CarbonError, type Logger } from '@carbon/core';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerCapabilitiesRoutes } from './routes/capabilities.js';
+import { registerBenchmarkRoutes } from './routes/benchmark.js';
+import { registerSandboxRoutes } from './routes/sandbox.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { registerIngestRoutes } from './routes/ingest.js';
 import { registerEmulatorRoutes } from './routes/emulators.js';
@@ -72,12 +74,21 @@ const OPERATIONAL_PUBLIC_PATHS: readonly string[] = [
   '/v1/version',
   '/v1/capabilities',
   '/v1/samples',
+  '/v1/benchmark',
+  '/v1/sandbox',
+  '/v1/sandbox/*',
 ];
 
 /** Documentation endpoints — public only when `CARBON_PUBLIC_DOCS` is on. */
 const DOCS_PUBLIC_PATHS: readonly string[] = ['/openapi.json', '/docs', '/docs/*'];
 /** Discovery endpoints are public but still rate-limited per IP. */
-const RATE_LIMITED_PUBLIC_PATHS = new Set(['/v1/capabilities', '/v1/samples']);
+const RATE_LIMITED_PUBLIC_PATHS = new Set([
+  '/v1/capabilities',
+  '/v1/samples',
+  '/v1/benchmark',
+  '/v1/sandbox',
+  '/v1/sandbox/*',
+]);
 
 /**
  * Paths served without an API key.
@@ -341,6 +352,8 @@ export async function buildServer(
 
   await registerHealthRoutes(app, ctx, { release: options.release, lifecycle });
   await registerCapabilitiesRoutes(app, ctx, { requestTimeoutMs: requestTimeout });
+  await registerBenchmarkRoutes(app, ctx, { burstDurationMs: 2000, burstConcurrency: 32 });
+  await registerSandboxRoutes(app, ctx, { maxSandboxes: 16, idleTtlMs: 15 * 60_000 });
   await registerProjectRoutes(app, ctx);
   await registerIngestRoutes(app, ctx);
   await registerEmulatorRoutes(app, ctx);

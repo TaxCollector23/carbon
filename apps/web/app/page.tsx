@@ -8,6 +8,7 @@ import { Features } from '@/components/features';
 import { Footer } from '@/components/footer';
 import { Hero } from '@/components/hero';
 import { Integrations } from '@/components/integrations';
+import { MetricsTest } from '@/components/metrics-test';
 import { Nav } from '@/components/nav';
 import { Pricing } from '@/components/pricing';
 import { Problem } from '@/components/problem';
@@ -30,9 +31,10 @@ export default function LandingPage() {
        *   6. Breadth — what it plugs into (Integrations)
        *   7. Differentiation — vs alternatives, feature grid (Comparison, Features)
        *   8. Hard numbers (Benchmarks)
-       *   9. The sharper wedge — capture prod traffic instead of a spec (Record)
-       *   10. Buy (Pricing) — after they see what they're paying for
-       *   11. Objections (FAQ)
+       *   9. Proof you can reproduce — run the test yourself (MetricsTest)
+       *   10. The sharper wedge — capture prod traffic instead of a spec (Record)
+       *   11. Buy (Pricing) — after they see what they're paying for
+       *   12. Objections (FAQ)
        */}
       <main id="main" className="pt-16">
         <Hero />
@@ -46,6 +48,7 @@ export default function LandingPage() {
         <Comparison />
         <Features />
         <Benchmarks />
+        <MetricsTest />
         <Record />
         <Download />
         <Pricing />
