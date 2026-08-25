@@ -9,6 +9,7 @@ import {
   EXIT_GENERIC,
   EXIT_INTERNAL,
 } from '../lib/exit-codes.js';
+import { compareDrift, formatDrift } from '../lib/drift.js';
 
 interface ReplayRequest {
   method: string;
@@ -66,12 +67,25 @@ export const replayCommand = defineCommand({
     },
     mode: {
       type: 'string',
-      description: 'strict (status + body) or loose (status only)',
+      description:
+        'strict (status + exact body), loose (status only), or drift (status + tolerant JSON comparison with --ignore)',
       default: 'strict',
+    },
+    ignore: {
+      type: 'string',
+      description:
+        "Comma-separated dotted paths to exempt from drift comparison, e.g. 'data.updated_at,items[*].token'",
+      default: '',
     },
   },
   async run({ args }) {
-    const mode = (args.mode as string) === 'loose' ? 'loose' : 'strict';
+    const rawMode = args.mode as string;
+    const mode: 'strict' | 'loose' | 'drift' =
+      rawMode === 'drift' ? 'drift' : rawMode === 'loose' ? 'loose' : 'strict';
+    const ignore = (args.ignore as string)
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
     const target = (args.target as string).replace(/\/+$/, '');
     const recordingArg = args.recording as string;
 
@@ -122,11 +136,27 @@ export const replayCommand = defineCommand({
         const text = await res.text();
 
         const statusOk = req.expectedStatus === undefined || req.expectedStatus === res.status;
-        const bodyOk =
-          mode === 'loose' ||
-          req.expectedBody === undefined ||
-          req.expectedBody === null ||
-          req.expectedBody === text;
+        let bodyOk: boolean;
+        let bodyDetail = '';
+        if (mode === 'drift') {
+          // Tolerant structural comparison. Both bodies must parse as JSON for
+          // the drift comparison to apply; otherwise fall back to exact text.
+          const pair = parseJsonPair(req.expectedBody, text);
+          if (pair) {
+            const drift = compareDrift(pair.expected, pair.actual, { ignore });
+            bodyOk = drift.ok;
+            if (!drift.ok) bodyDetail = formatDrift(drift);
+          } else {
+            bodyOk = req.expectedBody === text;
+            if (!bodyOk) bodyDetail = 'body mismatch (non-JSON)';
+          }
+        } else {
+          bodyOk =
+            mode === 'loose' ||
+            req.expectedBody === undefined ||
+            req.expectedBody === null ||
+            req.expectedBody === text;
+        }
 
         if (statusOk && bodyOk) {
           pass += 1;
@@ -135,7 +165,7 @@ export const replayCommand = defineCommand({
           assertionFail += 1;
           const parts: string[] = [];
           if (!statusOk) parts.push(`status ${res.status} != ${req.expectedStatus}`);
-          if (!bodyOk) parts.push('body mismatch');
+          if (!bodyOk) parts.push(bodyDetail || 'body mismatch');
           process.stdout.write(
             `${pc.red('✗')} ${label} ${pc.dim(`→ ${res.status}`)} ${pc.red(parts.join('; '))}\n`,
           );
@@ -259,6 +289,31 @@ function normalizeRecording(rec: RecordingFile): ReplayRequest[] {
       });
   }
   return [];
+}
+
+/**
+ * Parse the recorded and live bodies as JSON. Returns null when either side
+ * is empty, not JSON-looking, or unparseable — drift comparison needs both.
+ */
+function parseJsonPair(
+  expected: string | null | undefined,
+  actual: string,
+): { expected: unknown; actual: unknown } | null {
+  if (expected === undefined || expected === null) return null;
+  const parse = (s: string): unknown | undefined => {
+    const trimmed = s.trim();
+    if (trimmed.length === 0) return undefined;
+    if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return undefined;
+    try {
+      return JSON.parse(trimmed) as unknown;
+    } catch {
+      return undefined;
+    }
+  };
+  const exp = parse(expected);
+  const act = parse(actual);
+  if (exp === undefined || act === undefined) return null;
+  return { expected: exp, actual: act };
 }
 
 function sanitizeHeaders(

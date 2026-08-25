@@ -60,7 +60,7 @@ promise (replicas).
    - **GitHub Action**: spin a per-PR replica, comment with the inspect link, tear down on close. Every PR becomes a Carbon ad.
    - **VS Code extension**: `carbon emulate` + graph browsing without leaving the editor.
    - **"Run in Carbon" badge + shareable read-only replica links**: API authors embed a badge in their README; prospects poke a live replica with no CLI.
-3. **Make the paid aha self-serve.** Pro trial should end at the drift-detection demo: `carbon record` prod traffic → scheduled replay → an alert when the replica and reality diverge. That moment is the upgrade trigger; email/Slack/webhook delivery already exists.
+3. **Make the paid aha self-serve.** The drift engine shipped: `carbon replay <recording> --target <real-api> --mode drift --ignore ...` now compares JSON structurally (types, numeric values, missing fields; null≈omitted; `--ignore` for volatile fields) and exits non-zero on divergence (`apps/cli/src/lib/drift.ts`, 15 unit tests, docs updated). Remaining: scheduled drift runs (cron/GitHub Action) → alert on divergence (email/Slack/webhook delivery already exists). That alert moment is the upgrade trigger.
 4. **Retention loop:** snapshot sharing between teammates, team workspaces, Slack alerts on drift/emulator crashes. Retention > acquisition once the loop exists.
 5. **Weekly metrics review.** Activation %, WAU, D7 retention, free→trial %, trial→paid %. Dashboard page over the existing usage/events data (the raw signals already exist in `apps/api`).
 - **Exit criterion:** 25 weekly-active teams, D7 retention > 20%, 5 paying teams, 10 named testimonials.

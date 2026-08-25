@@ -155,17 +155,30 @@ carbon record https://api.stripe.com \
 
 ## `carbon replay`
 
-Replay a recording against a running runtime and diff each response.
+Replay a recording against a running runtime and diff each response. Point it
+at the **real upstream** to answer "does my mock still match reality?" — that
+is drift detection, CI-friendly exit codes included.
 
 **Arguments / flags**
 
 - `<recording>` (positional, required) — id or path to a `.json`
-- (other flags cover runtime URL, host header, tolerances)
+- `--target <url>` — base URL to replay against (default `http://localhost:8787`)
+- `--mode <strict|loose|drift>` — `strict` compares status + exact body,
+  `loose` compares status only, `drift` compares status + JSON *structurally*
+  (numbers numerically, missing fields flagged, extra fields tolerated,
+  `null` ≈ omitted)
+- `--ignore <paths>` — comma-separated dotted paths to exempt from the drift
+  comparison, e.g. `data.updated_at,items[*].token`. A `[*]` segment matches
+  any array index; a trailing `*` ignores a whole subtree.
 
-**Example**
+**Examples**
 
 ```bash
 carbon replay .carbon/recordings/stripe-2026-01-05.json
+# Drift check against the live API, ignoring volatile fields:
+carbon replay .carbon/recordings/stripe.json \
+  --target https://api.stripe.com --mode drift \
+  --ignore data.created,data.id
 ```
 
 ---
