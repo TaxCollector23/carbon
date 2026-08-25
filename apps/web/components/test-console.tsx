@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity,
+  Camera,
   Check,
   Copy,
   FlaskConical,
@@ -12,7 +13,6 @@ import {
   Send,
   Server,
   Square,
-  Trash2,
   Undo2,
 } from 'lucide-react';
 import { cn } from '@carbon/ui';
@@ -69,6 +69,7 @@ interface RequestLogEntry {
   status: number;
   latencyMs: number;
   body: unknown;
+  requestBody?: unknown;
 }
 
 function fmtMs(n: number): string {
@@ -184,6 +185,14 @@ export function TestConsole() {
       const wrapped = (await res.json().catch(() => null)) as ProxyResult | null;
       if (!wrapped) throw new Error(`HTTP ${res.status}`);
       setResponse(wrapped);
+      let requestBody: unknown;
+      if (body.trim()) {
+        try {
+          requestBody = JSON.parse(body);
+        } catch {
+          requestBody = body;
+        }
+      }
       setRequestLog((log) =>
         [
           {
@@ -193,6 +202,7 @@ export function TestConsole() {
             status: wrapped.status,
             latencyMs: wrapped.latencyMs,
             body: wrapped.body,
+            requestBody,
           },
           ...log,
         ].slice(0, 12),
@@ -212,11 +222,15 @@ export function TestConsole() {
       setBusy('state');
       setError(null);
       try {
-        await fetch(`${apiUrl}/v1/sandbox/${sandbox.id}/__carbon/state/${action}`, {
+        const res = await fetch(`${apiUrl}/v1/sandbox/${sandbox.id}/__carbon/state/${action}`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: action === 'rewind' ? JSON.stringify({ seq }) : undefined,
         });
+        if (!res.ok) {
+          const wrapped = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+          throw new Error(wrapped?.error?.message ?? `HTTP ${res.status}`);
+        }
         await refreshState(sandbox.id);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
@@ -232,7 +246,9 @@ export function TestConsole() {
     const last = requestLog[0];
     if (!last) return;
     const url = `${apiUrl}/v1/sandbox/${sandbox.id}${last.path}`;
-    const curl = `curl -X ${last.method} '${url}' \\\n  -H 'content-type: application/json'${last.body !== null && last.body !== undefined && typeof last.body !== 'string' ? ` \\\n  -d '${JSON.stringify(last.body).replace(/'/g, "'\\''")}'` : ''}`;
+    const requestBody =
+      last.requestBody !== undefined ? JSON.stringify(last.requestBody) : null;
+    const curl = `curl -X ${last.method} '${url}'${requestBody ? ` \\\n  -H 'content-type: application/json' \\\n  -d '${requestBody.replace(/'/g, "'\\''")}'` : ''}`;
     try {
       await navigator.clipboard.writeText(curl);
       setCopied(true);
@@ -494,7 +510,7 @@ export function TestConsole() {
                   title="Snapshot state"
                   className="text-muted-foreground hover:text-foreground rounded-md border p-1.5 transition-colors disabled:opacity-40"
                 >
-                  <Trash2 className="h-3.5 w-3.5 rotate-180" />
+                  <Camera className="h-3.5 w-3.5" />
                 </button>
                 {busy === 'state' && <Loader2 className="text-muted-foreground h-3.5 w-3.5 animate-spin" />}
               </div>
