@@ -75,6 +75,10 @@ export interface SandboxRegistry {
   getState(id: string): unknown;
   /** Return the request audit log (most recent first). */
   getRequestLog(id: string, limit?: number): RequestLogEntry[];
+  /** Return the parsed endpoints from the spec. */
+  getEndpoints(id: string): Array<{ id: string; method: string; path: string; operation: string }>;
+  /** Aggregate sandbox stats for the landing page. */
+  getStats(): { activeSandboxes: number; totalRequests: number; topSamples: Array<{ sample: string; count: number }> };
 }
 
 export interface SandboxRegistryOptions {
@@ -170,6 +174,7 @@ interface Entry {
   record: SandboxRecord;
   runtime: Runtime;
   requestLog: RequestLogEntry[];
+  ir: IntermediateRepresentation;
 }
 
 export function createSandboxRegistry(options: SandboxRegistryOptions = {}): SandboxRegistry {
@@ -179,6 +184,7 @@ export function createSandboxRegistry(options: SandboxRegistryOptions = {}): San
   const fetchImpl = options.fetchImpl ?? fetch;
   const proxyTimeoutMs = options.proxyTimeoutMs ?? PROXY_TIMEOUT_MS;
   const entries = new Map<string, Entry>();
+  const sampleCounts = new Map<string, number>();
   const builder = new BehaviorGraphBuilder();
   const parsers = createDefaultParserRegistry();
 
@@ -212,6 +218,7 @@ export function createSandboxRegistry(options: SandboxRegistryOptions = {}): San
     },
     runtime,
     requestLog: [],
+    ir,
   };
   }
 
@@ -238,6 +245,7 @@ export function createSandboxRegistry(options: SandboxRegistryOptions = {}): San
         );
       }
       entries.set(entry.record.id, entry);
+      sampleCounts.set(sample, (sampleCounts.get(sample) ?? 0) + 1);
       logger.info('sandbox.created', { id: entry.record.id, sample, url: entry.record.url });
       return { ...entry.record };
     },
@@ -256,6 +264,15 @@ export function createSandboxRegistry(options: SandboxRegistryOptions = {}): San
       const headers: Record<string, string> = {};
       if (contentType) headers['content-type'] = contentType;
       const hasBody = body !== undefined && !['GET', 'HEAD'].includes(method.toUpperCase());
+
+      // Reject oversized request bodies before they hit the runtime.
+      const MAX_REQUEST_BODY_BYTES = 512 * 1024; // 512 KB
+      if (hasBody && body && body.length > MAX_REQUEST_BODY_BYTES) {
+        throw new InvalidInputError(`Request body too large — max ${MAX_REQUEST_BODY_BYTES} bytes`, {
+          received: body.length,
+          limit: MAX_REQUEST_BODY_BYTES,
+        });
+      }
 
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), proxyTimeoutMs);
@@ -352,6 +369,29 @@ export function createSandboxRegistry(options: SandboxRegistryOptions = {}): San
       const entry = entries.get(id);
       if (!entry) throw new NotFoundError('sandbox', id);
       return entry.requestLog.slice(-limit);
+    },
+
+    getEndpoints(id) {
+      const entry = entries.get(id);
+      if (!entry) throw new NotFoundError('sandbox', id);
+      return entry.ir.endpoints.map((ep) => ({
+        id: ep.id,
+        method: ep.method,
+        path: ep.path,
+        operation: ep.operation,
+      }));
+    },
+
+    getStats() {
+      let totalRequests = 0;
+      for (const e of entries.values()) {
+        totalRequests += e.record.requestCount;
+      }
+      const topSamples = Array.from(sampleCounts.entries())
+        .map(([sample, count]) => ({ sample, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+      return { activeSandboxes: entries.size, totalRequests, topSamples };
     },
 
     async stop(id) {

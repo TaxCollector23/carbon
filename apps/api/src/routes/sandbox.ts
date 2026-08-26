@@ -85,6 +85,19 @@ export async function registerSandboxRoutes(
     await registry.shutdown();
   });
 
+  app.get(
+    '/v1/sandbox/stats',
+    {
+      schema: {
+        summary: 'Sandbox usage stats',
+        description:
+          'Return aggregate stats about active sandboxes — total count, total requests served, ' +
+          'and top samples by creation count. Useful for the landing page social proof.',
+      },
+    },
+    async () => registry.getStats(),
+  );
+
   app.post(
     '/v1/sandbox',
     {
@@ -138,6 +151,21 @@ export async function registerSandboxRoutes(
       const record = registry.get(req.params.id);
       const spec = loadSampleSpec(record.sample);
       return spec;
+    },
+  );
+
+  app.get<{ Params: { id: string } }>(
+    '/v1/sandbox/:id/endpoints',
+    {
+      schema: {
+        summary: 'List sandbox endpoints',
+        description:
+          'Return the parsed endpoints from the spec the sandbox was booted from. ' +
+          'Useful for the console to build a dynamic method/path picker.',
+      },
+    },
+    async (req) => {
+      return { data: registry.getEndpoints(req.params.id) };
     },
   );
 

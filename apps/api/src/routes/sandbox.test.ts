@@ -109,6 +109,34 @@ describe('POST /v1/sandbox', () => {
     expect(specRes.statusCode).toBe(404);
   });
 
+  it('GET /v1/sandbox/stats returns aggregate stats', async () => {
+    const app = await build(makeCtx());
+    const stats1 = (await app.inject({ method: 'GET', url: '/v1/sandbox/stats' })).json() as {
+      activeSandboxes: number; totalRequests: number; topSamples: Array<{ sample: string; count: number }>;
+    };
+    expect(stats1.activeSandboxes).toBe(0);
+    expect(stats1.totalRequests).toBe(0);
+
+    const created = (await app.inject({ method: 'POST', url: '/v1/sandbox', payload: {} })).json() as SandboxBody;
+    const stats2 = (await app.inject({ method: 'GET', url: '/v1/sandbox/stats' })).json() as {
+      activeSandboxes: number; totalRequests: number; topSamples: Array<{ sample: string; count: number }>;
+    };
+    expect(stats2.activeSandboxes).toBe(1);
+    expect(stats2.topSamples.some((s) => s.sample === 'petstore' && s.count >= 1)).toBe(true);
+    await app.inject({ method: 'DELETE', url: `/v1/sandbox/${created.id}` });
+  });
+
+  it('GET /v1/sandbox/:id/endpoints lists parsed spec endpoints', async () => {
+    const app = await build(makeCtx());
+    const created = (await app.inject({ method: 'POST', url: '/v1/sandbox', payload: {} })).json() as SandboxBody;
+    const eps = (await app.inject({ method: 'GET', url: `/v1/sandbox/${created.id}/endpoints` })).json() as {
+      data: Array<{ id: string; method: string; path: string; operation: string }>;
+    };
+    expect(eps.data.length).toBeGreaterThan(0);
+    expect(eps.data.some((e) => e.path.includes('pets') && e.method === 'POST')).toBe(true);
+    await app.inject({ method: 'DELETE', url: `/v1/sandbox/${created.id}` });
+  });
+
   it('GET /v1/sandbox/:id/state returns current resource state', async () => {
     const app = await build(makeCtx());
     const created = (await app.inject({ method: 'POST', url: '/v1/sandbox', payload: {} })).json() as SandboxBody;
