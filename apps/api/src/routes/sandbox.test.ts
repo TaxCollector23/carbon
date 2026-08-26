@@ -90,6 +90,25 @@ describe('POST /v1/sandbox', () => {
     await app.inject({ method: 'DELETE', url: `/v1/sandbox/${body.id}` });
   });
 
+  it('GET /v1/sandbox/:id/spec returns the OpenAPI spec', async () => {
+    const app = await build(makeCtx());
+    const created = (await app.inject({ method: 'POST', url: '/v1/sandbox', payload: {} })).json() as SandboxBody;
+    const specRes = await app.inject({ method: 'GET', url: `/v1/sandbox/${created.id}/spec` });
+    expect(specRes.statusCode).toBe(200);
+    const spec = specRes.json() as Record<string, unknown>;
+    expect(spec.openapi ?? spec.openapi).toBeDefined();
+    expect((spec.info as Record<string, unknown>)?.title).toBeDefined();
+    await app.inject({ method: 'DELETE', url: `/v1/sandbox/${created.id}` });
+  });
+
+  it('GET /v1/sandbox/:id/spec returns 404 for a stopped sandbox', async () => {
+    const app = await build(makeCtx());
+    const created = (await app.inject({ method: 'POST', url: '/v1/sandbox', payload: {} })).json() as SandboxBody;
+    await app.inject({ method: 'DELETE', url: `/v1/sandbox/${created.id}` });
+    const specRes = await app.inject({ method: 'GET', url: `/v1/sandbox/${created.id}/spec` });
+    expect(specRes.statusCode).toBe(404);
+  });
+
   it('rejects an unknown sample id', async () => {
     const app = await build(makeCtx());
     const res = await app.inject({

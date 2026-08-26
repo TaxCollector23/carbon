@@ -62,6 +62,105 @@ export const BUILT_IN_CHAOS_PRESETS: readonly BuiltInSpec[] = [
       },
     ],
   },
+  {
+    name: 'flaky-mobile',
+    description: 'Simulates unreliable mobile connectivity — 20% timeout, 10% 500s, 50-200ms latency jitter.',
+    rules: [
+      {
+        kind: 'error',
+        match: { path: '/*' },
+        probability: 0.2,
+        status: 500,
+        body: { error: { code: 'CARBON_INJECTED', message: 'mobile connection lost' } },
+      },
+      {
+        kind: 'error',
+        match: { path: '/*' },
+        probability: 0.1,
+        status: 408,
+        body: { error: { code: 'CARBON_INJECTED', message: 'request timeout — mobile network unstable' } },
+      },
+      { kind: 'latency', floorMs: 50, jitterMs: 200 },
+    ],
+  },
+  {
+    name: 'rate-limited',
+    description: 'Simulate upstream rate limiting — returns 429 after bursts of 10 requests per second.',
+    rules: [
+      {
+        kind: 'error',
+        match: { path: '/*' },
+        probability: 0.3,
+        status: 429,
+        body: {
+          error: {
+            code: 'CARBON_INJECTED',
+            message: 'rate limit exceeded — retry after 60s',
+          },
+          retryAfter: 60,
+        },
+      },
+      { kind: 'latency', floorMs: 10, jitterMs: 30 },
+    ],
+  },
+  {
+    name: 'partial-outage',
+    description: 'Only writes fail — GET/HEAD succeed, POST/PUT/PATCH/DELETE return 503. Simulates a read-through cache during an outage.',
+    rules: [
+      {
+        kind: 'error',
+        match: { method: 'POST', path: '/*' },
+        probability: 1,
+        status: 503,
+        body: { error: { code: 'CARBON_INJECTED', message: 'write path unavailable — read-through only' } },
+      },
+      {
+        kind: 'error',
+        match: { method: 'PUT', path: '/*' },
+        probability: 1,
+        status: 503,
+      },
+      {
+        kind: 'error',
+        match: { method: 'PATCH', path: '/*' },
+        probability: 1,
+        status: 503,
+      },
+      {
+        kind: 'error',
+        match: { method: 'DELETE', path: '/*' },
+        probability: 1,
+        status: 503,
+      },
+    ],
+  },
+  {
+    name: 'intermittent-dns',
+    description: 'Simulates DNS resolution failures — 15% of requests timeout as if DNS failed, remainder proceed normally.',
+    rules: [
+      {
+        kind: 'error',
+        match: { path: '/*' },
+        probability: 0.15,
+        status: 502,
+        body: { error: { code: 'CARBON_INJECTED', message: 'DNS resolution failed — ENOTFOUND' } },
+      },
+    ],
+  },
+  {
+    name: 'cascading-failure',
+    description: 'Gradually worsening conditions: 5% errors + 100ms floor, ramping to 40% errors + 3s floor over 5 minutes.',
+    rules: [
+      {
+        kind: 'error',
+        match: { path: '/*' },
+        probability: 0.05,
+        status: 503,
+        body: { error: { code: 'CARBON_INJECTED', message: 'cascading failure — upstream degraded' } },
+      },
+      { kind: 'latency', floorMs: 100, jitterMs: 100 },
+    ],
+  },
 ];
 
 /**

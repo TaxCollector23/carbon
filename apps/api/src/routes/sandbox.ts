@@ -124,6 +124,23 @@ export async function registerSandboxRoutes(
     async (req) => registry.get(req.params.id),
   );
 
+  app.get<{ Params: { id: string } }>(
+    '/v1/sandbox/:id/spec',
+    {
+      schema: {
+        summary: 'Get the spec for a sandbox',
+        description:
+          'Return the OpenAPI/GraphQL spec that the sandbox was booted from. ' +
+          'Useful for the console to show which API surface is being emulated.',
+      },
+    },
+    async (req) => {
+      const record = registry.get(req.params.id);
+      const spec = loadSampleSpec(record.sample);
+      return spec;
+    },
+  );
+
   app.delete<{ Params: { id: string } }>(
     '/v1/sandbox/:id',
     {
