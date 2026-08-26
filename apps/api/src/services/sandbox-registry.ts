@@ -71,6 +71,10 @@ export interface SandboxRegistry {
   /** Evict sandboxes idle past the TTL. Cheap; safe to call on every create. */
   sweep(): Promise<void>;
   shutdown(): Promise<void>;
+  /** Access the runtime's state engine for snapshot/history/rewind. */
+  getState(id: string): unknown;
+  /** Return the request audit log (most recent first). */
+  getRequestLog(id: string, limit?: number): RequestLogEntry[];
 }
 
 export interface SandboxRegistryOptions {
@@ -150,9 +154,22 @@ async function readCapped(res: Response, maxBytes: number): Promise<{ text: stri
   }
 }
 
+const MAX_LOG_ENTRIES = 200;
+
+export interface RequestLogEntry {
+  readonly method: string;
+  readonly path: string;
+  readonly status: number;
+  readonly latencyMs: number;
+  /** Truncated body preview — first 512 chars. */
+  readonly bodyPreview: string;
+  readonly at: number;
+}
+
 interface Entry {
   record: SandboxRecord;
   runtime: Runtime;
+  requestLog: RequestLogEntry[];
 }
 
 export function createSandboxRegistry(options: SandboxRegistryOptions = {}): SandboxRegistry {
@@ -183,18 +200,19 @@ export function createSandboxRegistry(options: SandboxRegistryOptions = {}): San
       });
       throw err;
     }
-    return {
-      record: {
-        id: makeId('sb'),
-        url,
-        sample,
-        spec: ir.api.name,
-        startedAt: Date.now(),
-        lastActivityAt: Date.now(),
-        requestCount: 0,
-      },
-      runtime,
-    };
+  return {
+    record: {
+      id: makeId('sb'),
+      url,
+      sample,
+      spec: ir.api.name,
+      startedAt: Date.now(),
+      lastActivityAt: Date.now(),
+      requestCount: 0,
+    },
+    runtime,
+    requestLog: [],
+  };
   }
 
   return {
@@ -298,6 +316,21 @@ export function createSandboxRegistry(options: SandboxRegistryOptions = {}): San
 
       entry.record.lastActivityAt = Date.now();
       entry.record.requestCount += 1;
+
+      // Record in the audit log (bounded).
+      const bodyStr = typeof parsed === 'string' ? parsed : JSON.stringify(parsed ?? null);
+      entry.requestLog.push({
+        method,
+        path,
+        status: res.status,
+        latencyMs,
+        bodyPreview: bodyStr.slice(0, 512),
+        at: Date.now(),
+      });
+      if (entry.requestLog.length > MAX_LOG_ENTRIES) {
+        entry.requestLog.splice(0, entry.requestLog.length - MAX_LOG_ENTRIES);
+      }
+
       return {
         status: res.status,
         headers: {
@@ -307,6 +340,18 @@ export function createSandboxRegistry(options: SandboxRegistryOptions = {}): San
         body: parsed,
         latencyMs,
       };
+    },
+
+    getState(id) {
+      const entry = entries.get(id);
+      if (!entry) throw new NotFoundError('sandbox', id);
+      return entry.runtime.ctx.state;
+    },
+
+    getRequestLog(id, limit = 100) {
+      const entry = entries.get(id);
+      if (!entry) throw new NotFoundError('sandbox', id);
+      return entry.requestLog.slice(-limit);
     },
 
     async stop(id) {

@@ -109,6 +109,50 @@ describe('POST /v1/sandbox', () => {
     expect(specRes.statusCode).toBe(404);
   });
 
+  it('GET /v1/sandbox/:id/state returns current resource state', async () => {
+    const app = await build(makeCtx());
+    const created = (await app.inject({ method: 'POST', url: '/v1/sandbox', payload: {} })).json() as SandboxBody;
+    // Initially empty.
+    const empty = (await app.inject({ method: 'GET', url: `/v1/sandbox/${created.id}/state` })).json() as { records: unknown[] };
+    expect(empty.records).toEqual([]);
+
+    // Create a pet.
+    await app.inject({
+      method: 'POST',
+      url: `/v1/sandbox/${created.id}/pets`,
+      payload: { name: 'Rex', species: 'dog' },
+      headers: { 'content-type': 'application/json' },
+    });
+    const after = (await app.inject({ method: 'GET', url: `/v1/sandbox/${created.id}/state` })).json() as { records: Array<{ resource: string; data: Record<string, unknown> }> };
+    expect(after.records.length).toBe(1);
+    expect(after.records[0]!.resource).toBe('pet');
+    expect(after.records[0]!.data.name).toBe('Rex');
+
+    await app.inject({ method: 'DELETE', url: `/v1/sandbox/${created.id}` });
+  });
+
+  it('GET /v1/sandbox/:id/log returns request audit trail', async () => {
+    const app = await build(makeCtx());
+    const created = (await app.inject({ method: 'POST', url: '/v1/sandbox', payload: {} })).json() as SandboxBody;
+    // Empty log.
+    const empty = (await app.inject({ method: 'GET', url: `/v1/sandbox/${created.id}/log` })).json() as { data: unknown[] };
+    expect(empty.data).toEqual([]);
+
+    // Make some requests.
+    await app.inject({ method: 'POST', url: `/v1/sandbox/${created.id}/pets`, payload: { name: 'Spot' }, headers: { 'content-type': 'application/json' } });
+    await app.inject({ method: 'GET', url: `/v1/sandbox/${created.id}/pets` });
+
+    const log = (await app.inject({ method: 'GET', url: `/v1/sandbox/${created.id}/log` })).json() as {
+      data: Array<{ method: string; path: string; status: number; latencyMs: number }>;
+    };
+    expect(log.data.length).toBe(2);
+    // Chronological order (oldest first) — POST was first, then GET.
+    expect(log.data[0]!.method).toBe('POST');
+    expect(log.data[1]!.method).toBe('GET');
+
+    await app.inject({ method: 'DELETE', url: `/v1/sandbox/${created.id}` });
+  });
+
   it('rejects an unknown sample id', async () => {
     const app = await build(makeCtx());
     const res = await app.inject({

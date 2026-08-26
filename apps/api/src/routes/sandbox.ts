@@ -141,6 +141,45 @@ export async function registerSandboxRoutes(
     },
   );
 
+  app.get<{ Params: { id: string }; Querystring: { limit?: string } }>(
+    '/v1/sandbox/:id/state',
+    {
+      schema: {
+        summary: 'Get sandbox state',
+        description:
+          'Return the current in-memory state of all resources in the sandbox. ' +
+          'Useful for the console to display a live state panel without proxying.',
+      },
+    },
+    async (req) => {
+      const state = registry.getState(req.params.id) as {
+        snapshot?: () => Promise<{ records: unknown[] }>; 
+      };
+      if (!state || typeof state.snapshot !== 'function') {
+        return { records: [] };
+      }
+      const snap = await state.snapshot();
+      return { records: snap.records };
+    },
+  );
+
+  app.get<{ Params: { id: string }; Querystring: { limit?: string } }>(
+    '/v1/sandbox/:id/log',
+    {
+      schema: {
+        summary: 'Get sandbox request log',
+        description:
+          'Return the audit log of proxied requests (most recent first). ' +
+          'Useful for the console to display a request history panel.',
+      },
+    },
+    async (req) => {
+      const limit = req.query.limit ? Math.min(Number(req.query.limit), 200) : 100;
+      const log = registry.getRequestLog(req.params.id, limit);
+      return { data: log, total: log.length };
+    },
+  );
+
   app.delete<{ Params: { id: string } }>(
     '/v1/sandbox/:id',
     {
