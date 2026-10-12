@@ -20,6 +20,7 @@ import { startEmbeddedWorkers } from './workers.js';
 import { createLifecycle } from './lifecycle.js';
 import { createIngestMetrics } from './plugins/metrics.js';
 import { recordUsage } from './services/usage.js';
+import { createReliabilityService } from './services/reliability.js';
 
 async function main(): Promise<void> {
   const env = loadEnv();
@@ -153,6 +154,7 @@ async function main(): Promise<void> {
     maxEmulatorsPerOrg: env.CARBON_MAX_EMULATORS_PER_ORG,
     resolvePlan: async (orgId) => (await resolvePlan(orgId, db)).plan,
   });
+  const reliability = createReliabilityService({ emulators, storage, logger });
   const jobs = redis ? createJobService({ redis, logger }) : undefined;
   const ingestionQueue = redis ? createIngestionQueue({ connection: redis }) : undefined;
   // One collector, shared between the metrics endpoint (which polls depth and
@@ -187,6 +189,7 @@ async function main(): Promise<void> {
     storage,
     ingestion,
     emulators,
+    reliability,
     jobs,
     ingestionQueue,
     redis,

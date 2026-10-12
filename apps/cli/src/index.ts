@@ -18,7 +18,7 @@ export const main = defineCommand({
   meta: {
     name: 'carbon',
     version: CARBON_VERSION,
-    description: 'Build and run stateful API replicas for development, tests, and CI.',
+    description: 'Run deterministic reliability tests against the behavior of your app.',
   },
   subCommands: cliSubCommands,
 });

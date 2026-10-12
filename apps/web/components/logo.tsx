@@ -8,21 +8,9 @@ export function Logo({ className }: { className?: string }) {
       className={cn('h-5 w-5', className)}
       aria-hidden
     >
-      <rect x="2.5" y="2.5" width="19" height="19" rx="5" fill="currentColor" />
-      <path
-        d="M8 12.2c0-2.3 1.9-4.2 4.2-4.2 1.6 0 3 .9 3.7 2.3"
-        stroke="hsl(var(--background))"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        fill="none"
-      />
-      <path
-        d="M8 12.2c0 2.3 1.9 4.2 4.2 4.2 1.6 0 3-.9 3.7-2.3"
-        stroke="hsl(var(--background))"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        fill="none"
-      />
+      <rect x="2.5" y="2.5" width="19" height="19" rx="4" fill="currentColor" />
+      <path d="M17 7h-5a5 5 0 1 0 0 10h5v-2.3h-5a2.7 2.7 0 1 1 0-5.4h5V7Z" fill="hsl(var(--background))" />
+      <circle cx="18" cy="6" r="1.45" fill="var(--c2-lime, currentColor)" />
     </svg>
   );
 }

@@ -1,268 +1,75 @@
 'use client';
 
 import Link from 'next/link';
-import { Box, KeyRound, Layers, Server } from 'lucide-react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { Suspense, useEffect } from 'react';
+import { ArrowRight, CircleAlert, CircleCheck, Clock3, Play, Server, ShieldCheck } from 'lucide-react';
 import { Topbar } from '@/components/topbar';
 import { ErrorBanner, Skeleton } from '@/components/ui';
-import { useApiKeys, useEmulators, useProjects } from '@/lib/hooks/api';
-import { useSelectedProjectSlug } from '@/lib/hooks/use-project-slug';
-import { useSnapshots } from '@/lib/hooks/api';
-import { getSectionCopy } from '@/lib/empty-data';
 import { HealthPill } from '@/components/health-pill';
-import { TrySampleButton } from './[section]/_actions/try-sample';
+import { useEmulators, useProjects, useReliabilityRuns } from '@/lib/hooks/api';
 
-const MARKETING_URL =
-  process.env.NEXT_PUBLIC_MARKETING_URL?.replace(/\/+$/, '') ?? 'https://carbon-web-psi.vercel.app';
+const MARKETING_URL = process.env.NEXT_PUBLIC_MARKETING_URL?.replace(/\/+$/, '') ?? 'https://carbon-web-psi.vercel.app';
 
-/**
- * Overview page. Fetches counts+recent items for the four resources that
- * have real backends today (projects/snapshots/emulators/api-keys) and
- * renders honest skeleton/error states in place of the old static tiles.
- *
- * Snapshots are project-scoped on the API, so the count shown is for the
- * currently selected project (see useSelectedProjectSlug).
- */
 export default function DashboardHome() {
-  return (
-    <Suspense fallback={<DashboardSkeleton />}>
-      <DashboardHomeInner />
-    </Suspense>
-  );
-}
-
-function DashboardHomeInner() {
   const projects = useProjects();
   const emulators = useEmulators();
-  const keys = useApiKeys();
-  const searchParams = useSearchParams();
-  const sampleParam = searchParams?.get('sample') ?? null;
-  const router = useRouter();
-
-  // Drop the query param once we've kicked off the auto-instantiate so a
-  // page reload doesn't fire the mutation a second time.
-  useEffect(() => {
-    if (sampleParam) {
-      const t = setTimeout(() => router.replace('/'), 250);
-      return () => clearTimeout(t);
-    }
-    return undefined;
-  }, [sampleParam, router]);
-
-  const availableSlugs = projects.data?.data?.map((p) => p.slug) ?? [];
-  const { slug: projectSlug } = useSelectedProjectSlug(availableSlugs);
-  const snapshots = useSnapshots(projectSlug);
+  const runs = useReliabilityRuns(undefined, 8);
 
   return (
     <>
       <Topbar title="Overview" />
-      <main className="space-y-8 p-8">
-        <section className="border-border border-y py-7">
-          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
-            <div className="max-w-2xl">
-              <h2 className="text-2xl font-medium tracking-tight">Workspace overview</h2>
-              <p className="text-muted-foreground mt-3 text-sm leading-6">
-                Live totals from the control plane. Numbers reflect the API server this dashboard is
-                pointed at ({process.env.NEXT_PUBLIC_CARBON_API_URL ?? 'http://localhost:4000'}).
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <HealthPill />
-              {sampleParam ? (
-                <TrySampleButton
-                  autoInstantiate={sampleParam}
-                  onDone={() => void projects.refetch()}
-                />
-              ) : null}
-              <a
-                href={`${MARKETING_URL}/#cli`}
-                className="text-muted-foreground hover:text-foreground text-sm"
-              >
-                Install CLI →
-              </a>
+      <main className="dashboard-main space-y-7 p-8">
+        <section className="dashboard-hero border-border bg-foreground text-background relative overflow-hidden border p-7 sm:p-9">
+          <div className="dashboard-hero-grid" />
+          <div className="relative max-w-2xl">
+            <p className="dashboard-eyebrow">reliability workspace / {new Date().toISOString().slice(0, 10)}</p>
+            <h2 className="mt-4 text-4xl font-medium tracking-[-0.06em] sm:text-5xl">Find the failure before your users do.</h2>
+            <p className="text-background/65 mt-4 max-w-xl text-sm leading-6">Run a controlled fault against an isolated target. Carbon captures the request, compares state, and leaves you with a rerunnable report.</p>
+            <div className="mt-7 flex flex-wrap items-center gap-3">
+              <Link href="/tests" className="bg-accent text-accent-foreground inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium"><Play className="h-4 w-4" /> Run a reliability test <ArrowRight className="h-4 w-4" /></Link>
+              <Link href="/runs" className="text-background/70 hover:text-background inline-flex items-center gap-2 px-2 py-2 text-sm">View run history <ArrowRight className="h-4 w-4" /></Link>
             </div>
           </div>
         </section>
 
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatTile
-            icon={Box}
-            title="Projects"
-            loading={projects.loading}
-            error={projects.error}
-            count={projects.data?.total ?? projects.data?.data?.length}
-            href="/projects"
-          />
-          <StatTile
-            icon={Layers}
-            title={projectSlug ? `Snapshots · ${projectSlug}` : 'Snapshots'}
-            loading={snapshots.loading}
-            error={snapshots.error}
-            count={snapshots.data?.data?.length}
-            href="/snapshots"
-          />
-          <StatTile
-            icon={Server}
-            title="Emulators"
-            loading={emulators.loading}
-            error={emulators.error}
-            count={emulators.data?.data?.length}
-            href="/emulators"
-          />
-          <StatTile
-            icon={KeyRound}
-            title="API keys"
-            loading={keys.loading}
-            error={keys.error}
-            count={keys.data?.data?.length}
-            href="/keys"
-          />
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Metric label="Reliability runs" value={runs.loading ? null : runs.data?.data?.length ?? 0} detail="stored reports" icon={ShieldCheck} />
+          <Metric label="Passed" value={runs.loading ? null : runs.data?.data?.filter((run) => run.status === 'passed').length ?? 0} detail="state-safe outcomes" icon={CircleCheck} good />
+          <Metric label="Attention" value={runs.loading ? null : runs.data?.data?.filter((run) => run.status !== 'passed').length ?? 0} detail="failed or errored" icon={CircleAlert} danger />
+          <Metric label="Live targets" value={emulators.loading ? null : emulators.data?.data?.length ?? 0} detail="running emulators" icon={Server} />
         </section>
 
         {projects.error ? <ErrorBanner error={projects.error} onRetry={projects.refetch} /> : null}
+        {runs.error ? <ErrorBanner error={runs.error} onRetry={runs.refetch} /> : null}
 
-        <section className="grid gap-6 lg:grid-cols-2">
-          <RecentList
-            title="Recent projects"
-            href="/projects"
-            loading={projects.loading}
-            error={projects.error}
-            items={
-              projects.data?.data?.slice(0, 5).map((p) => ({
-                key: p.id,
-                primary: p.name,
-                secondary: p.slug,
-              })) ?? []
-            }
-            emptyKey="projects"
-          />
-          <RecentList
-            title="Recent API keys"
-            href="/keys"
-            loading={keys.loading}
-            error={keys.error}
-            items={
-              keys.data?.data?.slice(0, 5).map((k) => ({
-                key: k.id,
-                primary: k.name,
-                secondary: `${k.prefix}… · ${k.scopes.join(', ')}`,
-              })) ?? []
-            }
-            emptyKey="keys"
-          />
-        </section>
-      </main>
-    </>
-  );
-}
-
-function DashboardSkeleton() {
-  return (
-    <>
-      <Topbar title="Overview" />
-      <main className="space-y-8 p-8">
-        <section className="border-border border-y py-7">
-          <Skeleton className="h-8 w-56" />
-          <Skeleton className="mt-4 h-4 w-full max-w-xl" />
-        </section>
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {['Projects', 'Snapshots', 'Emulators', 'API keys'].map((title) => (
-            <div key={title} className="border-border rounded-md border p-4">
-              <div className="text-muted-foreground text-xs">{title}</div>
-              <Skeleton className="mt-3 h-7 w-12" />
+        <section className="grid gap-5 lg:grid-cols-[1.35fr_.65fr]">
+          <div className="border-border border bg-background">
+            <div className="border-border flex items-center justify-between border-b px-5 py-4"><div><p className="dashboard-eyebrow">latest evidence</p><h3 className="mt-1 text-base font-medium">Run history</h3></div><Link href="/runs" className="text-muted-foreground hover:text-foreground text-xs">View all →</Link></div>
+            <div className="divide-border divide-y">
+              {runs.loading ? <RunSkeleton /> : runs.data?.data?.length ? runs.data.data.slice(0, 6).map((run) => <RunRow key={run.id} run={run} />) : <EmptyRuns />}
             </div>
-          ))}
-        </section>
-      </main>
-    </>
-  );
-}
-
-function StatTile({
-  icon: Icon,
-  title,
-  count,
-  loading,
-  error,
-  href,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  count: number | undefined | null;
-  loading: boolean;
-  error: Error | null;
-  href: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="border-border hover:bg-muted/30 group block rounded-md border p-4 transition-colors"
-    >
-      <div className="text-muted-foreground flex items-center gap-2 text-xs">
-        <Icon className="h-3.5 w-3.5" /> {title}
-      </div>
-      <div className="mt-2 text-2xl font-medium tracking-tight">
-        {loading ? (
-          <Skeleton className="h-7 w-12" />
-        ) : error ? (
-          <span className="text-destructive text-sm font-normal">error</span>
-        ) : (
-          (count ?? 0)
-        )}
-      </div>
-    </Link>
-  );
-}
-
-function RecentList({
-  title,
-  href,
-  loading,
-  error,
-  items,
-  emptyKey,
-}: {
-  title: string;
-  href: string;
-  loading: boolean;
-  error: Error | null;
-  items: Array<{ key: string; primary: string; secondary?: string }>;
-  emptyKey: string;
-}) {
-  const empty = getSectionCopy(emptyKey);
-  return (
-    <div className="border-border rounded-md border">
-      <div className="border-border flex items-center justify-between border-b px-4 py-2.5">
-        <h3 className="text-sm font-medium">{title}</h3>
-        <Link href={href} className="text-muted-foreground hover:text-foreground text-xs">
-          View all
-        </Link>
-      </div>
-      <div className="divide-border divide-y">
-        {loading ? (
-          <div className="space-y-2 p-4">
-            <Skeleton className="h-4 w-2/3" />
-            <Skeleton className="h-4 w-1/2" />
-            <Skeleton className="h-4 w-3/4" />
           </div>
-        ) : error ? (
-          <p className="text-destructive px-4 py-6 text-sm">{error.message}</p>
-        ) : items.length === 0 ? (
-          <p className="text-muted-foreground px-4 py-6 text-sm">
-            {empty?.emptyTitle ?? 'Nothing yet.'}
-          </p>
-        ) : (
-          items.map((item) => (
-            <div key={item.key} className="px-4 py-2.5">
-              <div className="text-sm font-medium">{item.primary}</div>
-              {item.secondary ? (
-                <div className="text-muted-foreground mt-0.5 text-xs">{item.secondary}</div>
-              ) : null}
+          <div className="border-border border bg-background">
+            <div className="border-border flex items-center justify-between border-b px-5 py-4"><div><p className="dashboard-eyebrow">execution surface</p><h3 className="mt-1 text-base font-medium">Targets</h3></div><Link href="/emulators" className="text-muted-foreground hover:text-foreground text-xs">Manage →</Link></div>
+            <div className="p-5">
+              {emulators.loading ? <><Skeleton className="h-12 w-full" /><Skeleton className="mt-2 h-12 w-full" /></> : emulators.data?.data?.length ? <div className="space-y-3">{emulators.data.data.slice(0, 4).map((emu) => <div className="bg-muted/50 flex items-center justify-between p-3" key={emu.id}><div><div className="font-mono text-xs">{emu.id}</div><div className="text-muted-foreground mt-1 text-xs">{emu.projectSlug} · {emu.url ?? 'local runtime'}</div></div><span className="dashboard-pill dashboard-pill-ok">running</span></div>)}</div> : <div className="text-muted-foreground py-7 text-sm leading-6">Start an emulator from a project to make it available for reliability tests.</div>}
+              <Link href="/tests" className="border-border text-foreground hover:bg-muted/50 mt-5 flex items-center justify-between border px-3 py-3 text-xs"><span>Choose a failure mode</span><ArrowRight className="h-4 w-4" /></Link>
             </div>
-          ))
-        )}
-      </div>
-    </div>
+          </div>
+        </section>
+        <div className="flex items-center justify-between border-t pt-5"><div className="flex items-center gap-2 text-xs"><HealthPill /><span className="text-muted-foreground">The dashboard reflects the control plane it is connected to.</span></div><a href={`${MARKETING_URL}/#cli`} className="text-muted-foreground hover:text-foreground text-xs">Install CLI →</a></div>
+      </main>
+    </>
   );
 }
+
+function Metric({ label, value, detail, icon: Icon, good, danger }: { label: string; value: number | null; detail: string; icon: React.ComponentType<{ className?: string }>; good?: boolean; danger?: boolean }) {
+  return <div className="border-border border bg-background p-4"><div className="text-muted-foreground flex items-center justify-between text-xs"><span>{label}</span><Icon className={danger ? 'text-destructive h-4 w-4' : good ? 'text-green-600 h-4 w-4' : 'text-muted-foreground h-4 w-4'} /></div><div className="mt-3 text-2xl font-medium tracking-tight">{value === null ? <Skeleton className="h-7 w-12" /> : value}</div><div className="text-muted-foreground mt-1 text-xs">{detail}</div></div>;
+}
+
+function RunRow({ run }: { run: { id: string; scenario: { title: string; id: string }; status: string; comparison: { actual: string; persistedChange: boolean }; durationMs: number; createdAt: string } }) {
+  const passed = run.status === 'passed';
+  return <Link href={`/runs?run=${encodeURIComponent(run.id)}`} className="hover:bg-muted/30 flex items-center gap-4 px-5 py-4 transition-colors"><span className={passed ? 'dashboard-run-icon dashboard-run-icon-ok' : 'dashboard-run-icon dashboard-run-icon-fail'}>{passed ? <CircleCheck className="h-4 w-4" /> : <CircleAlert className="h-4 w-4" />}</span><span className="min-w-0 flex-1"><span className="flex items-center gap-2"><strong className="truncate text-sm font-medium">{run.scenario.title}</strong><span className="dashboard-pill">{run.scenario.id}</span></span><span className="text-muted-foreground mt-1 block truncate text-xs">{run.comparison.actual}</span></span><span className="text-muted-foreground hidden items-center gap-1 text-xs sm:flex"><Clock3 className="h-3.5 w-3.5" /> {run.durationMs}ms</span><ArrowRight className="text-muted-foreground h-4 w-4" /></Link>;
+}
+
+function RunSkeleton() { return <>{[1, 2, 3].map((value) => <div className="flex items-center gap-4 px-5 py-4" key={value}><Skeleton className="h-8 w-8 rounded-full" /><div className="flex-1"><Skeleton className="h-4 w-44" /><Skeleton className="mt-2 h-3 w-64" /></div></div>)}</>; }
+function EmptyRuns() { return <div className="p-7"><p className="text-sm font-medium">No reports yet.</p><p className="text-muted-foreground mt-2 max-w-md text-sm leading-6">Run the first controlled failure against a target. The report will appear here with state evidence.</p><Link href="/tests" className="text-foreground mt-4 inline-flex items-center gap-2 text-sm underline underline-offset-4">Run a test <ArrowRight className="h-3.5 w-3.5" /></Link></div>; }

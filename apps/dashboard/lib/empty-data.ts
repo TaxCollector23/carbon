@@ -17,6 +17,16 @@ export interface SectionCopy {
 }
 
 export const sections: Record<string, SectionCopy> = {
+  tests: {
+    title: 'Reliability tests',
+    emptyTitle: 'No reliability tests yet',
+    description: 'Choose a failure mode and run it against a live emulator.',
+  },
+  runs: {
+    title: 'Run history',
+    emptyTitle: 'No runs yet',
+    description: 'Every execution is stored with its state comparison and rerun command.',
+  },
   projects: {
     title: 'Projects',
     emptyTitle: 'No projects yet',

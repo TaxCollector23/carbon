@@ -7,6 +7,7 @@ import type { IngestJobPayload } from '@carbon/workers';
 import type { Redis } from 'ioredis';
 import type { EmulatorRegistry } from './services/emulator-registry.js';
 import type { JobService } from './services/jobs.js';
+import type { ReliabilityService } from './services/reliability.js';
 
 /**
  * Application context — the DI container passed to every route module.
@@ -18,6 +19,8 @@ export interface AppContext {
   readonly storage: Storage;
   readonly ingestion: IngestionPipeline;
   readonly emulators: EmulatorRegistry;
+  /** Reliability runner backed by the same emulator/state engine. */
+  readonly reliability?: ReliabilityService;
   /** Optional — absent when Redis is not configured. */
   readonly jobs?: JobService;
   /**

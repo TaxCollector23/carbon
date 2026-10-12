@@ -7,8 +7,8 @@ import { ToastProvider } from '@/components/toast';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Carbon Dashboard',
-  description: 'Manage your Carbon projects, graphs, and snapshots.',
+  title: 'Carbon Reliability Workspace',
+  description: 'Run controlled failure tests and inspect stateful evidence.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

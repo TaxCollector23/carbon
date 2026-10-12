@@ -41,6 +41,7 @@ import { registerLeadsRoutes, LEADS_PUBLIC_PATHS } from './routes/leads.js';
 import { registerTrackRoutes } from './routes/track.js';
 import { registerSampleRoutes } from './routes/samples.js';
 import { registerSlackRoutes, SLACK_PUBLIC_PATHS } from './routes/slack.js';
+import { registerReliabilityRoutes } from './routes/reliability.js';
 import { registerApiKeyAuth, type ApiKeyPluginOptions } from './plugins/api-key.js';
 import { registerSessionAuth } from './plugins/session-auth.js';
 import { registerIdempotency } from './plugins/idempotency.js';
@@ -360,6 +361,7 @@ export async function buildServer(
   await registerProjectRoutes(app, ctx);
   await registerIngestRoutes(app, ctx);
   await registerEmulatorRoutes(app, ctx);
+  await registerReliabilityRoutes(app, ctx);
   await registerSnapshotRoutes(app, ctx);
   await registerApiKeyRoutes(app, ctx);
   await registerArtifactRoutes(app, ctx);

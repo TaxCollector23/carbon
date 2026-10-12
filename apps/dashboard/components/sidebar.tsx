@@ -15,19 +15,23 @@ import {
   KeyRound,
   Layers,
   ListChecks,
+  Play,
+  Radio,
+  Server,
   ShieldCheck,
-  Waypoints,
 } from 'lucide-react';
 import { cn } from '@carbon/ui/cn';
 
 const items = [
   { href: '/', label: 'Overview', icon: GaugeCircle },
+  { href: '/tests', label: 'Run a test', icon: Play },
+  { href: '/runs', label: 'Run history', icon: Radio },
+  { href: '/emulators', label: 'Targets', icon: Server },
   { href: '/projects', label: 'Projects', icon: Box },
-  { href: '/graphs', label: 'Graphs', icon: Waypoints },
+  { href: '/state', label: 'State', icon: Database },
   { href: '/snapshots', label: 'Snapshots', icon: Layers },
   { href: '/recordings', label: 'Recordings', icon: History },
   { href: '/drift', label: 'Drift', icon: GitCompareArrows },
-  { href: '/state', label: 'State', icon: Database },
   { href: '/chaos-presets', label: 'Chaos presets', icon: FlaskConical },
   { href: '/ai-quality', label: 'AI quality', icon: ShieldCheck },
   { href: '/usage', label: 'Usage', icon: Activity },
@@ -45,9 +49,10 @@ export function Sidebar() {
   if (pathname === '/sign-in' || pathname === '/sign-up') return null;
 
   return (
-    <aside className="border-border bg-subtle/30 flex h-dvh w-60 shrink-0 flex-col border-r px-3 py-4">
-      <div className="px-3 py-2 text-sm font-medium tracking-tight">Carbon</div>
-      <nav className="mt-2 flex flex-1 flex-col gap-0.5">
+    <aside className="dashboard-sidebar border-border bg-subtle/30 flex h-dvh w-64 shrink-0 flex-col border-r px-3 py-4">
+      <div className="dashboard-brand px-3 py-2"><span className="dashboard-brand-mark">C</span><span>Carbon</span><span className="dashboard-brand-version">alpha</span></div>
+      <p className="dashboard-sidebar-label px-3 pt-7">Reliability workspace</p>
+      <nav className="mt-2 flex flex-1 flex-col gap-0.5 overflow-y-auto">
         {items.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;
           return (
@@ -55,7 +60,7 @@ export function Sidebar() {
               key={href}
               href={href}
               className={cn(
-                'text-muted-foreground flex items-center gap-2.5 rounded-md px-3 py-1.5 text-sm transition-colors',
+                'dashboard-nav-item text-muted-foreground flex items-center gap-2.5 rounded-md px-3 py-1.5 text-sm transition-colors',
                 active
                   ? 'bg-background text-foreground shadow-sm'
                   : 'hover:bg-background/60 hover:text-foreground',
@@ -67,7 +72,7 @@ export function Sidebar() {
           );
         })}
       </nav>
-      <div className="text-muted-foreground px-3 pt-4 text-xs">v0.1</div>
+      <div className="dashboard-sidebar-footer text-muted-foreground px-3 pt-4 text-xs"><span className="dashboard-status-dot" /> local control plane</div>
     </aside>
   );
 }

@@ -1,5 +1,5 @@
 import { defineCommand } from 'citty';
-import { createLogger } from '@carbon/core';
+import { createLogger, type ReliabilityRun } from '@carbon/core';
 import { carbon } from '@carbon/sdk';
 import type { EndpointDef, IntermediateRepresentation, JsonType, ResourceId } from '@carbon/types';
 import pc from 'picocolors';
@@ -7,6 +7,7 @@ import { parseSpec } from './diff.js';
 import { getPrinter, isJson } from '../lib/printer.js';
 import { EXIT_ASSERTION_FAILED, EXIT_CONNECTIVITY, EXIT_GENERIC } from '../lib/exit-codes.js';
 import { ui } from '../ui.js';
+import { resolveApiKey } from '../lib/credentials.js';
 
 interface SmokeResult {
   readonly method: string;
@@ -80,10 +81,22 @@ export function sampleValue(schema: JsonType | null): unknown {
 export const testCommand = defineCommand({
   meta: {
     name: 'test',
-    description: 'Run a stateful smoke test against every endpoint in an API spec.',
+    description: 'Run a stateful smoke test or one controlled reliability scenario.',
   },
   args: {
-    spec: { type: 'positional', description: 'API spec path', required: true },
+    spec: { type: 'positional', description: 'API spec path', required: false },
+    scenario: {
+      type: 'string',
+      description: 'Reliability scenario id (requires --emulator).',
+    },
+    emulator: {
+      type: 'string',
+      description: 'Running Carbon emulator id for a reliability scenario.',
+    },
+    path: { type: 'string', description: 'Request path for a reliability scenario.' },
+    method: { type: 'string', description: 'HTTP method for a reliability scenario.' },
+    'api-url': { type: 'string', description: 'Carbon control-plane URL override.' },
+    'api-key': { type: 'string', description: 'API key (defaults to saved credentials).' },
     timeout: {
       type: 'string',
       description: 'Per-request timeout in seconds (default: 10).',
@@ -91,6 +104,22 @@ export const testCommand = defineCommand({
     },
   },
   async run({ args }) {
+    if (args.scenario) {
+      await runReliabilityScenario({
+        scenario: String(args.scenario),
+        emulator: args.emulator ? String(args.emulator) : undefined,
+        path: args.path ? String(args.path) : undefined,
+        method: args.method ? String(args.method) : undefined,
+        apiUrl: args['api-url'] as string | undefined,
+        apiKey: args['api-key'] as string | undefined,
+      });
+      return;
+    }
+    if (!args.spec) {
+      ui.error('Pass an API spec, or use `carbon test --scenario <id> --emulator <id>`.');
+      process.exitCode = EXIT_GENERIC;
+      return;
+    }
     const specPath = String(args.spec);
     let ir: IntermediateRepresentation;
     try {
@@ -154,6 +183,60 @@ export const testCommand = defineCommand({
     }
   },
 });
+
+async function runReliabilityScenario(input: {
+  scenario: string;
+  emulator?: string;
+  path?: string;
+  method?: string;
+  apiUrl?: string;
+  apiKey?: string;
+}): Promise<void> {
+  if (!input.emulator) {
+    ui.error('Reliability scenarios require `--emulator <id>`.');
+    process.exitCode = EXIT_GENERIC;
+    return;
+  }
+  const resolved = await resolveApiKey({ flag: input.apiKey }, input.apiUrl);
+  if (!resolved) {
+    ui.error('No API credentials found. Run `carbon login` first, or pass --api-key.');
+    process.exitCode = EXIT_CONNECTIVITY;
+    return;
+  }
+  const url = `${resolved.apiUrl.replace(/\/+$/, '')}/v1/reliability/runs`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { accept: 'application/json', 'content-type': 'application/json', 'x-carbon-key': resolved.key },
+      body: JSON.stringify({
+        emulatorId: input.emulator,
+        scenario: input.scenario,
+        ...(input.path ? { path: input.path } : {}),
+        ...(input.method ? { method: input.method } : {}),
+      }),
+    });
+    const payload = (await response.json()) as { error?: { message?: string } } & Partial<ReliabilityRun>;
+    if (!response.ok) {
+      ui.error(payload.error?.message ?? `Reliability run failed: HTTP ${response.status}`);
+      process.exitCode = response.status >= 500 ? EXIT_CONNECTIVITY : EXIT_GENERIC;
+      return;
+    }
+    const report = payload as ReliabilityRun;
+    if (isJson()) {
+      getPrinter().emit({
+        event: 'reliability-test',
+        level: report.status === 'passed' ? 'success' : 'error',
+        data: report as unknown as Record<string, unknown>,
+      });
+    } else {
+      renderReliabilityReport(report);
+    }
+    if (report.status !== 'passed') process.exitCode = EXIT_ASSERTION_FAILED;
+  } catch (err) {
+    ui.error(`Could not reach ${url}: ${(err as Error).message}`);
+    process.exitCode = EXIT_CONNECTIVITY;
+  }
+}
 
 async function exercise(
   endpoint: EndpointDef,
@@ -278,4 +361,23 @@ function renderReport(report: SmokeReport): void {
   if (report.failed === 0)
     ui.success(`${report.passed}/${report.total} endpoint smoke tests passed.`);
   else ui.error(`${report.failed}/${report.total} endpoint smoke tests failed.`);
+}
+
+export interface ReliabilityCliReport {
+  readonly id: string;
+  readonly scenario: { readonly title: string; readonly id: string };
+  readonly status: 'passed' | 'failed' | 'error';
+  readonly durationMs: number;
+  readonly comparison: { readonly actual: string; readonly expected: string };
+  readonly reproduction: string;
+}
+
+export function renderReliabilityReport(report: ReliabilityCliReport): void {
+  const marker = report.status === 'passed' ? pc.green('✓') : pc.red('✗');
+  ui.header(`Carbon reliability — ${report.scenario.title}`);
+  process.stdout.write(`  ${marker} ${report.comparison.actual}\n`);
+  ui.step('Expected', report.comparison.expected);
+  ui.step('Duration', `${report.durationMs}ms`);
+  ui.step('Report', report.id);
+  ui.step('Rerun', report.reproduction);
 }

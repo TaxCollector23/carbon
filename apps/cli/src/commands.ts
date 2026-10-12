@@ -17,6 +17,7 @@ import { loginCommand } from './commands/login.js';
 import { logoutCommand } from './commands/logout.js';
 import { qualityCommand } from './commands/quality.js';
 import { recordCommand } from './commands/record.js';
+import { reportCommand } from './commands/report.js';
 import { replayCommand } from './commands/replay.js';
 import { serveCommand } from './commands/serve.js';
 import { snapshotCommand } from './commands/snapshot.js';
@@ -41,6 +42,7 @@ export const cliSubCommands = {
   logout: logoutCommand,
   whoami: whoamiCommand,
   record: recordCommand,
+  report: reportCommand,
   ingest: ingestCommand,
   emulate: emulateCommand,
   inspect: inspectCommand,
@@ -70,6 +72,7 @@ export const cliCommandCatalog: readonly CliCommandInfo[] = [
   commandInfo('logout', logoutCommand),
   commandInfo('whoami', whoamiCommand),
   commandInfo('record', recordCommand),
+  commandInfo('report', reportCommand),
   commandInfo('ingest', ingestCommand),
   commandInfo('emulate', emulateCommand),
   commandInfo('inspect', inspectCommand),

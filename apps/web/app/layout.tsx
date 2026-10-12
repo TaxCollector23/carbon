@@ -8,14 +8,14 @@ import './globals.css';
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
   title: {
-    default: 'Carbon — stateful API replicas for development and CI',
+    default: 'Carbon — reliability testing for the cases you missed',
     template: '%s · Carbon',
   },
   description:
-    'Carbon compiles OpenAPI, AsyncAPI, protobuf, gRPC, HAR, Postman, and GraphQL into a stateful local runtime.',
+    'Carbon turns production-shaped failure modes into deterministic, inspectable tests for stateful apps and AI-generated code.',
   openGraph: {
     title: 'Carbon',
-    description: 'Stateful API replicas for development, tests, and CI.',
+    description: 'Deterministic reliability testing for stateful apps.',
     type: 'website',
     url: '/',
     images: ['/opengraph-image'],
@@ -37,7 +37,7 @@ const structuredData = {
       applicationCategory: 'DeveloperApplication',
       operatingSystem: 'macOS, Linux, Windows',
       description:
-        'Carbon compiles OpenAPI, AsyncAPI, protobuf, gRPC, HAR, Postman, and GraphQL into a stateful local runtime for development, tests, and CI.',
+        'Carbon turns production-shaped failure modes into deterministic, inspectable tests for stateful apps and AI-generated code.',
       offers: {
         '@type': 'Offer',
         price: '0',

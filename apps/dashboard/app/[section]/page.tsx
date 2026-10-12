@@ -17,6 +17,8 @@ import ChaosPresetsSection from './_sections/chaos-presets';
 import FeatureFlagsSection from './_sections/feature-flags';
 import JobsSection from './_sections/jobs';
 import DriftSection from './_sections/drift';
+import TestsSection from './_sections/tests';
+import RunsSection from './_sections/runs';
 
 export function generateStaticParams() {
   return Object.keys(sections).map((section) => ({ section }));
@@ -60,6 +62,10 @@ function renderSection(slug: string) {
   switch (slug) {
     case 'projects':
       return <ProjectsSection />;
+    case 'tests':
+      return <TestsSection />;
+    case 'runs':
+      return <RunsSection />;
     case 'snapshots':
       return <SnapshotsSection />;
     case 'emulators':

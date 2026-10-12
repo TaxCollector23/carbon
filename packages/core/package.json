@@ -9,7 +9,8 @@
     ".": "./src/index.ts",
     "./errors": "./src/errors.ts",
     "./logger": "./src/logger.ts",
-    "./config": "./src/config.ts"
+    "./config": "./src/config.ts",
+    "./reliability": "./src/reliability.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

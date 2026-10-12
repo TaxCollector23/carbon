@@ -509,6 +509,55 @@ export interface LoadTestResult {
   totalRequests: number;
 }
 
+export type ReliabilityScenarioId =
+  | 'http-outage'
+  | 'rate-limit'
+  | 'timeout'
+  | 'duplicate-webhook'
+  | 'expired-auth'
+  | 'interrupted-pagination'
+  | 'inconsistent-source'
+  | 'partial-sync';
+
+export interface ReliabilityScenario {
+  id: ReliabilityScenarioId;
+  title: string;
+  summary: string;
+  fault: string;
+  defaultMethod: string;
+  defaultPath: string;
+  expected: 'status' | 'timeout' | 'stable-response' | 'single-write';
+  defaultExpectedStatus?: number;
+}
+
+export interface ReliabilityRun {
+  id: string;
+  emulatorId: string;
+  projectSlug: string;
+  scenario: ReliabilityScenario;
+  status: 'passed' | 'failed' | 'error';
+  createdAt: string;
+  completedAt: string;
+  durationMs: number;
+  request: { method: string; path: string; body?: unknown; timeoutMs: number };
+  fault: { kind: string; description: string; status?: number; delayMs?: number };
+  observed: Array<{ status: number | null; responseBody?: unknown; latencyMs: number; error?: string }>;
+  stateBefore: { recordCount: number; resources: Array<{ resource: string; count: number; sampleIds: string[] }> };
+  stateAfter: { recordCount: number; resources: Array<{ resource: string; count: number; sampleIds: string[] }> };
+  comparison: {
+    passed: boolean;
+    expected: string;
+    actual: string;
+    added: number;
+    removed: number;
+    changed: number;
+    persistedChange: boolean;
+  };
+  steps: Array<{ name: string; status: 'passed' | 'failed' | 'skipped'; detail: string; durationMs?: number }>;
+  reproduction: string;
+  error?: string;
+}
+
 // -----------------------------------------------------------------------------
 
 export type SessionTokenGetter = () =>
@@ -993,6 +1042,35 @@ export function createApiClient(options: ApiClientOptions = {}) {
         'POST',
         `/v1/emulators/${encodeURIComponent(emulatorId)}/load-test`,
         body,
+      );
+    },
+
+    // -------------------------- reliability tests -------------------------
+    listReliabilityScenarios() {
+      return request<{ data: ReliabilityScenario[] }>('GET', '/v1/reliability/scenarios');
+    },
+    listReliabilityRuns(params: { projectSlug?: string; limit?: number } = {}) {
+      const q = toQuery(params);
+      return request<ListResponse<ReliabilityRun>>('GET', `/v1/reliability/runs${q}`);
+    },
+    getReliabilityRun(id: string) {
+      return request<ReliabilityRun>('GET', `/v1/reliability/runs/${encodeURIComponent(id)}`);
+    },
+    runReliabilityTest(body: {
+      emulatorId: string;
+      scenario: ReliabilityScenarioId;
+      method?: string;
+      path?: string;
+      body?: unknown;
+      expectedStatus?: number;
+      timeoutMs?: number;
+    }) {
+      return request<ReliabilityRun>('POST', '/v1/reliability/runs', body);
+    },
+    rerunReliabilityTest(id: string) {
+      return request<ReliabilityRun>(
+        'POST',
+        `/v1/reliability/runs/${encodeURIComponent(id)}/rerun`,
       );
     },
   };

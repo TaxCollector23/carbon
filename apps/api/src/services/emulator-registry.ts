@@ -13,7 +13,7 @@ import {
   type OnViolation,
   type Runtime,
 } from '@carbon/runtime';
-import { InMemoryStateEngine, parseSnapshot } from '@carbon/state';
+import { InMemoryStateEngine, parseSnapshot, type StateSnapshot } from '@carbon/state';
 import { StorageKeys, type Storage } from '@carbon/storage';
 import type { BehaviorGraph, IntermediateRepresentation } from '@carbon/types';
 
@@ -56,6 +56,10 @@ export interface EmulatorRegistry {
   applyChaos(id: string, config: ChaosConfig): void;
   /** Current chaos config (for GET/introspection). */
   getChaos(id: string): ChaosConfig;
+  /** Read the live state atomically for a reproducible run report. */
+  getStateSnapshot(id: string): Promise<StateSnapshot>;
+  /** Restore a captured state after a run so tests stay isolated. */
+  restoreStateSnapshot(id: string, snapshot: StateSnapshot): Promise<void>;
   /**
    * Install assertion rules on an emulator with a violation sink. Replaces
    * any prior rule set for that emulator.
@@ -309,6 +313,18 @@ export function createEmulatorRegistry(deps: EmulatorRegistryOptions): EmulatorR
       const entry = entries.get(id);
       if (!entry) throw new NotFoundError('emulator', id);
       return { errorRules: entry.chaos.errorRules, latency: entry.chaos.latency };
+    },
+
+    async getStateSnapshot(id) {
+      const entry = entries.get(id);
+      if (!entry) throw new NotFoundError('emulator', id);
+      return entry.runtime.ctx.state.snapshot();
+    },
+
+    async restoreStateSnapshot(id, snapshot) {
+      const entry = entries.get(id);
+      if (!entry) throw new NotFoundError('emulator', id);
+      await entry.runtime.ctx.state.restore(snapshot);
     },
 
     installAssertions(id, rules, onViolation) {

@@ -60,4 +60,6 @@ export const StorageKeys = {
   graph: (slug: string, id: string) => `projects/${slug}/graphs/${id}.json`,
   snapshot: (slug: string, name: string) => `projects/${slug}/snapshots/${name}.json`,
   recording: (slug: string, id: string) => `projects/${slug}/recordings/${id}.jsonl`,
+  reliabilityRun: (slug: string, id: string) => `projects/${slug}/reliability/runs/${id}.json`,
+  reliabilityRuns: (slug: string) => `projects/${slug}/reliability/runs/`,
 } as const;

@@ -196,6 +196,18 @@ export function useSsoProviders(enabled: boolean) {
   }, [enabled]);
 }
 
+export function useReliabilityScenarios() {
+  return useAsync(() => api.listReliabilityScenarios(), []);
+}
+
+export function useReliabilityRuns(projectSlug?: string, limit = 50) {
+  return useAsync(() => api.listReliabilityRuns({ projectSlug, limit }), [projectSlug, limit]);
+}
+
+export function useReliabilityRun(id: string | null | undefined) {
+  return useAsync(async () => (id ? api.getReliabilityRun(id) : null), [id]);
+}
+
 // Re-export helpers so section files can share one import path.
 export { api };
 export type { MemberRole, Scope };
