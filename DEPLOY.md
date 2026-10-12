@@ -2,17 +2,20 @@
 
 Carbon ships three public surfaces:
 
-- Landing + marketing: https://carbon-web-psi.vercel.app (Vercel, `apps/web`)
+- Landing + marketing: https://carbon-landing-mocha.vercel.app (Vercel project `carbon-landing`, `apps/web`)
 - Dashboard: https://carbon-dashboard-lovat.vercel.app (Vercel, `apps/dashboard`)
 - Docs: https://taxcollector23.github.io/carbon/ (GitHub Pages, `apps/docs`)
 
 The dashboard signs humans in with Better Auth and talks to the API at
-`https://carbon-api.fly.dev` via `NEXT_PUBLIC_CARBON_API_URL`. A low-cost
-hosted setup can use:
+`https://carbon-api.fly.dev` via `NEXT_PUBLIC_CARBON_API_URL`. A Vercel project
+named `carbon-backend` has been created for future adapter work, but it is not
+a live API: `apps/api` is a long-lived Fastify service and cannot be deployed
+directly as a Vercel output without a serverless adapter and production
+Postgres, Redis, and auth configuration. A low-cost hosted setup can use:
 
 | Piece          | Provider                | Notes                                                 |
 | -------------- | ----------------------- | ----------------------------------------------------- |
-| Web            | Vercel                  | Project `carbon-web`, root directory `apps/web`       |
+| Web            | Vercel                  | Project `carbon-landing`, root directory `apps/web`   |
 | Dashboard      | Vercel                  | Project `carbon-dashboard`, root dir `apps/dashboard` |
 | API            | Fly.io                  | Fastify service in `apps/api`; see notes below        |
 | Postgres       | Neon                    | Durable control-plane data                            |
